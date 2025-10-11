@@ -2,63 +2,39 @@ body {
   font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
-  background: #f5f5f5;
+  background: linear-gradient(180deg, #e6f0ff, #ffffff);
   color: #333;
 }
 
 .container {
-  max-width: 700px;
+  max-width: 800px;
   margin: 50px auto;
-  padding: 20px;
+  padding: 30px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  border-radius: 16px;
+  border: 3px solid #cfe0ff;
+  box-shadow: 0 0 15px rgba(0,0,0,0.1);
 }
 
-.profile-pic {
-  width: 150px;           /* set the width only */
-  height: auto;           /* keeps correct proportions */
-  aspect-ratio: 1 / 1;    /* keeps it roughly square but prevents stretching */
-  object-fit: cover;      /* crops neatly if not perfectly square */
-  border-radius: 50%;     /* circular crop */
-  display: block;
-  margin: 0 auto 20px;
+h1, h2 {
+  color: #004aad;
 }
 
-h1 {
-  text-align: center;
-  font-size: 2em;
-}
-
-.subtitle {
-  text-align: center;
-  color: #777;
-  margin-bottom: 30px;
-}
-
-.section {
-  margin-bottom: 30px;
-}
-
-h2 {
-  color: #444;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 5px;
-}
-
-ul {
-  padding-left: 20px;
-}
-
-.button {
+.button, .nav-button {
   display: inline-block;
-  background: #0078d7;
+  background: #004aad;
   color: white;
-  padding: 10px 15px;
-  border-radius: 5px;
+  padding: 10px 20px;
+  border-radius: 8px;
   text-decoration: none;
+  margin: 5px;
+  transition: background 0.3s;
 }
 
-.button:hover {
-  background: #005ea2;
+.button:hover, .nav-button:hover {
+  background: #002f73;
+}
+
+.hidden {
+  display: none;
 }
