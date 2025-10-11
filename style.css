@@ -1,3 +1,4 @@
+/* Base layout + background */
 body {
   font-family: Arial, sans-serif;
   margin: 0;
@@ -12,29 +13,79 @@ body {
   padding: 30px;
   background: #fff;
   border-radius: 16px;
-  border: 3px solid #cfe0ff;
+  border: 3px solid #cfe0ff;       /* soft, colorful border */
   box-shadow: 0 0 15px rgba(0,0,0,0.1);
 }
 
-h1, h2 {
-  color: #004aad;
+/* Headings & text */
+h1 {
+  text-align: center;
+  font-size: 2rem;
+  margin: 10px 0 6px;
+}
+.subtitle {
+  text-align: center;
+  color: #4b6fbf;
+  margin: 0 0 20px;
+}
+h2 { color: #004aad; }
+
+.section { margin: 22px 0; }
+.section ul { padding-left: 20px; }
+.exp-list > li { margin-bottom: 14px; }
+
+/* Profile picture: keep proportions + circle crop */
+.profile-pic {
+  width: 180px;          /* change size here if you want it larger/smaller */
+  height: auto;
+  aspect-ratio: 1 / 1;   /* maintains square container */
+  object-fit: cover;     /* keeps face centered, no squish */
+  border-radius: 50%;
+  display: block;
+  margin: 0 auto 16px;
 }
 
-.button, .nav-button {
+/* Buttons */
+.button,
+.nav-button {
   display: inline-block;
   background: #004aad;
-  color: white;
+  color: #fff;
   padding: 10px 20px;
   border-radius: 8px;
   text-decoration: none;
   margin: 5px;
-  transition: background 0.3s;
+  border: none;
+  cursor: pointer;
+  transition: background 0.25s ease;
 }
-
-.button:hover, .nav-button:hover {
+.button:hover,
+.nav-button:hover {
   background: #002f73;
 }
 
-.hidden {
-  display: none;
+.button-container {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Collapsible animation */
+.collapsible {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s ease;
+}
+.collapsible.open {
+  max-height: 1000px; /* large enough for content; adjust if needed */
+}
+
+/* Responsive tweaks */
+@media (max-width: 480px) {
+  .container {
+    margin: 20px;
+    padding: 20px;
+  }
+  .profile-pic {
+    width: 140px;
+  }
 }
