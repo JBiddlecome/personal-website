@@ -16,9 +16,11 @@ body {
 }
 
 .profile-pic {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
+  width: 150px;           /* set the width only */
+  height: auto;           /* keeps correct proportions */
+  aspect-ratio: 1 / 1;    /* keeps it roughly square but prevents stretching */
+  object-fit: cover;      /* crops neatly if not perfectly square */
+  border-radius: 50%;     /* circular crop */
   display: block;
   margin: 0 auto 20px;
 }
