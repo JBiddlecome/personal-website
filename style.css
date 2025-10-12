@@ -73,10 +73,15 @@ h2 { color: #004aad; }
 .collapsible {
   overflow: hidden;
   max-height: 0;
-  transition: max-height 0.35s ease;
+  padding: 0 18px;
+  background: transparent;
+  transition: max-height 0.35s ease, padding 0.35s ease, background-color 0.35s ease;
+  border-radius: 12px;
 }
 .collapsible.open {
   max-height: 1000px; /* large enough for content; adjust if needed */
+  padding: 18px;
+  background: #e6f3ff; /* light blue highlight only when expanded */
 }
 
 /* Responsive tweaks */
