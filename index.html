@@ -4,156 +4,123 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Jake Biddlecome – Operations & Project Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <img src="profile.jpg" alt="Profile Picture" class="profile-pic" />
-
-    <h1>Jake Biddlecome</h1>
-    <p class="subtitle">Operations & Project Manager | AI Automation | Process Optimization</p>
-
-    <!-- Navigation buttons -->
-    <nav class="button-container" aria-label="Section toggles">
-      <button class="nav-button" type="button" onclick="toggleSection('ai')" aria-controls="ai" aria-expanded="false">AI Integrations</button>
-      <button class="nav-button" type="button" onclick="toggleSection('projects')" aria-controls="projects" aria-expanded="false">Projects</button>
-      <button class="nav-button" type="button" onclick="toggleSection('experience')" aria-controls="experience" aria-expanded="false">Experience</button>
-    </nav>
-
-    <!-- About -->
-    <section class="section">
-      <h2>About Me</h2>
-      <p>
-        I’m an Operations and Project Manager based in Los Angeles with over 10 years of experience leading cross-functional teams,
-        driving process improvements, and deploying AI-powered automation to enhance business performance. My background spans
-        hospitality, staffing, technology, and operations strategy—streamlining workflows, cutting costs, and scaling organizational efficiency.
-        I thrive at the intersection of people, process, and technology.
-      </p>
+  <main class="layout">
+    <section class="card nav-card">
+      <div>
+        <p class="eyebrow">Resume</p>
+        <h1 class="brand">Jake Biddlecome</h1>
+        <p class="tagline">Operations & Project Manager</p>
+      </div>
+      <div class="nav-links">
+        <a href="resume.pdf" download class="text-link">Download Resume</a>
+        <a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener" class="text-link">LinkedIn</a>
+        <a href="mailto:jake.biddlecome@gmail.com" class="text-link">Email Me</a>
+      </div>
     </section>
 
-    <!-- Collapsible: AI Integrations -->
-    <section id="ai" class="section collapsible" hidden>
-      <h2>AI Integrations</h2>
-      <p>
-        At Culinary Staffing Services, I designed and implemented AI-driven workflows to automate onboarding, compliance tracking, and reporting. I also created an internal AI course for four teams that met monthly to train on AI implementation and to share and discuss emerging trends. Using AI, I automated payroll and HR reporting, improved compliance tracking, built an AI bot for internal SOPs and guides, developed several web apps to accelerate reporting workflows, and created new tools to improve employee communication. These systems collectively reduced HR labor by 97%, saved over 80 hours weekly, and enhanced operational transparency.
-        <br><br>
-        See these tools in action: 
-        <a href="https://golive-staffing-tools.onrender.com/" target="_blank">https://golive-staffing-tools.onrender.com/</a>
-      </p>
+    <section class="card hero-card">
+      <p class="eyebrow">Hello</p>
+      <h2 class="headline">Hi, I'm Jake<br />Biddlecome.</h2>
+      <p class="lead">I build scalable operations, automate workflows with AI, and lead teams through clear, reliable processes.</p>
+      <div class="cta-row">
+        <a class="button" href="mailto:jake.biddlecome@gmail.com">Contact Me</a>
+        <a class="button ghost" href="resume.pdf" download>Download Resume</a>
+      </div>
     </section>
 
-    <!-- Collapsible: Projects -->
-    <section id="projects" class="section collapsible" hidden>
-      <h2>Projects</h2>
-      <ul>
-        <li>Developed internal analytics dashboards for Sales, Staffing, HR and payroll data.</li>
-        <li>Managed the development of a client app that integrated with our admin and employee app called GoLive!. Created all client training, support, and implementation sessions for the system.</li>
-        <li>Developed employee training materials, automated certifications, and built an AI-powered bot for internal admin training.</li>
-        <li>I conducted audits for third-party clients to ensure compliance with employee background checks, payment accuracy, and hours reporting. I also managed all California Pay Data Reporting requirements, including submissions for clients utilizing our temporary staffing services. </li>
-        <li>I spearheaded the integration of an AI-driven marketing automation platform within our CRM, enhancing client engagement, optimizing outreach to cold leads, and significantly improving the efficiency and personalization of marketing communications. </li>
+    <section class="card photo-card">
+      <img src="profile.jpg" alt="Jake Biddlecome" class="profile" />
+    </section>
+
+    <section class="card muted-card">
+      <p class="eyebrow">Location</p>
+      <h3 class="title">Based in Los Angeles</h3>
+      <p class="copy">Partnering with teams across technology, staffing, and hospitality to streamline operations and deliver measurable impact.</p>
+    </section>
+
+    <section class="card accent-card">
+      <p class="eyebrow">Highlights</p>
+      <h3 class="title">97% reduction in HR labor</h3>
+      <p class="copy">AI-driven onboarding, compliance tracking, and reporting saved 80+ hours weekly while improving visibility.</p>
+    </section>
+
+    <section class="card outline-card">
+      <p class="eyebrow">Experience</p>
+      <h3 class="title">Senior Operations Leader</h3>
+      <p class="copy">10+ years building processes, budgets, and teams that scale. Focused on clarity, efficiency, and adoption.</p>
+      <a class="text-link" href="https://golive-staffing-tools.onrender.com/" target="_blank" rel="noopener">View AI tools in action</a>
+    </section>
+
+    <section class="card list-card">
+      <p class="eyebrow">Core Skills</p>
+      <ul class="pill-list">
+        <li>Operations strategy</li>
+        <li>AI implementation</li>
+        <li>Process automation</li>
+        <li>Compliance & risk</li>
+        <li>Budgeting & cost control</li>
+        <li>Team leadership</li>
       </ul>
     </section>
 
-    <!-- Collapsible: Experience (summary) -->
-    <section id="experience" class="section collapsible" hidden>
-      <h2>Experience (Summary)</h2>
-      <p>
-        Over a decade of leading operations across hospitality and technology—building scalable processes, automating workflows,
-        and mentoring teams to deliver reliable, measurable results.
-      </p>
-    </section>
-
-    <!-- Areas of Expertise -->
-    <section class="section">
-      <h2>Areas of Expertise</h2>
-      <ul>
-        <li>Operations Strategy & Execution</li>
-        <li>AI & Machine Learning Implementation</li>
-        <li>Process Automation & Workflow Optimization</li>
-        <li>Compliance & Risk Management</li>
-        <li>Budgeting & Cost Control</li>
-        <li>Team Leadership & Development</li>
+    <section class="card neutral-card">
+      <p class="eyebrow">Recent Work</p>
+      <h3 class="title">AI Integrations</h3>
+      <ul class="stacked-list">
+        <li>Automated onboarding and compliance workflows to keep teams aligned.</li>
+        <li>Built AI bots for SOPs, payroll, HR reporting, and employee support.</li>
+        <li>Created training programs across four departments to drive adoption.</li>
       </ul>
     </section>
 
-    <!-- Professional Experience -->
-    <section class="section">
-      <h2>Professional Experience</h2>
-      <ul class="exp-list">
+    <section class="card neutral-card">
+      <p class="eyebrow">Projects</p>
+      <ul class="stacked-list">
+        <li>Client scheduling platform connecting admin, client, and employee tools.</li>
+        <li>Analytics dashboards for sales, staffing, HR, and payroll insights.</li>
+        <li>Marketing automation to personalize outreach and improve conversion.</li>
+      </ul>
+    </section>
+
+    <section class="card neutral-card">
+      <p class="eyebrow">Career Snapshot</p>
+      <ul class="timeline">
         <li>
-          <strong>Culinary Staffing Services</strong> — Operations & Project Manager (May 2019 – Present)
-          <ul>
-            <li>Directed company-wide operations enhancements, contributing to 87% YoY growth (2022–2023).</li>
-            <li>Implemented AI onboarding/compliance systems, reducing HR labor by 97% and saving 80+ hours weekly.</li>
-            <li>Launched a client-facing scheduling platform to improve autonomy and reduce admin load.</li>
-            <li>Managed budgeting, invoicing, and analytics across departments to improve financial visibility.</li>
-          </ul>
+          <h4>Culinary Staffing Services</h4>
+          <p>Operations & Project Manager · May 2019 – Present</p>
         </li>
         <li>
-          <strong>Bradco Kitchen + Design</strong> — Showroom & Project Manager (Aug 2016 – May 2019)
-          <ul>
-            <li>Managed operations and logistics for construction/design projects across Southern California.</li>
-            <li>Streamlined permitting and compliance workflows to prevent delays.</li>
-            <li>Introduced financial controls that improved profitability and job-costing accuracy.</li>
-          </ul>
+          <h4>Bradco Kitchen + Design</h4>
+          <p>Showroom & Project Manager · Aug 2016 – May 2019</p>
         </li>
         <li>
-          <strong>Auster Rubber Company</strong> — Inside Sales & Project Manager (Jun 2016 – Jul 2017)
-          <ul>
-            <li>Oversaw production/logistics for industrial components used in municipal infrastructure projects.</li>
-            <li>Negotiated with vendors and managed timelines to ensure on-time, on-budget delivery.</li>
-          </ul>
+          <h4>Auster Rubber Company</h4>
+          <p>Inside Sales & Project Manager · Jun 2016 – Jul 2017</p>
         </li>
       </ul>
     </section>
 
-    <!-- Education -->
-    <section class="section">
-      <h2>Education</h2>
-      <p>
-        <strong>B.A., Theology & Philosophy</strong><br />
-        Holy Cross College, Notre Dame
-      </p>
+    <section class="card neutral-card">
+      <p class="eyebrow">Education</p>
+      <h3 class="title">B.A., Theology & Philosophy</h3>
+      <p class="copy">Holy Cross College, Notre Dame</p>
     </section>
 
-    <!-- Resume -->
-    <section class="section">
-      <h2>Resume</h2>
-      <a href="resume.pdf" download class="button">Download My Resume</a>
+    <section class="card contact-card">
+      <p class="eyebrow">Contact</p>
+      <h3 class="title">Let's Connect</h3>
+      <ul class="contact-list">
+        <li><span>Email</span><a href="mailto:jake.biddlecome@gmail.com">jake.biddlecome@gmail.com</a></li>
+        <li><span>Phone</span><a href="tel:+12139244006">(+1) 213-924-4006</a></li>
+        <li><span>LinkedIn</span><a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener">linkedin.com/in/jake-biddlecome-03883228</a></li>
+      </ul>
     </section>
-
-    <!-- Contact -->
-    <section class="section">
-      <h2>Contact</h2>
-      <p>Email: <a href="mailto:jake.biddlecome@gmail.com">jake.biddlecome@gmail.com</a></p>
-      <p>Phone: <a href="tel:+12139244006">(+1) 213-924-4006</a></p>
-      <p>LinkedIn: <a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener">www.linkedin.com/in/jake-biddlecome-03883228</a></p>
-      <p>Location: Los Angeles, California</p>
-    </section>
-  </div>
-
-  <!-- Accessible toggle + smooth animation -->
-  <script>
-    function toggleSection(id) {
-      const section = document.getElementById(id);
-      const btn = document.querySelector(`button[aria-controls="${id}"]`);
-      const isHidden = section.hasAttribute('hidden');
-
-      if (isHidden) {
-        section.removeAttribute('hidden');
-        // trigger open animation
-        requestAnimationFrame(() => section.classList.add('open'));
-      } else {
-        // animate close then hide from a11y flow
-        section.classList.remove('open');
-        section.addEventListener('transitionend', function handler() {
-          section.setAttribute('hidden', '');
-          section.removeEventListener('transitionend', handler);
-        }, { once: true });
-      }
-
-      if (btn) btn.setAttribute('aria-expanded', String(isHidden));
-    }
-  </script>
+  </main>
 </body>
 </html>
