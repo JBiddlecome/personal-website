@@ -199,8 +199,22 @@
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
+    function resolveApiKey() {
+      const globalKey = window.RESUME_AI_KEY || window.ENV?.RESUME_AI_KEY || window.env?.RESUME_AI_KEY;
+      if (globalKey) return globalKey.trim();
+
+      const metaKey =
+        document.querySelector('meta[name="resume-ai-key"]') ||
+        document.querySelector('meta[name="render:resume-ai-key"]') ||
+        document.querySelector('meta[name="render-resume-ai-key"]');
+      if (metaKey?.content) return metaKey.content.trim();
+
+      const dataKey = document.body.dataset.resumeAiKey || document.documentElement.dataset.resumeAiKey;
+      return dataKey?.trim();
+    }
+
     async function fetchAssistantResponse(prompt) {
-      const apiKey = window.RESUME_AI_KEY || (window.ENV && window.ENV.RESUME_AI_KEY);
+      const apiKey = resolveApiKey();
       if (!apiKey) {
         return "I can't reach the assistant right now, but Jake can share more if you email him at jake.biddlecome@gmail.com.";
       }
