@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="750" viewBox="0 0 1400 750" fill="none">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#f7f5f2" offset="0%" />
+      <stop stop-color="#ede6df" offset="100%" />
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="750" rx="32" fill="url(#bg1)" stroke="#c1866a" stroke-width="6" />
+  <rect x="80" y="260" width="1240" height="380" rx="22" fill="#e5eef4" stroke="#c1866a" stroke-width="4" />
+  <rect x="120" y="310" width="1160" height="70" rx="16" fill="#fff" stroke="#c1866a" stroke-opacity="0.6" stroke-width="3" />
+  <rect x="120" y="410" width="1160" height="70" rx="16" fill="#fff" stroke="#c1866a" stroke-opacity="0.6" stroke-width="3" />
+  <rect x="120" y="510" width="520" height="70" rx="16" fill="#fff" stroke="#c1866a" stroke-opacity="0.6" stroke-width="3" />
+  <rect x="720" y="510" width="560" height="70" rx="16" fill="#fff" stroke="#c1866a" stroke-opacity="0.6" stroke-width="3" />
+  <text x="100" y="120" font-family="'DM Sans', 'Inter', sans-serif" font-size="64" font-weight="700" fill="#312a27">Concierge Tracker</text>
+  <text x="100" y="190" font-family="'DM Sans', 'Inter', sans-serif" font-size="32" fill="#4b423e">Automated recruiting workflows with concierge visibility and team training.</text>
+  <text x="140" y="358" font-family="'DM Sans', 'Inter', sans-serif" font-size="26" fill="#4b423e">Candidate outreach list</text>
+  <text x="140" y="458" font-family="'DM Sans', 'Inter', sans-serif" font-size="26" fill="#4b423e">Status automation and handoffs</text>
+  <text x="140" y="558" font-family="'DM Sans', 'Inter', sans-serif" font-size="24" fill="#4b423e">Training embedded in workflow</text>
+  <text x="780" y="558" font-family="'DM Sans', 'Inter', sans-serif" font-size="24" fill="#4b423e">Saves hours weekly</text>
+</svg>

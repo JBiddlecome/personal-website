@@ -307,6 +307,47 @@ main.layout {
   font-weight: 600;
 }
 
+.showcase-card {
+  display: grid;
+  gap: 12px;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  outline: none;
+}
+
+.showcase-card:hover, .showcase-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+
+.project-thumb {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e0d6cd;
+}
+
+.project-thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.project-meta .title {
+  margin: 4px 0;
+}
+
+.project-blurb {
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8f4ef;
+  border: 1px solid #e0d6cd;
+  color: #3f3936;
+}
+
+.showcase-card.open {
+  box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+
 .text-link {
   color: var(--ink);
   text-decoration: none;

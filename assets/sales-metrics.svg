@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="750" viewBox="0 0 1400 750" fill="none">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0faf5" offset="0%" />
+      <stop stop-color="#dff1e8" offset="100%" />
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="750" rx="32" fill="url(#bg2)" stroke="#568a74" stroke-width="6" />
+  <rect x="70" y="120" width="600" height="240" rx="22" fill="#ffffff" stroke="#568a74" stroke-width="3" />
+  <rect x="730" y="120" width="600" height="240" rx="22" fill="#ffffff" stroke="#568a74" stroke-width="3" />
+  <rect x="70" y="420" width="600" height="220" rx="22" fill="#ffffff" stroke="#568a74" stroke-width="3" />
+  <rect x="730" y="420" width="600" height="220" rx="22" fill="#ffffff" stroke="#568a74" stroke-width="3" />
+  <text x="90" y="90" font-family="'DM Sans', 'Inter', sans-serif" font-size="60" font-weight="700" fill="#1f2b22">Sales & Staffing Metrics</text>
+  <text x="90" y="160" font-family="'DM Sans', 'Inter', sans-serif" font-size="28" fill="#2d3b32">Weekly revenue, client leaders, and performance vs. target.</text>
+  <text x="110" y="190" font-family="'DM Sans', 'Inter', sans-serif" font-size="22" fill="#2d3b32">Live dashboards for the entire company.</text>
+  <text x="110" y="260" font-family="'DM Sans', 'Inter', sans-serif" font-size="26" fill="#2d3b32">Sales Metric 1</text>
+  <text x="770" y="260" font-family="'DM Sans', 'Inter', sans-serif" font-size="26" fill="#2d3b32">Revenue Metric 2</text>
+  <text x="110" y="560" font-family="'DM Sans', 'Inter', sans-serif" font-size="26" fill="#2d3b32">Top 5 Clients</text>
+  <text x="770" y="560" font-family="'DM Sans', 'Inter', sans-serif" font-size="26" fill="#2d3b32">Performance vs. Target</text>
+</svg>
