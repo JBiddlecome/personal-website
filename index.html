@@ -88,6 +88,34 @@
       </ul>
     </section>
 
+    <section class="card showcase-card" tabindex="0" role="button" aria-expanded="false">
+      <div class="project-thumb">
+        <img src="assets/concierge-tracker.svg" alt="Concierge Tracker recruiting workflow screenshot" />
+      </div>
+      <div class="project-meta">
+        <p class="eyebrow">Project</p>
+        <h3 class="title">Concierge Tracker</h3>
+        <p class="copy">Automated recruiting workflows and concierge training.</p>
+      </div>
+      <div class="project-blurb" hidden>
+        <p>Built a concierge tracking web app from scratch to automate recruiting, reduce manual follow-ups, and train the recruiting team. The system saved hours each week and made the outreach process consistent across the team.</p>
+      </div>
+    </section>
+
+    <section class="card showcase-card" tabindex="0" role="button" aria-expanded="false">
+      <div class="project-thumb">
+        <img src="assets/sales-metrics.svg" alt="Sales and staffing metrics dashboard screenshot" />
+      </div>
+      <div class="project-meta">
+        <p class="eyebrow">Project</p>
+        <h3 class="title">Sales & Staffing Metrics</h3>
+        <p class="copy">Live dashboards for weekly performance and client leaders.</p>
+      </div>
+      <div class="project-blurb" hidden>
+        <p>Developed a metrics app that gave the entire company real-time visibility into sales and staffing performance. Weekly leaders and client trends were surfaced automatically so teams could react faster and focus on the right accounts.</p>
+      </div>
+    </section>
+
     <section class="card neutral-card">
       <p class="eyebrow">Career Snapshot</p>
       <ul class="timeline">
@@ -224,6 +252,23 @@
 
     document.querySelectorAll('.preset-questions button').forEach((button) => {
       button.addEventListener('click', () => handleSubmit(button.dataset.question));
+    });
+
+    document.querySelectorAll('.showcase-card').forEach((card) => {
+      const toggleCard = () => {
+        const isOpen = card.classList.toggle('open');
+        const blurb = card.querySelector('.project-blurb');
+        if (blurb) blurb.hidden = !isOpen;
+        card.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      };
+
+      card.addEventListener('click', toggleCard);
+      card.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleCard();
+        }
+      });
     });
   </script>
 </body>
