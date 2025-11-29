@@ -212,7 +212,17 @@
           })
         });
 
-        const data = await response.json();
+        const rawBody = await response.text();
+        let data = {};
+
+        if (rawBody) {
+          try {
+            data = JSON.parse(rawBody);
+          } catch (parseError) {
+            console.warn('Received non-JSON response from /api/chat', parseError);
+          }
+        }
+
         if (!response.ok) {
           throw new Error(data?.error || 'API error');
         }
