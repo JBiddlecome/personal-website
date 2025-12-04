@@ -4,6 +4,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.RESUME_AI_KEY;
+const ASSISTANT_ID = process.env.ASSISTANT_ID || 'asst_l7877S10rt2TO0Yvr1Nm6rxW';
 const ROOT_DIR = __dirname;
 
 const MIME_TYPES = {
@@ -47,33 +48,82 @@ async function handleChatProxy(req, res, body) {
   }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const commonHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${API_KEY}`,
+      'OpenAI-Beta': 'assistants=v2'
+    };
+
+    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`
-      },
+      headers: commonHeaders,
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
         messages: [
           {
-            role: 'system',
-            content:
-              "You are a concise assistant for Jake Biddlecome's resume site. Keep replies under 120 words and speak in a confident, helpful tone."
-          },
-          { role: 'user', content: message }
+            role: 'user',
+            content: message
+          }
         ]
       })
     });
 
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const errorMessage = payload?.error?.message || 'AI request failed.';
-      sendJson(res, response.status, { error: errorMessage });
+    const threadPayload = await threadResponse.json().catch(() => ({}));
+    if (!threadResponse.ok) {
+      const errorMessage = threadPayload?.error?.message || 'AI request failed.';
+      sendJson(res, threadResponse.status, { error: errorMessage });
       return;
     }
 
-    const reply = payload?.choices?.[0]?.message?.content;
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadPayload.id}/runs`, {
+      method: 'POST',
+      headers: commonHeaders,
+      body: JSON.stringify({ assistant_id: ASSISTANT_ID })
+    });
+
+    const runPayload = await runResponse.json().catch(() => ({}));
+    if (!runResponse.ok) {
+      const errorMessage = runPayload?.error?.message || 'AI request failed.';
+      sendJson(res, runResponse.status, { error: errorMessage });
+      return;
+    }
+
+    let runStatus = runPayload.status;
+    let runId = runPayload.id;
+
+    while (runStatus === 'queued' || runStatus === 'in_progress') {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const statusResponse = await fetch(
+        `https://api.openai.com/v1/threads/${threadPayload.id}/runs/${runId}`,
+        { headers: commonHeaders }
+      );
+      const statusPayload = await statusResponse.json().catch(() => ({}));
+      if (!statusResponse.ok) {
+        const errorMessage = statusPayload?.error?.message || 'AI request failed.';
+        sendJson(res, statusResponse.status, { error: errorMessage });
+        return;
+      }
+      runStatus = statusPayload.status;
+    }
+
+    if (runStatus !== 'completed') {
+      sendJson(res, 500, { error: 'AI run did not complete successfully.' });
+      return;
+    }
+
+    const messagesResponse = await fetch(
+      `https://api.openai.com/v1/threads/${threadPayload.id}/messages?limit=1`,
+      { headers: commonHeaders }
+    );
+    const messagesPayload = await messagesResponse.json().catch(() => ({}));
+    if (!messagesResponse.ok) {
+      const errorMessage = messagesPayload?.error?.message || 'AI request failed.';
+      sendJson(res, messagesResponse.status, { error: errorMessage });
+      return;
+    }
+
+    const latestMessage = messagesPayload?.data?.[0];
+    const reply = latestMessage?.content?.[0]?.text?.value;
+
     sendJson(res, 200, {
       message: reply || "I wasn't able to find that answer—try another question or email Jake directly."
     });
