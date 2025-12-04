@@ -418,3 +418,48 @@ main.layout {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Resume page */
+body.resume-page {
+  background: #fdfbf9;
+  color: var(--ink);
+  padding: clamp(18px, 4vw, 32px);
+}
+
+.resume-header {
+  max-width: 920px;
+  margin: 0 auto clamp(16px, 4vw, 28px);
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  padding: clamp(18px, 4vw, 32px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
+}
+
+.resume-header h1 {
+  font-size: clamp(32px, 4vw, 44px);
+  margin: 6px 0 10px;
+}
+
+.resume-viewer {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  min-height: 70vh;
+}
+
+.resume-viewer object {
+  width: 100%;
+  height: min(88vh, 1200px);
+  display: block;
+  border: none;
+  background: #f7f2ec;
+}
+
+.resume-viewer p {
+  padding: 18px;
+}
