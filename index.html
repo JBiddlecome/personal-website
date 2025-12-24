@@ -39,7 +39,7 @@
     <section class="card nav-card">
       <div>
         <p class="eyebrow">Resume</p>
-        <h1 class="brand">Jake Biddlecome</h1>
+        <p class="brand">Jake Biddlecome</p>
         <p class="tagline">Operations & Project Manager</p>
       </div>
       <div class="nav-links">
@@ -107,7 +107,7 @@
       <div class="project-thumb">
         <picture>
           <source srcset="assets/Concierge.png" type="image/png" />
-          <img src="assets/concierge-tracker.svg" alt="Concierge Tracker recruiting workflow screenshot" />
+          <img src="assets/concierge-tracker.svg" alt="Concierge Tracker recruiting workflow screenshot" loading="lazy" />
         </picture>
       </div>
       <div class="project-meta">
@@ -124,7 +124,7 @@
       <div class="project-thumb">
         <picture>
           <source srcset="assets/Metrics.png" type="image/png" />
-          <img src="assets/sales-metrics.svg" alt="Sales and staffing metrics dashboard screenshot" />
+          <img src="assets/sales-metrics.svg" alt="Sales and staffing metrics dashboard screenshot" loading="lazy" />
         </picture>
       </div>
       <div class="project-meta">
@@ -220,6 +220,7 @@
       message.append(label, content);
       chatWindow.appendChild(message);
       chatWindow.scrollTop = chatWindow.scrollHeight;
+      return message;
     }
 
     async function fetchAssistantResponse(prompt) {
@@ -267,9 +268,9 @@
         return;
       }
 
-      addMessage('assistant', 'Let me check on that...');
+      const loadingMsg = addMessage('assistant', 'Let me check on that...');
       const reply = await fetchAssistantResponse(text);
-      chatWindow.lastElementChild.remove();
+      loadingMsg.remove();
       addMessage('assistant', reply);
     }
 
