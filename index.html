@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Jake Biddlecome – Operations & Project Manager</title>
+  <meta name="description" content="Jake Biddlecome — Senior Technical Programs Manager specializing in AI-powered internal tools, SQL databases, Python/FastAPI development, and cross-department operations." />
+  <title>Jake Biddlecome – Senior Technical Programs Manager</title>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-W6XBKR2MPE"></script>
   <script>
@@ -15,194 +16,442 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="layout">
-    <section class="hero-banner">
+
+  <!-- Mobile sidebar toggle -->
+  <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle navigation">&#9776;</button>
+
+  <!-- ── Sidebar ──────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <img src="Profile Picture BW.png" alt="Jake Biddlecome" class="sidebar-avatar" />
+    <p class="sidebar-name">Jake Biddlecome</p>
+    <p class="sidebar-title">Sr. Technical Programs Mgr</p>
+
+    <div class="sidebar-socials">
+      <a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener" aria-label="LinkedIn" title="LinkedIn">in</a>
+      <a href="mailto:jake.biddlecome@gmail.com" aria-label="Email" title="Email">✉</a>
+      <a href="tel:+12139244006" aria-label="Phone" title="Phone">☎</a>
+    </div>
+
+    <ul class="sidebar-nav">
+      <li><a href="#about" class="active">About Me</a></li>
+      <li><a href="#skills">Skills</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#experience">Experience</a></li>
+      <li><a href="#chat">Talk to AI</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+
+    <div class="sidebar-cta">
+      <a class="btn btn-primary" href="/resume">View Resume</a>
+      <a class="btn btn-outline" href="resume.pdf" download>Download PDF</a>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ─────────────────────────── -->
+  <main class="main">
+
+    <!-- Hero -->
+    <section class="hero" id="about">
       <div class="hero-copy">
-        <p class="eyebrow">Profile</p>
-        <h1 class="hero-title">Hi, I'm Jake, a project manager</h1>
-        <p class="hero-lead">I build scalable operations, automate workflows with AI, and lead teams through clear, reliable processes.</p>
+        <p class="hero-greeting">Profile</p>
+        <h1 class="hero-title">Hi, I'm <span>Jake</span> Biddlecome.</h1>
+        <p class="hero-lead">I design AI-powered internal tools, build data pipelines on SQL databases, and lead cross-department programs that measurably cut costs and labor.</p>
         <div class="hero-actions">
-          <a class="button" href="mailto:jake.biddlecome@gmail.com">Email Me</a>
-          <a class="button" href="/resume">View Resume</a>
-          <a class="button ghost" href="resume.pdf" download>Download Resume</a>
+          <a class="btn btn-primary" href="mailto:jake.biddlecome@gmail.com">Email Me</a>
+          <a class="btn btn-outline" href="https://golive-staffing-tools.onrender.com/" target="_blank" rel="noopener">View AI Tools</a>
         </div>
       </div>
       <div class="hero-media">
-        <img src="profile.jpg" alt="Jake Biddlecome smiling" />
+        <img src="Profile Picture BW.png" alt="Jake Biddlecome" />
       </div>
     </section>
 
-    <section class="card nav-card">
-      <div>
-        <p class="eyebrow">Resume</p>
-        <p class="brand">Jake Biddlecome</p>
-        <p class="tagline">Operations & Project Manager</p>
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-number">55+</div>
+        <div class="stat-label">Tools Built</div>
       </div>
-      <div class="nav-links">
-        <a href="/resume" class="text-link">View Resume</a>
-        <a href="resume.pdf" download class="text-link">Download Resume</a>
-        <a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener" class="text-link">LinkedIn</a>
-        <a href="mailto:jake.biddlecome@gmail.com" class="text-link">Email Me</a>
+      <div class="stat-card">
+        <div class="stat-number">97%</div>
+        <div class="stat-label">HR Labor Reduced</div>
       </div>
-    </section>
-
-    <section class="card muted-card">
-      <p class="eyebrow">Location</p>
-      <h3 class="title">Based in Los Angeles</h3>
-      <p class="copy">Partnering with teams across technology, staffing, and hospitality to streamline operations and deliver measurable impact.</p>
-    </section>
-
-    <section class="card accent-card">
-      <p class="eyebrow">Highlights</p>
-      <h3 class="title">97% reduction in HR labor</h3>
-      <p class="copy">AI-driven onboarding, compliance tracking, and reporting saved 80+ hours weekly while improving visibility.</p>
-    </section>
-
-    <section class="card outline-card">
-      <p class="eyebrow">Experience</p>
-      <h3 class="title">Senior Operations Leader</h3>
-      <p class="copy">10+ years building processes, budgets, and teams that scale. Focused on clarity, efficiency, and adoption.</p>
-      <a class="text-link" href="https://golive-staffing-tools.onrender.com/" target="_blank" rel="noopener">View AI tools in action</a>
-    </section>
-
-    <section class="card list-card">
-      <p class="eyebrow">Core Skills</p>
-      <ul class="pill-list">
-        <li>Operations strategy</li>
-        <li>AI implementation</li>
-        <li>Process automation</li>
-        <li>Compliance & risk</li>
-        <li>Budgeting & cost control</li>
-        <li>Team leadership</li>
-      </ul>
-    </section>
-
-    <section class="card neutral-card">
-      <p class="eyebrow">Recent Work</p>
-      <h3 class="title">AI Integrations</h3>
-      <ul class="stacked-list">
-        <li>Automated onboarding and compliance workflows to keep teams aligned.</li>
-        <li>Built AI bots for SOPs, payroll, HR reporting, and employee support.</li>
-        <li>Created training programs across four departments to drive adoption.</li>
-      </ul>
-    </section>
-
-    <section class="card neutral-card">
-      <p class="eyebrow">Projects</p>
-      <ul class="stacked-list">
-        <li>Client scheduling platform connecting admin, client, and employee tools.</li>
-        <li>Analytics dashboards for sales, staffing, HR, and payroll insights.</li>
-        <li>Marketing automation to personalize outreach and improve conversion.</li>
-        <li>Web app for a recruiting department concierge database</li>
-        <li>An interview and resume analyzer specific to job type and HR compliance</li>
-        <li>Payroll and staffing data analytics tools</li>
-      </ul>
-    </section>
-
-    <section class="card showcase-card" tabindex="0" role="button" aria-expanded="false">
-      <div class="project-thumb">
-        <picture>
-          <source srcset="assets/Concierge.png" type="image/png" />
-          <img src="assets/concierge-tracker.svg" alt="Concierge Tracker recruiting workflow screenshot" loading="lazy" />
-        </picture>
+      <div class="stat-card">
+        <div class="stat-number">6</div>
+        <div class="stat-label">Departments Served</div>
       </div>
-      <div class="project-meta">
-        <p class="eyebrow">Project</p>
-        <h3 class="title">Concierge Tracker</h3>
-        <p class="copy">Automated recruiting workflows and concierge training.</p>
+      <div class="stat-card">
+        <div class="stat-number">7</div>
+        <div class="stat-label">Automated Monitors</div>
       </div>
-      <div class="project-blurb" hidden>
-        <p>Built a concierge tracking web app from scratch to automate recruiting, reduce manual follow-ups, and train the recruiting team. The system saved hours each week and made the outreach process consistent across the team.</p>
+    </div>
+
+    <!-- What I Do -->
+    <section class="section-card" id="whatido">
+      <p class="section-label">Recent Work</p>
+      <h2 class="section-title">AI-Powered Tools Platform</h2>
+      <div class="projects-list">
+        <div class="project-item">
+          <div class="project-icon">⚡</div>
+          <div class="project-info">
+            <strong>Full-Stack Internal Platform</strong>
+            <p>Built a 55+ tool internal platform on Python/FastAPI serving 6 departments — deployed on Render with live MySQL via SSH-tunneled RDS.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🤖</div>
+          <div class="project-info">
+            <strong>AI Resume Screening</strong>
+            <p>Designed AI-powered resume screening using GPT-4.1-mini with structured JSON output for hospitality position matching across 17 job types.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">📊</div>
+          <div class="project-info">
+            <strong>MSP Compliance Monitoring</strong>
+            <p>Automated MSP compliance monitoring with background schedulers that poll a production SQL database every 15 minutes and dispatch alerts via Microsoft Graph API.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🎯</div>
+          <div class="project-info">
+            <strong>Shift Risk Dashboard</strong>
+            <p>Built a real-time Shift Risk Dashboard with a weighted risk-scoring algorithm querying live event, shift, and employee data.</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="card showcase-card" tabindex="0" role="button" aria-expanded="false">
-      <div class="project-thumb">
-        <picture>
-          <source srcset="assets/Metrics.png" type="image/png" />
-          <img src="assets/sales-metrics.svg" alt="Sales and staffing metrics dashboard screenshot" loading="lazy" />
-        </picture>
+    <!-- Skills -->
+    <section class="section-card" id="skills">
+      <p class="section-label">Skills</p>
+      <h2 class="section-title">Leadership & Technical</h2>
+      <div class="skills-grid">
+        <div class="skills-column">
+          <h4>Management & Operations</h4>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Program & Project Management</span><span class="skill-pct">95%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:95%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Process Optimization & Workflow Design</span><span class="skill-pct">95%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:95%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Compliance & Regulatory Management</span><span class="skill-pct">90%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:90%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Budget Management & Cost Reduction</span><span class="skill-pct">90%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:90%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Cross-Department Leadership</span><span class="skill-pct">95%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:95%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Software & Vendor Management</span><span class="skill-pct">90%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:90%"></div></div>
+          </div>
+        </div>
+        <div class="skills-column">
+          <h4>Technical Tools</h4>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Python / FastAPI</span><span class="skill-pct">90%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:90%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">SQL / MySQL</span><span class="skill-pct">90%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:90%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">AI Integration (OpenAI / GPT)</span><span class="skill-pct">85%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:85%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Data Analytics (Pandas)</span><span class="skill-pct">85%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:85%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">HTML / CSS / JavaScript</span><span class="skill-pct">80%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:80%"></div></div>
+          </div>
+          <div class="skill-item">
+            <div class="skill-header"><span class="skill-name">Microsoft Graph API</span><span class="skill-pct">80%</span></div>
+            <div class="skill-bar"><div class="skill-fill" style="width:80%"></div></div>
+          </div>
+        </div>
       </div>
-      <div class="project-meta">
-        <p class="eyebrow">Project</p>
-        <h3 class="title">Sales & Staffing Metrics</h3>
-        <p class="copy">Live dashboards for weekly performance and client leaders.</p>
-      </div>
-      <div class="project-blurb" hidden>
-        <p>Developed a metrics app that gave the entire company real-time visibility into sales and staffing performance. Weekly leaders and client trends were surfaced automatically so teams could react faster and focus on the right accounts.</p>
+      <div style="margin-top: 28px;">
+        <h4 style="font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:14px;">Domain Knowledge</h4>
+        <ul class="pill-list">
+          <li>Sales & Marketing Ops</li>
+          <li>HR & Onboarding</li>
+          <li>Payroll Compliance</li>
+          <li>State & Federal Regulations</li>
+          <li>Staffing & Recruiting</li>
+          <li>Business Development</li>
+          <li>IT Systems Administration</li>
+          <li>Vendor Evaluation & Selection</li>
+          <li>Cost Cutting Strategies</li>
+          <li>SOP Development</li>
+          <li>Training & Adoption Programs</li>
+          <li>Internal Tool Development</li>
+        </ul>
       </div>
     </section>
 
-    <section class="card neutral-card">
-      <p class="eyebrow">Career Snapshot</p>
+    <!-- Projects -->
+    <section class="section-card" id="projects">
+      <p class="section-label">Projects</p>
+      <h2 class="section-title">Tools I've Built</h2>
+      <div class="projects-list">
+        <div class="project-item">
+          <div class="project-icon">📈</div>
+          <div class="project-info">
+            <strong>Staffing Manager Dashboard</strong>
+            <p>Real-time fill-rate tracking, avg time-to-fill metrics, and per-client notes powered by live SQL queries across 6 joined tables.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">💰</div>
+          <div class="project-info">
+            <strong>Profit Tracker</strong>
+            <p>Financial P&L tool calculating billing, gross pay, MSP fees, WC fees, and payroll tax per client with drill-down breakdowns.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🤖</div>
+          <div class="project-info">
+            <strong>AI Resume Analyzer</strong>
+            <p>GPT-powered tool accepting PDF, DOCX, or images; returns structured JSON scoring across 17 hospitality positions with confidence ratings.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">📋</div>
+          <div class="project-info">
+            <strong>Reportable</strong>
+            <p>A 2,292-line SQL-to-Excel report engine covering timesheet verification, summary reports, scheduled vs. worked hours, and cancellation analysis.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🎯</div>
+          <div class="project-info">
+            <strong>Shift Risk Dashboard</strong>
+            <p>Real-time risk scoring for understaffed events using a weighted algorithm — color-coded CRITICAL / WARNING / AT RISK.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🔔</div>
+          <div class="project-info">
+            <strong>MSP Dashboard + Automated Alerts</strong>
+            <p>Monitors managed service provider confirmations with background polling and email notifications via Microsoft Graph.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🔄</div>
+          <div class="project-info">
+            <strong>Client Profile Change Monitor</strong>
+            <p>Automated diffing engine that snapshots client database records and emails stakeholders when fields change.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">📧</div>
+          <div class="project-info">
+            <strong>Email Forwarder</strong>
+            <p>Schedule-aware email routing using Microsoft Graph API with deduplication tracking and business-hours enforcement.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">🗄️</div>
+          <div class="project-info">
+            <strong>Database Admin Tool</strong>
+            <p>Interface for bulk production database updates with undo capability for attestation questions, net terms, and staffing manager reassignments.</p>
+          </div>
+        </div>
+        <div class="project-item">
+          <div class="project-icon">💬</div>
+          <div class="project-info">
+            <strong>SMS Paraphraser & Text Blast Filter</strong>
+            <p>AI-assisted message drafting and employee list filtering by position, status, and county for targeted outreach.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Showcase -->
+    <section class="section-card">
+      <p class="section-label">Portfolio</p>
+      <h2 class="section-title">Screenshots</h2>
+      <div class="showcase-grid">
+        <div class="showcase-card" tabindex="0" role="button" aria-expanded="false">
+          <div class="showcase-thumb">
+            <picture>
+              <source srcset="assets/Open Shifts Map.png" type="image/png" />
+              <img src="assets/Open Shifts Map.png" alt="Open Shifts Map visualization" loading="lazy" />
+            </picture>
+          </div>
+          <div class="showcase-meta">
+            <p class="section-label">Logistics</p>
+            <h3>Open Shifts Map</h3>
+            <p>Geographic shift management for high-volume staffing.</p>
+          </div>
+          <div class="showcase-blurb" hidden>
+            <p>A mapping tool designed to manage thousands of open shifts by location. This assists our staffing team in optimizing travel logistics, ensuring shift coverage across broad regions, and visualizing employee density relative to client needs.</p>
+          </div>
+        </div>
+
+        <div class="showcase-card" tabindex="0" role="button" aria-expanded="false">
+          <div class="showcase-thumb">
+            <picture>
+              <source srcset="assets/Profit Tracker.png" type="image/png" />
+              <img src="assets/Profit Tracker.png" alt="Profit Tracker dashboard" loading="lazy" />
+            </picture>
+          </div>
+          <div class="showcase-meta">
+            <p class="section-label">Finance</p>
+            <h3>Profit Tracker</h3>
+            <p>Real-time P&L analysis and financial monitoring.</p>
+          </div>
+          <div class="showcase-blurb" hidden>
+            <p>An advanced financial tool that provides deep insights into profit and loss. It automates complex calculations across clients and departments, allowing for immediate identification of cost-saving opportunities and margin optimization.</p>
+          </div>
+        </div>
+
+        <div class="showcase-card" tabindex="0" role="button" aria-expanded="false">
+          <div class="showcase-thumb">
+            <picture>
+              <source srcset="assets/Sales Intelligence.png" type="image/png" />
+              <img src="assets/Sales Intelligence.png" alt="Sales Intelligence dashboard" loading="lazy" />
+            </picture>
+          </div>
+          <div class="showcase-meta">
+            <p class="section-label">Strategy</p>
+            <h3>Sales Intelligence</h3>
+            <p>Data-driven insights for business development.</p>
+          </div>
+          <div class="showcase-blurb" hidden>
+            <p>Leveraging historical sales data and trend analysis to drive growth. This tool helps the business development team identify high-value targets and monitor sales health across the entire client portfolio.</p>
+          </div>
+        </div>
+
+        <div class="showcase-card" tabindex="0" role="button" aria-expanded="false">
+          <div class="showcase-thumb">
+            <picture>
+              <source srcset="assets/Concierge.png" type="image/png" />
+              <img src="assets/concierge-tracker.svg" alt="Concierge Tracker recruiting workflow screenshot" loading="lazy" />
+            </picture>
+          </div>
+          <div class="showcase-meta">
+            <p class="section-label">Project</p>
+            <h3>Concierge Tracker</h3>
+            <p>Automated recruiting workflows and concierge training.</p>
+          </div>
+          <div class="showcase-blurb" hidden>
+            <p>Built a concierge tracking web app from scratch to automate recruiting, reduce manual follow-ups, and train the recruiting team. The system saved hours each week and made the outreach process consistent across the team.</p>
+          </div>
+        </div>
+
+        <div class="showcase-card" tabindex="0" role="button" aria-expanded="false">
+          <div class="showcase-thumb">
+            <picture>
+              <source srcset="assets/Metrics.png" type="image/png" />
+              <img src="assets/sales-metrics.svg" alt="Sales and staffing metrics dashboard screenshot" loading="lazy" />
+            </picture>
+          </div>
+          <div class="showcase-meta">
+            <p class="section-label">Project</p>
+            <h3>Sales & Staffing Metrics</h3>
+            <p>Live dashboards for weekly performance and client leaders.</p>
+          </div>
+          <div class="showcase-blurb" hidden>
+            <p>Developed a metrics app that gave the entire company real-time visibility into sales and staffing performance. Weekly leaders and client trends were surfaced automatically so teams could react faster and focus on the right accounts.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Experience -->
+    <section class="section-card" id="experience">
+      <p class="section-label">Experience</p>
+      <h2 class="section-title">Career Snapshot</h2>
       <ul class="timeline">
         <li>
           <h4>Culinary Staffing Services</h4>
-          <p>Senior Technical Programs Manager · May 2019 – Present</p>
+          <p class="role">Senior Technical Programs Manager</p>
+          <p class="period">May 2019 – Present</p>
         </li>
         <li>
           <h4>Bradco Kitchen + Design</h4>
-          <p>Showroom & Project Manager · Aug 2016 – May 2019</p>
+          <p class="role">Showroom & Project Manager</p>
+          <p class="period">Aug 2016 – May 2019</p>
         </li>
         <li>
           <h4>Auster Rubber Company</h4>
-          <p>Inside Sales & Project Manager · Jun 2016 – Jul 2017</p>
+          <p class="role">Inside Sales & Project Manager</p>
+          <p class="period">Jun 2016 – Jul 2017</p>
         </li>
         <li>
           <h4>Crossroads Trading Company</h4>
-          <p>Store Manager · Dec 2011 – May 2016</p>
+          <p class="role">Store Manager</p>
+          <p class="period">Dec 2011 – May 2016</p>
         </li>
         <li>
           <h4>AmeriCorp NCCC</h4>
-          <p>Wildland Firefighter FFT2 · Nov 2010 – Nov 2011</p>
+          <p class="role">Wildland Firefighter FFT2</p>
+          <p class="period">Nov 2010 – Nov 2011</p>
         </li>
       </ul>
     </section>
 
-    <section class="card neutral-card chat-card" id="chat">
-      <p class="eyebrow">Talk</p>
-      <h3 class="title">Talk to Jake's AI</h3>
-      <p class="copy">Ask about my experience, operations playbooks, or how I build automations.</p>
+    <!-- Chat -->
+    <section class="section-card chat-section" id="chat">
+      <p class="section-label">Talk</p>
+      <h2 class="section-title">Talk to Jake's AI</h2>
+      <p style="color:var(--ink-light); margin-bottom: 4px;">Ask about my experience, tech stack, or how I build automations.</p>
 
       <div class="preset-questions">
-        <button type="button" class="pill-button" data-question="What are your biggest wins with AI?">Biggest AI wins</button>
-        <button type="button" class="pill-button" data-question="How do you approach process automation?">Process automation</button>
-        <button type="button" class="pill-button" data-question="What is your leadership style?">Leadership style</button>
+        <button type="button" class="pill-button" data-question="What tools have you built?">Tools I've built</button>
+        <button type="button" class="pill-button" data-question="How do you use SQL databases?">SQL databases</button>
+        <button type="button" class="pill-button" data-question="What is your tech stack?">Tech stack</button>
       </div>
 
       <div class="chat-window" aria-live="polite">
         <div class="chat-message assistant">
           <p class="label">AI</p>
-          <p>Hey there—I’m Jake’s AI. Ask me about his work, projects, or how he scales teams.</p>
+          <p>Hey there—I'm Jake's AI. Ask me about his work, projects, or how he scales teams.</p>
         </div>
       </div>
 
       <form class="chat-form" id="chat-form">
         <label class="visually-hidden" for="chat-input">Ask a question</label>
         <input id="chat-input" name="message" type="text" placeholder="Ask about Jake's work..." required />
-        <button class="button" type="submit">Send</button>
+        <button class="btn btn-primary" type="submit">Send</button>
       </form>
     </section>
 
-    <section class="card contact-card">
-      <p class="eyebrow">Contact</p>
-      <h3 class="title">Let's Connect</h3>
+    <!-- Contact -->
+    <section class="section-card" id="contact">
+      <p class="section-label">Contact</p>
+      <h2 class="section-title">Let's Connect</h2>
       <ul class="contact-list">
-        <li><span>Email</span><a href="mailto:jake.biddlecome@gmail.com">jake.biddlecome@gmail.com</a></li>
-        <li><span>Phone</span><a href="tel:+12139244006">(+1) 213-924-4006</a></li>
-        <li><span>LinkedIn</span><a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener">linkedin.com/in/jake-biddlecome-03883228</a></li>
+        <li><span class="contact-label">Email</span><a href="mailto:jake.biddlecome@gmail.com">jake.biddlecome@gmail.com</a></li>
+        <li><span class="contact-label">Phone</span><a href="tel:+12139244006">(+1) 213-924-4006</a></li>
+        <li><span class="contact-label">LinkedIn</span><a href="https://www.linkedin.com/in/jake-biddlecome-03883228/" target="_blank" rel="noopener">linkedin.com/in/jake-biddlecome-03883228</a></li>
       </ul>
     </section>
+
   </main>
+
   <script>
     const presetResponses = {
-      "what are your biggest wins with ai?": "Jake cut HR labor by 97% by automating onboarding, compliance tracking, and reporting. He also shipped AI bots for SOPs, payroll, and employee support that freed up 80+ hours weekly.",
-      "how do you approach process automation?": "He maps the existing workflow, defines the success metrics, then builds a lightweight pilot with clear owners. Once adopted, he documents SOPs, trains teams, and layers in monitoring dashboards to keep everything accountable.",
-      "what is your leadership style?": "Hands-on and transparent. Jake sets clear targets, builds simple checklists, and meets teams where they are. He focuses on training and adoption so processes actually stick across departments."
+      "what tools have you built?": "Jake built a 55+ tool internal platform on Python/FastAPI serving 6 departments. Highlights include an AI Resume Analyzer (GPT-4.1-mini), a Shift Risk Dashboard with weighted risk scoring, a Profit Tracker for client P&L analysis, and 7 automated background monitors that poll SQL databases and send alerts via Microsoft Graph API.",
+      "how do you use sql databases?": "Jake's platform connects to a production MySQL database on AWS RDS via SSH tunnel. Tools like the Staffing Dashboard join 6+ tables for real-time fill-rate metrics. The Reportable engine generates payroll and timesheet reports from complex SQL queries. The Database Admin Tool performs live bulk updates with undo capability.",
+      "what is your tech stack?": "Python, FastAPI, MySQL (AWS RDS), SQLAlchemy, Pandas, OpenAI GPT-4.1-mini, Microsoft Graph API (OAuth), asyncio background schedulers, Jinja2 templates, HTML/CSS/JavaScript. Deployed on Render with SSH-tunneled database connections."
     };
 
     const chatWindow = document.querySelector('.chat-window');
@@ -283,10 +532,11 @@
       button.addEventListener('click', () => handleSubmit(button.dataset.question));
     });
 
+    // Showcase card toggles
     document.querySelectorAll('.showcase-card').forEach((card) => {
       const toggleCard = () => {
         const isOpen = card.classList.toggle('open');
-        const blurb = card.querySelector('.project-blurb');
+        const blurb = card.querySelector('.showcase-blurb');
         if (blurb) blurb.hidden = !isOpen;
         card.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
       };
@@ -299,6 +549,45 @@
         }
       });
     });
+
+    // Sidebar toggle (mobile)
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+    });
+
+    // Close sidebar when clicking a nav link on mobile
+    document.querySelectorAll('.sidebar-nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove('open');
+        }
+      });
+    });
+
+    // Active nav highlight on scroll
+    const sections = document.querySelectorAll('section[id], .hero[id]');
+    const navLinks = document.querySelectorAll('.sidebar-nav a');
+
+    const observerOptions = {
+      rootMargin: '-20% 0px -70% 0px',
+      threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          navLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, observerOptions);
+
+    sections.forEach(section => observer.observe(section));
   </script>
 </body>
 </html>
