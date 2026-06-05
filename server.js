@@ -6,6 +6,7 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.RESUME_AI_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID || 'asst_l7877S10rt2TO0Yvr1Nm6rxW';
 const ROOT_DIR = __dirname;
+const CHAT_LOG_PATH = process.env.CHAT_LOG_PATH || path.join(ROOT_DIR, 'prompts.log');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -41,6 +42,18 @@ async function handleChatProxy(req, res, body) {
     sendJson(res, 400, { error: 'Message is required.' });
     return;
   }
+
+  const logEntry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+    prompt: message
+  }) + '\n';
+
+  fs.appendFile(CHAT_LOG_PATH, logEntry, 'utf8', (err) => {
+    if (err) {
+      console.error(`Failed to write prompt to log file at ${CHAT_LOG_PATH}:`, err);
+    }
+  });
 
   if (!API_KEY) {
     sendJson(res, 503, { error: 'AI assistant is unavailable. Please configure RESUME_AI_KEY on the server.' });
