@@ -510,6 +510,33 @@ img {
   color: var(--ink-light);
 }
 
+.timeline-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0 0;
+}
+
+.timeline-bullets li {
+  position: relative;
+  padding-left: 14px;
+  padding-bottom: 6px;
+  font-size: 14px;
+  color: var(--ink-light);
+  line-height: 1.55;
+}
+
+.timeline-bullets li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.timeline-bullets li:last-child {
+  padding-bottom: 0;
+}
+
 /* ── Projects Grid ────────────────────────────── */
 
 .projects-list {
