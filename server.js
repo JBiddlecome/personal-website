@@ -177,6 +177,38 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (method === 'GET' && pathname === '/api/logs') {
+    const urlObj = new URL(url, `http://${req.headers.host || 'localhost'}`);
+    const providedToken = urlObj.searchParams.get('token');
+    const secretToken = process.env.LOGS_SECRET_TOKEN;
+
+    if (!secretToken) {
+      sendJson(res, 500, { error: 'Logs endpoint is not configured. Please set the LOGS_SECRET_TOKEN environment variable.' });
+      return;
+    }
+
+    if (providedToken !== secretToken) {
+      sendJson(res, 401, { error: 'Unauthorized.' });
+      return;
+    }
+
+    fs.readFile(CHAT_LOG_PATH, 'utf8', (err, data) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('No logs recorded yet.');
+        } else {
+          sendJson(res, 500, { error: 'Failed to read log file.' });
+        }
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(data);
+    });
+    return;
+  }
+
   let safePath = path.normalize(decodeURIComponent(pathname)).replace(/^\/+/, '');
   if (!safePath || safePath === '.' || safePath === '..') {
     safePath = 'index';
