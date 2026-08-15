@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg0: #081120; --bg1: #0c1828; --bg2: #101f33;
@@ -132,6 +133,36 @@
     .marker:hover, .marker.active { transform: scale(1.35); z-index: 3; }
     .marker.active { box-shadow: 0 0 0 4px rgba(255,178,36,.45); }
 
+    .map-tools { position: absolute; top: 12px; right: 56px; z-index: 5; display: flex; gap: 6px; }
+    .map-tools button {
+      background: var(--bg1); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px;
+      font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .map-tools button:hover { border-color: var(--amber); }
+    .map-tools button.on { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
+    .lasso-hint { position: absolute; top: 52px; right: 56px; z-index: 5; background: rgba(12,24,40,.94); border: 1px solid var(--line-bright); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--dim); display: none; }
+    .lasso-hint.show { display: block; }
+    .map-wrap.lassoing .mapboxgl-canvas-container { cursor: crosshair !important; }
+    .map-wrap.lassoing .mk { pointer-events: none; }
+    .lasso-panel {
+      position: absolute; right: 12px; bottom: 32px; z-index: 5; width: 360px; max-width: calc(100% - 24px); max-height: 60vh;
+      background: rgba(12,24,40,.96); border: 1px solid var(--line-bright); border-radius: 8px; backdrop-filter: blur(6px);
+      display: none; flex-direction: column;
+    }
+    .lasso-panel.show { display: flex; }
+    .lasso-panel .lp-head { padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+    .lasso-panel h2 { font-size: 15px; font-weight: 700; padding-right: 22px; }
+    .lasso-panel .lp-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); margin-top: 3px; }
+    .lasso-panel .lp-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .lasso-panel .lp-actions button { font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); color: var(--text); }
+    .lasso-panel .lp-actions button.primary { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
+    .lasso-panel .lp-list { overflow-y: auto; padding: 4px 0 8px; }
+    .lasso-panel .lp-group { padding: 8px 14px 2px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+    .lasso-panel .lp-item { display: grid; grid-template-columns: 10px 1fr; gap: 8px; padding: 5px 14px; font-size: 12.5px; cursor: pointer; align-items: baseline; }
+    .lasso-panel .lp-item:hover { background: var(--bg2); }
+    .lasso-panel .lp-item .addr { color: var(--faint); font-size: 11.5px; }
+    .lasso-panel .close { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--faint); font-size: 18px; cursor: pointer; line-height: 1; }
+    @media (max-width: 820px) { .lasso-panel { right: 12px; left: 12px; width: auto; bottom: 12px; max-height: 50vh; } .map-tools { right: 100px; } .lasso-hint { right: 100px; } }
     .toggle-side { display: none; position: absolute; top: 12px; right: 12px; z-index: 6; background: var(--bg1); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
 
     @media (max-width: 820px) {
@@ -162,7 +193,24 @@
     </aside>
     <div class="map-wrap">
       <button class="toggle-side" id="toggleSide">☰ List</button>
+      <div class="map-tools">
+        <button id="lassoBtn" title="Draw a freehand area to list the pins inside it">&#9186; Lasso</button>
+      </div>
+      <div class="lasso-hint" id="lassoHint">Click and drag to circle an area. Press Esc to cancel.</div>
       <div id="map"></div>
+      <div class="lasso-panel" id="lassoPanel">
+        <button class="close" id="lassoClose" aria-label="Close">×</button>
+        <div class="lp-head">
+          <h2>Locations in selected area</h2>
+          <div class="lp-sub" id="lassoSub"></div>
+          <div class="lp-actions">
+            <button class="primary" id="lassoDownload">&#11015; Download Excel</button>
+            <button id="lassoRedraw">Draw again</button>
+            <button id="lassoClear">Clear</button>
+          </div>
+        </div>
+        <div class="lp-list" id="lassoList"></div>
+      </div>
       <div class="iso-panel" id="isoPanel">
         <button class="close" id="isoClose" aria-label="Close">×</button>
         <h2 id="isoName"></h2>
@@ -312,6 +360,7 @@
         if (v) { counts[loc.type]++; sectorCounts[TYPES[loc.type].sector]++; }
       }
       for (const t in counts) document.getElementById('cnt-' + t).textContent = counts[t];
+      if (typeof lassoPts !== 'undefined' && lassoPts.length > 2 && lassoPanel.classList.contains('show')) finishLasso();
       for (const sk in sectorCounts) document.getElementById('cnt-sector-' + sk).textContent = sectorCounts[sk];
       for (const s of SECTORS) {
         const on = s.types.filter((t) => enabled[t.key]).length;
@@ -458,6 +507,137 @@
       for (const { el } of markers.values()) el.classList.remove('active');
       drawIso(); renderList();
     }
+
+    // ── Lasso ──
+    const mapWrap = document.querySelector('.map-wrap');
+    const lassoBtn = document.getElementById('lassoBtn');
+    const lassoHint = document.getElementById('lassoHint');
+    const lassoPanel = document.getElementById('lassoPanel');
+    let lassoActive = false, lassoDrawing = false, lassoPts = [], lassoResults = [];
+
+    map.on('load', () => {
+      map.addSource('lasso', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({ id: 'lasso-fill', type: 'fill', source: 'lasso', paint: { 'fill-color': '#56c8e8', 'fill-opacity': 0.12 } });
+      map.addLayer({ id: 'lasso-line', type: 'line', source: 'lasso', paint: { 'line-color': '#56c8e8', 'line-width': 2, 'line-dasharray': [2, 1.5] } });
+    });
+
+    function setLassoData(coords) {
+      const src = map.getSource('lasso');
+      if (!src) return;
+      src.setData(coords && coords.length > 2
+        ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]]] }, properties: {} }] }
+        : { type: 'FeatureCollection', features: [] });
+    }
+
+    function setLassoMode(on) {
+      lassoActive = on;
+      lassoBtn.classList.toggle('on', on);
+      lassoHint.classList.toggle('show', on);
+      mapWrap.classList.toggle('lassoing', on);
+      if (on) { map.dragPan.disable(); map.boxZoom.disable(); map.doubleClickZoom.disable(); }
+      else { map.dragPan.enable(); map.boxZoom.enable(); map.doubleClickZoom.enable(); lassoDrawing = false; }
+    }
+
+    const evtPoint = (e) => {
+      const r = map.getCanvas().getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return map.unproject([src.clientX - r.left, src.clientY - r.top]);
+    };
+    const canvasEl = map.getCanvasContainer();
+    function lassoStart(e) {
+      if (!lassoActive) return;
+      e.preventDefault();
+      lassoDrawing = true; lassoPts = [];
+      const p = evtPoint(e); lassoPts.push([p.lng, p.lat]);
+    }
+    function lassoMove(e) {
+      if (!lassoActive || !lassoDrawing) return;
+      e.preventDefault();
+      const p = evtPoint(e); lassoPts.push([p.lng, p.lat]);
+      setLassoData(lassoPts);
+    }
+    function lassoEnd(e) {
+      if (!lassoActive || !lassoDrawing) return;
+      lassoDrawing = false;
+      if (lassoPts.length < 3) { setLassoData(null); return; }
+      setLassoData(lassoPts);
+      setLassoMode(false);
+      finishLasso();
+    }
+    canvasEl.addEventListener('mousedown', lassoStart);
+    canvasEl.addEventListener('mousemove', lassoMove);
+    window.addEventListener('mouseup', lassoEnd);
+    canvasEl.addEventListener('touchstart', lassoStart, { passive: false });
+    canvasEl.addEventListener('touchmove', lassoMove, { passive: false });
+    window.addEventListener('touchend', lassoEnd);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lassoActive) { setLassoMode(false); setLassoData(null); } });
+
+    function finishLasso() {
+      const ring = [...lassoPts, lassoPts[0]];
+      lassoResults = LOCS.filter((l) => visible(l) && pointInRing([l.lng, l.lat], ring));
+      renderLassoPanel();
+    }
+
+    function renderLassoPanel() {
+      const listEl = document.getElementById('lassoList');
+      listEl.innerHTML = '';
+      const bySector = {};
+      for (const l of lassoResults) (bySector[TYPES[l.type].sector] ||= []).push(l);
+      const parts = SECTORS.filter((s) => bySector[s.key]).map((s) => `${bySector[s.key].length} ${s.label.toLowerCase()}`);
+      document.getElementById('lassoSub').textContent = lassoResults.length
+        ? `${lassoResults.length} location${lassoResults.length === 1 ? '' : 's'} · ${parts.join(' · ')} (visible filters only)`
+        : 'No visible pins inside the area — check your filters or draw a larger area.';
+      for (const s of SECTORS) {
+        const rows = bySector[s.key];
+        if (!rows) continue;
+        for (const t of s.types) {
+          const tr = rows.filter((l) => l.type === t.key);
+          if (!tr.length) continue;
+          const g = document.createElement('div'); g.className = 'lp-group'; g.textContent = `${s.label} · ${t.label}`; listEl.appendChild(g);
+          for (const l of tr) {
+            const it = document.createElement('div'); it.className = 'lp-item';
+            it.innerHTML = `<span class="dot ${s.shape}" style="background:${t.color};width:8px;height:8px;border-radius:50%;display:inline-block;align-self:center"></span><span>${l.name}<div class="addr">${l.address || ''}</div></span>`;
+            it.addEventListener('click', () => select(l.id, true));
+            listEl.appendChild(it);
+          }
+        }
+      }
+      lassoPanel.classList.add('show');
+    }
+
+    function clearLasso() {
+      lassoResults = []; lassoPts = [];
+      setLassoData(null);
+      lassoPanel.classList.remove('show');
+    }
+
+    function downloadLassoXlsx() {
+      if (!lassoResults.length || typeof XLSX === 'undefined') return;
+      const rows = lassoResults.map((l) => ({
+        'Name': l.name,
+        'Type': TYPES[l.type].sectorLabel,
+        'Category': TYPES[l.type].label,
+        'Address': l.address || '',
+        'City': l.city || '',
+        'Parent / Operator': l.parent || '',
+        'Region / Jurisdiction': l.region || '',
+        'Size': l.stat || (l.enrollment ? l.enrollment.toLocaleString() + ' enrolled' : '') || (l.schools ? l.schools + ' school sites' : ''),
+        'Notes': l.detail || ''
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 22 }, { wch: 46 }, { wch: 16 }, { wch: 30 }, { wch: 26 }, { wch: 18 }, { wch: 60 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Locations');
+      const d = new Date();
+      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      XLSX.writeFile(wb, `map-selection-${stamp}.xlsx`);
+    }
+
+    lassoBtn.addEventListener('click', () => { if (lassoActive) { setLassoMode(false); setLassoData(lassoResults.length ? lassoPts : null); } else { setLassoMode(true); } });
+    document.getElementById('lassoRedraw').addEventListener('click', () => { clearLasso(); setLassoMode(true); });
+    document.getElementById('lassoClear').addEventListener('click', clearLasso);
+    document.getElementById('lassoClose').addEventListener('click', () => lassoPanel.classList.remove('show'));
+    document.getElementById('lassoDownload').addEventListener('click', downloadLassoXlsx);
 
     // ── Wiring ──
     filtersEl.addEventListener('change', (e) => {
