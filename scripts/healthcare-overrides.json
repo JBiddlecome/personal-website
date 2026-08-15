@@ -1,0 +1,325 @@
+{
+ "HCA HealthONE Presbyterian St. Luke's": {
+  "address": "1719 E 19th Ave, Denver, CO 80218"
+ },
+ "UCHealth Medical Center of the Rockies": {
+  "address": "2500 Rocky Mountain Ave, Loveland, CO 80538"
+ },
+ "AdventHealth Littleton": {
+  "address": "7700 S Broadway, Littleton, CO 80122"
+ },
+ "Intermountain Health Lutheran Hospital": {
+  "address": "12911 W 40th Ave, Golden, CO 80401"
+ },
+ "Children's Hospital Colorado - North Campus": {
+  "address": "469 W State Highway 7, Broomfield, CO 80023",
+  "lng": -104.9925,
+  "lat": 39.984
+ },
+ "Oakwood Care and Rehabilitation": {
+  "address": "1655 Eaton St, Lakewood, CO 80214"
+ },
+ "Rehabilitation & Nursing Center of the Rockies": {
+  "address": "1020 Patton St, Fort Collins, CO 80524"
+ },
+ "Garden Terrace Alzheimer's Center of Excellence": {
+  "address": "1600 S Potomac St, Aurora, CO 80012"
+ },
+ "Heights Care & Rehabilitation": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Arbor View Care Center": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Crestmoor Care Center": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Wellsprings Care Center": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Uptown Healthcare Center": {
+  "address": "745 E 18th Ave, Denver, CO 80203"
+ },
+ "Rowan Community": {
+  "address": "4601 E Asbury Cir, Denver, CO 80222"
+ },
+ "Cherrelyn Healthcare Center": {
+  "address": "5555 S Elati St, Littleton, CO 80120"
+ },
+ "Cedars Healthcare Center": {
+  "address": "1599 Ingalls St, Lakewood, CO 80214"
+ },
+ "Winslow Court": {
+  "address": "3920 E San Miguel St, Colorado Springs, CO 80909"
+ },
+ "MorningStar of Parker": {
+  "address": "18900 E Mainstreet, Parker, CO 80134"
+ },
+ "MorningStar at RidgeGate": {
+  "address": "10100 Commons St, Lone Tree, CO 80124"
+ },
+ "MorningStar at Applewood": {
+  "address": "2800 Youngfield St, Lakewood, CO 80215"
+ },
+ "MorningStar of Boulder": {
+  "address": "575 Tantra Dr, Boulder, CO 80305"
+ },
+ "MorningStar at Observatory Park": {
+  "address": "2100 S Josephine St, Denver, CO 80210"
+ },
+ "MorningStar of Arvada": {
+  "address": "17351 W 64th Ave, Arvada, CO 80007"
+ },
+ "Brookdale Skyline": {
+  "address": "2365 Patriot Heights, Colorado Springs, CO 80904"
+ },
+ "Brookdale Parkplace": {
+  "address": "111 Emerson St, Denver, CO 80218"
+ },
+ "Brookdale Arvada": {
+  "address": "7720 Allison St, Arvada, CO 80005"
+ },
+ "Brookdale Fort Collins AL": {
+  "address": "1002 Rule Dr, Fort Collins, CO 80525"
+ },
+ "Brookdale Littleton": {
+  "address": "8271 S Continental Divide Rd, Littleton, CO 80127"
+ },
+ "Brookdale Brighton": {
+  "address": "1400 Skeel St, Brighton, CO 80601"
+ },
+ "Harvard Square Senior Living": {
+  "address": "10200 E Harvard Ave, Denver, CO 80231"
+ },
+ "Creekside Village": {
+  "skip": true,
+  "reason": "generic Accel name, address not confirmed"
+ },
+ "Falcon Heights": {
+  "skip": true,
+  "reason": "generic Accel name, address not confirmed"
+ },
+ "Fountain View": {
+  "skip": true,
+  "reason": "generic Accel name, address not confirmed"
+ },
+ "Poudre Canyon": {
+  "skip": true,
+  "reason": "generic Accel name, address not confirmed"
+ },
+ "Kiowa Hills": {
+  "skip": true,
+  "reason": "generic Accel name, address not confirmed"
+ },
+ "Colonial": {
+  "skip": true,
+  "reason": "generic Accel name, address not confirmed"
+ },
+ "Sunrise Assisted Living of Boulder": {
+  "address": "3955 28th St, Boulder, CO 80301"
+ },
+ "Sunrise of Westminster": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Sunrise at Pinehurst": {
+  "address": "5195 W Quincy Ave, Denver, CO 80236"
+ },
+ "Sunrise at Orchard": {
+  "address": "5975 S Holly St, Centennial, CO 80121"
+ },
+ "The Gardens at ViewPointe": {
+  "address": "555 S Rockrimmon Blvd, Colorado Springs, CO 80919"
+ },
+ "The Gardens at Collinwood": {
+  "address": "5055 S Lemay Ave, Fort Collins, CO 80525"
+ },
+ "The Center at Centennial": {
+  "address": "2494 International Cir, Colorado Springs, CO 80910"
+ },
+ "The Center at Cordera": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Silver Heights": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Sundance": {
+  "skip": true,
+  "reason": "generic name, address not confirmed"
+ },
+ "Lakewood Villa": {
+  "address": "7395 W Eastman Pl, Lakewood, CO 80227"
+ },
+ "The Gardens": {
+  "skip": true,
+  "reason": "generic name, address not confirmed"
+ },
+ "North Shore Health & Rehab": {
+  "address": "1365 W 29th St, Loveland, CO 80538"
+ },
+ "Ciel of Lowry": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Ciel of Lakewood (Ridge Pinehurst LLC)": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Ciel of Arvada (Stonebridge Senior LLC)": {
+  "address": "11825 W 64th Ave, Arvada, CO 80004"
+ },
+ "Ciel of Boulder": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Dayspring Villa": {
+  "address": "3777 W 26th Ave, Denver, CO 80211"
+ },
+ "Clermont Park": {
+  "address": "2479 S Clermont St, Denver, CO 80222"
+ },
+ "Balfour at Lavender Farms": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Balfour Cherrywood Village": {
+  "address": "282 McCaslin Blvd, Louisville, CO 80027"
+ },
+ "The Ivy Thornton": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "The Ivy Cherry Hills": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Highland Park Rehabilitation & Care": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "City Scape Rehabilitation & Care": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Storybrook Care & Rehabilitation": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Mountain Vista Health Center": {
+  "address": "4800 Tabor St, Wheat Ridge, CO 80033"
+ },
+ "Wind Crest (Continuing Care)": {
+  "address": "3235 Mill Vista Rd, Highlands Ranch, CO 80129"
+ },
+ "Legend of Broomfield": {
+  "address": "12600 Lowell Blvd, Broomfield, CO 80020"
+ },
+ "Columbine Acres": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Juniper Village at Louisville": {
+  "address": "1078 S 88th St, Louisville, CO 80027"
+ },
+ "Atria Longmont": {
+  "address": "2310 9th Ave, Longmont, CO 80503"
+ },
+ "Liberty Heights": {
+  "address": "12105 Ambassador Dr, Colorado Springs, CO 80921"
+ },
+ "Frasier Retirement Community": {
+  "address": "350 Ponca Pl, Boulder, CO 80303"
+ },
+ "HCA HealthONE Mental Health & Wellness Center": {
+  "address": "700 Potomac St, Aurora, CO 80011"
+ },
+ "Denver Springs": {
+  "address": "8835 American Way, Englewood, CO 80112"
+ },
+ "Encompass Health Rehabilitation Hospital of Littleton": {
+  "address": "1001 W Mineral Ave, Littleton, CO 80120"
+ },
+ "Reunion Rehabilitation Hospital Denver": {
+  "address": "4650 Central Park Blvd, Denver, CO 80238"
+ },
+ "Reunion Rehabilitation Hospital Inverness": {
+  "address": "372 Inverness Dr S, Centennial, CO 80112"
+ },
+ "Denver Regional Rehabilitation Hospital": {
+  "address": "8451 Pearl St, Thornton, CO 80229"
+ },
+ "HCA HealthONE Swedish": {
+  "address": "501 E Hampden Ave, Englewood, CO 80113"
+ },
+ "HCA HealthONE Aurora": {
+  "address": "1501 S Potomac St, Aurora, CO 80012"
+ },
+ "HCA HealthONE Spalding Rehabilitation": {
+  "address": "900 Potomac St, Aurora, CO 80011"
+ },
+ "CommonSpirit St. Anthony Hospital": {
+  "address": "11600 W 2nd Pl, Lakewood, CO 80228"
+ },
+ "CommonSpirit St. Francis Hospital - Interquest": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "AdventHealth Parker": {
+  "address": "9395 Crown Crest Blvd, Parker, CO 80138"
+ },
+ "Children's Hospital Colorado - Anschutz": {
+  "address": "13123 E 16th Ave, Aurora, CO 80045"
+ },
+ "Parker Post Acute": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "City Park Healthcare & Rehabilitation": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Lakewood Post Acute & Rehabilitation": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Thornton Care Center": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "MorningStar of Wheat Ridge": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Brookdale Boulder Creek": {
+  "address": "3375 34th St, Boulder, CO 80301"
+ },
+ "The Center at Lowry": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "The Center at Centerplace": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "The Ivy Colorado Springs": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Legend of Colorado Springs": {
+  "address": "2368 Research Pkwy, Colorado Springs, CO 80920"
+ },
+ "Saddle Rock": {
+  "skip": true,
+  "reason": "address not confirmed"
+ },
+ "Kindred Hospital - Denver South": {
+  "skip": true,
+  "reason": "address not confirmed"
+ }
+}

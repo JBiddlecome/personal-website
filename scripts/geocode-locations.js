@@ -16,7 +16,9 @@ if (!TOKEN) { console.error('MAPBOX_TOKEN missing'); process.exit(1); }
 
 const LOCATIONS = [
   ...require('./locations-education'),
-  ...require('./locations-government')
+  ...require('./locations-government'),
+  // Healthcare rows are pre-resolved by scripts/resolve-healthcare.js (already carry lng/lat)
+  ...require('./locations-healthcare.json').map(({ source, matchedName, ...l }) => l)
 ];
 
 async function geocode(address) {
