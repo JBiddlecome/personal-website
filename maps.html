@@ -147,6 +147,7 @@
       <div class="side-foot">
         <div class="status" id="status"></div>
         Enrollment figures are sizing guides from mixed reporting years. Districts are pinned at their administrative HQ.
+        <div style="margin-top:6px"><a href="#" id="logout">Sign out</a></div>
       </div>
     </aside>
     <div class="map-wrap">
@@ -179,9 +180,16 @@
     const statusEl = document.getElementById('status');
     const setStatus = (t, cls) => { statusEl.textContent = t; statusEl.className = 'status ' + (cls || ''); };
 
+    document.getElementById('logout').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/maps-logout', { method: 'POST' });
+      window.location.replace('/maps');
+    });
+
     let token;
     try {
       const r = await fetch('/api/mapbox-token');
+      if (r.status === 401) { window.location.replace('/maps'); return; }
       if (!r.ok) throw new Error((await r.json()).error || r.statusText);
       token = (await r.json()).token;
     } catch (e) { setStatus('Map unavailable: ' + e.message, 'loading'); return; }

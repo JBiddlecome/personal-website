@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sign in · Denver Education Market Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg0: #081120; --bg1: #0c1828; --bg2: #101f33;
+      --line: #1c2c42; --line-bright: #2a405e; --grid: rgba(122,162,220,.055);
+      --text: #e8eef6; --dim: #93a5bc; --faint: #5f7490;
+      --amber: #ffb224; --danger: #f0645c;
+      --font-display: "Archivo", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      background-color: var(--bg0);
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 48px 48px;
+      color: var(--text); font-family: var(--font-display); -webkit-font-smoothing: antialiased;
+    }
+    .card { width: 100%; max-width: 380px; background: var(--bg1); border: 1px solid var(--line-bright); border-radius: 10px; padding: 28px 26px; }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    h1 { font-size: 22px; font-weight: 700; margin: 6px 0 4px; letter-spacing: -.01em; }
+    p { color: var(--dim); font-size: 14px; margin-bottom: 20px; }
+    label { display: block; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 14px 0 6px; }
+    input {
+      width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text);
+      padding: 10px 12px; border-radius: 6px; font: inherit; font-size: 15px;
+    }
+    input:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+    button {
+      width: 100%; margin-top: 20px; padding: 11px; border: none; border-radius: 6px; cursor: pointer;
+      background: var(--amber); color: var(--bg0); font: inherit; font-weight: 700; font-size: 15px;
+    }
+    button:disabled { opacity: .6; cursor: default; }
+    .err { color: var(--danger); font-size: 13px; margin-top: 12px; min-height: 18px; }
+    .foot { margin-top: 18px; font-size: 12px; color: var(--faint); }
+    .foot a { color: var(--dim); }
+  </style>
+</head>
+<body>
+  <form class="card" id="form" autocomplete="on">
+    <div class="eyebrow">Hillyard · Denver District</div>
+    <h1>Education Account Map</h1>
+    <p>Sign in to view the map.</p>
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit" id="btn">Sign in</button>
+    <div class="err" id="err" role="alert"></div>
+    <div class="foot"><a href="/">← jakebiddlecome.com</a></div>
+  </form>
+  <script>
+    const form = document.getElementById('form');
+    const err = document.getElementById('err');
+    const btn = document.getElementById('btn');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.textContent = '';
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/maps-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: form.username.value, password: form.password.value })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || 'Sign-in failed.');
+        window.location.replace('/maps');
+      } catch (ex) {
+        err.textContent = ex.message;
+        btn.disabled = false;
+        form.password.focus();
+        form.password.select();
+      }
+    });
+  </script>
+</body>
+</html>

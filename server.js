@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Load .env for local development (Render supplies real env vars in production).
 try {
@@ -28,6 +29,13 @@ const ASSISTANT_ID = process.env.ASSISTANT_ID || 'asst_l7877S10rt2TO0Yvr1Nm6rxW'
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO = process.env.CONTACT_TO || 'jake.biddlecome@gmail.com';
 const CONTACT_FROM = process.env.CONTACT_FROM || 'onboarding@resend.dev';
+
+// /maps page gate: single shared login for the Denver education map.
+const MAPS_USER = process.env.MAPS_USER || 'kristinbooth';
+const MAPS_PASS = process.env.MAPS_PASS || 'kbooth3342';
+const MAPS_COOKIE = 'maps_session';
+const MAPS_COOKIE_SECRET = process.env.MAPS_COOKIE_SECRET || crypto.createHash('sha256').update(`${MAPS_USER}:${MAPS_PASS}`).digest('hex');
+const MAPS_SESSION_DAYS = 30;
 
 const ROOT_DIR = __dirname;
 const CHAT_LOG_PATH = process.env.CHAT_LOG_PATH || path.join(ROOT_DIR, 'prompts.log');
@@ -339,6 +347,66 @@ async function handleContact(req, res, body) {
   sendJson(res, 200, { ok: true });
 }
 
+// ── /maps login gate ─────────────────────────────────────────────
+function safeEqual(a, b) {
+  const ab = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
+function signMapsSession(expiresAt) {
+  const payload = `${MAPS_USER}|${expiresAt}`;
+  const sig = crypto.createHmac('sha256', MAPS_COOKIE_SECRET).update(payload).digest('hex');
+  return Buffer.from(`${payload}|${sig}`).toString('base64url');
+}
+
+function parseCookies(req) {
+  const out = {};
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const idx = part.indexOf('=');
+    if (idx > 0) out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+  }
+  return out;
+}
+
+function hasMapsSession(req) {
+  const raw = parseCookies(req)[MAPS_COOKIE];
+  if (!raw) return false;
+  let decoded;
+  try { decoded = Buffer.from(raw, 'base64url').toString('utf8'); } catch (_) { return false; }
+  const [user, expiresAt, sig] = decoded.split('|');
+  if (!user || !expiresAt || !sig) return false;
+  if (Number(expiresAt) < Date.now()) return false;
+  const expected = crypto.createHmac('sha256', MAPS_COOKIE_SECRET).update(`${user}|${expiresAt}`).digest('hex');
+  return user === MAPS_USER && safeEqual(sig, expected);
+}
+
+function handleMapsLogin(req, res, body) {
+  let parsedBody;
+  try { parsedBody = body ? JSON.parse(body) : {}; } catch (_) { sendJson(res, 400, { error: 'Invalid JSON body.' }); return; }
+  const username = String(parsedBody.username || '').trim();
+  const password = String(parsedBody.password || '');
+  if (!safeEqual(username.toLowerCase(), MAPS_USER.toLowerCase()) || !safeEqual(password, MAPS_PASS)) {
+    setTimeout(() => sendJson(res, 401, { error: 'Incorrect username or password.' }), 400);
+    return;
+  }
+  const expiresAt = Date.now() + MAPS_SESSION_DAYS * 24 * 60 * 60 * 1000;
+  const secure = (req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Set-Cookie': `${MAPS_COOKIE}=${signMapsSession(expiresAt)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAPS_SESSION_DAYS * 24 * 60 * 60}${secure}`
+  });
+  res.end(JSON.stringify({ ok: true }));
+}
+
+function handleMapsLogout(res) {
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Set-Cookie': `${MAPS_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+  });
+  res.end(JSON.stringify({ ok: true }));
+}
+
 // ── Logs (protected) ─────────────────────────────────────────────
 function handleLogs(req, res, url, logPath) {
   const urlObj = new URL(url, `http://${req.headers.host || 'localhost'}`);
@@ -388,7 +456,12 @@ const server = http.createServer((req, res) => {
   const { method, url } = req;
   const [pathname] = (url || '/').split('?');
 
-  if (method === 'POST' && (pathname === '/api/chat' || pathname === '/api/contact')) {
+  if (method === 'POST' && pathname === '/api/maps-logout') {
+    handleMapsLogout(res);
+    return;
+  }
+
+  if (method === 'POST' && (pathname === '/api/chat' || pathname === '/api/contact' || pathname === '/api/maps-login')) {
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
@@ -398,6 +471,7 @@ const server = http.createServer((req, res) => {
     });
     req.on('end', () => {
       if (pathname === '/api/chat') handleChat(req, res, body);
+      else if (pathname === '/api/maps-login') handleMapsLogin(req, res, body);
       else handleContact(req, res, body);
     });
     return;
@@ -405,6 +479,7 @@ const server = http.createServer((req, res) => {
 
   if (method === 'GET' && pathname === '/api/mapbox-token') {
     // Public (pk.) Mapbox token for the /maps page; restrict by URL in the Mapbox dashboard.
+    if (!hasMapsSession(req)) { sendJson(res, 401, { error: 'Login required.' }); return; }
     if (!process.env.MAPBOX_TOKEN) {
       sendJson(res, 503, { error: 'MAPBOX_TOKEN is not configured.' });
       return;
@@ -430,6 +505,20 @@ const server = http.createServer((req, res) => {
   if (!path.extname(safePath)) {
     safePath = safePath.replace(/\/$/, '');
     safePath = `${safePath || 'index'}.html`;
+  }
+
+  // /maps and its data are gated behind the shared login.
+  if (safePath === 'maps.html' || safePath.startsWith('assets/maps/')) {
+    if (!hasMapsSession(req)) {
+      if (safePath === 'maps.html') { serveStaticFile(res, path.join(ROOT_DIR, 'maps-login.html')); return; }
+      sendJson(res, 401, { error: 'Login required.' });
+      return;
+    }
+  }
+  if (safePath === 'maps-login.html' && hasMapsSession(req)) {
+    res.writeHead(302, { Location: '/maps' });
+    res.end();
+    return;
   }
 
   const filePath = path.join(ROOT_DIR, safePath);
