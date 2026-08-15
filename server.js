@@ -403,6 +403,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (method === 'GET' && pathname === '/api/mapbox-token') {
+    // Public (pk.) Mapbox token for the /maps page; restrict by URL in the Mapbox dashboard.
+    if (!process.env.MAPBOX_TOKEN) {
+      sendJson(res, 503, { error: 'MAPBOX_TOKEN is not configured.' });
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ token: process.env.MAPBOX_TOKEN }));
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/logs') {
     handleLogs(req, res, url, CHAT_LOG_PATH);
     return;
