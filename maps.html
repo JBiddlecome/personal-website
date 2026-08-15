@@ -130,6 +130,47 @@
     .marker.sq.lg { width: 19px; height: 19px; }
     .marker.dia.lg { width: 17px; height: 17px; }
     .marker.dia:hover, .marker.dia.active { transform: rotate(45deg) scale(1.35); }
+    .marker.custom { border-style: dashed; border-color: #fff; }
+    .item .custom-tag, .lp-item .custom-tag { font-family: var(--font-mono); font-size: 10px; color: var(--amber); margin-left: 6px; }
+
+    /* Locations table / add form */
+    .tbl-overlay { position: absolute; inset: 0; z-index: 20; background: rgba(8,17,32,.97); display: none; flex-direction: column; }
+    .tbl-overlay.show { display: flex; }
+    .tbl-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .tbl-head h2 { font-size: 16px; font-weight: 700; margin-right: auto; }
+    .tbl-head input[type=search], .tbl-head select { background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
+    .tbl-head button { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); color: var(--text); }
+    .tbl-head button.primary { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
+    .tbl-head .close { background: none; border: none; color: var(--faint); font-size: 22px; line-height: 1; padding: 0 4px; }
+    .tbl-scroll { overflow: auto; flex: 1; }
+    table.loc { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    table.loc th, table.loc td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    table.loc th { position: sticky; top: 0; background: var(--bg1); font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); cursor: pointer; user-select: none; white-space: nowrap; z-index: 1; }
+    table.loc th.sorted { color: var(--amber); }
+    table.loc tr:hover td { background: var(--bg2); }
+    table.loc td.name { font-weight: 600; }
+    table.loc td .sub { color: var(--faint); font-size: 11.5px; }
+    table.loc td.actions { white-space: nowrap; }
+    table.loc td.actions button { font: inherit; font-size: 11.5px; padding: 3px 7px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line-bright); background: transparent; color: var(--dim); margin-right: 4px; }
+    table.loc td.actions button:hover { color: var(--text); border-color: var(--amber); }
+    .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-family: var(--font-mono); font-size: 10.5px; border: 1px solid currentColor; }
+    .tbl-foot { padding: 8px 16px; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); }
+
+    .addform { border-bottom: 1px solid var(--line); background: var(--bg1); padding: 12px 16px; display: none; }
+    .addform.show { display: block; }
+    .addform .grid { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 10px; }
+    .addform .grid .full { grid-column: 1 / -1; }
+    .addform label { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+    .addform input, .addform select, .addform textarea { width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text); padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
+    .addform textarea { min-height: 38px; resize: vertical; }
+    .addform .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+    .addform .row button { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); color: var(--text); }
+    .addform .row button.primary { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
+    .addform .row button:disabled { opacity: .6; cursor: default; }
+    .addform .msg { font-size: 12.5px; color: var(--dim); }
+    .addform .msg.err { color: var(--danger); }
+    .addform .msg.ok { color: var(--ok); }
+    @media (max-width: 820px) { .addform .grid { grid-template-columns: 1fr 1fr; } }
     .marker:hover, .marker.active { transform: scale(1.35); z-index: 3; }
     .marker.active { box-shadow: 0 0 0 4px rgba(255,178,36,.45); }
 
@@ -195,6 +236,37 @@
       <button class="toggle-side" id="toggleSide">☰ List</button>
       <div class="map-tools">
         <button id="lassoBtn" title="Draw a freehand area to list the pins inside it">&#9186; Lasso</button>
+        <button id="tableBtn" title="View every location as a table, add your own, or download all">&#9776; Locations</button>
+      </div>
+      <div class="tbl-overlay" id="tblOverlay">
+        <div class="tbl-head">
+          <h2>All locations <span id="tblCount" style="font-family:var(--font-mono);font-size:12px;color:var(--faint);font-weight:400"></span></h2>
+          <input type="search" id="tblQ" placeholder="Search name, address, city, parent…" autocomplete="off">
+          <select id="tblSector"><option value="">All sectors</option><option value="education">Education</option><option value="government">Government</option><option value="healthcare">Healthcare</option></select>
+          <select id="tblSource"><option value="">Built-in + custom</option><option value="custom">Custom only</option><option value="builtin">Built-in only</option></select>
+          <button class="primary" id="tblAdd">+ Add location</button>
+          <button id="tblDownload">&#11015; Download all (Excel)</button>
+          <button class="close" id="tblClose" aria-label="Close">×</button>
+        </div>
+        <form class="addform" id="addForm" autocomplete="off">
+          <input type="hidden" id="afId">
+          <div class="grid">
+            <div><label for="afName">Name *</label><input id="afName" required maxlength="200" placeholder="e.g. Cherry Creek Village Rec Center"></div>
+            <div><label for="afSector">Sector *</label><select id="afSector" required></select></div>
+            <div><label for="afType">Category *</label><select id="afType" required></select></div>
+            <div><label for="afParent">Parent / operator (optional)</label><input id="afParent" maxlength="200" placeholder="e.g. City of Aurora, HCA HealthONE"></div>
+            <div class="full"><label for="afAddress">Street address * (include city, state, ZIP)</label><input id="afAddress" required maxlength="300" placeholder="e.g. 1437 Bannock St, Denver, CO 80202"></div>
+            <div><label for="afStat">Size (optional)</label><input id="afStat" maxlength="100" placeholder="e.g. 120 beds · 45,000 sq ft"></div>
+            <div class="full" style="grid-column: 2 / -1"><label for="afDetail">Notes (optional)</label><textarea id="afDetail" maxlength="1000" placeholder="Incumbent, contacts, contract dates…"></textarea></div>
+          </div>
+          <div class="row">
+            <button type="submit" class="primary" id="afSave">Save &amp; pin on map</button>
+            <button type="button" id="afCancel">Cancel</button>
+            <span class="msg" id="afMsg"></span>
+          </div>
+        </form>
+        <div class="tbl-scroll"><table class="loc" id="tbl"><thead></thead><tbody></tbody></table></div>
+        <div class="tbl-foot">Built-in rows come from the research workbooks (read-only). Custom rows are saved on the server and visible to everyone who signs in; the address is geocoded with Mapbox when saved.</div>
       </div>
       <div class="lasso-hint" id="lassoHint">Click and drag to circle an area. Press Esc to cancel.</div>
       <div id="map"></div>
@@ -308,6 +380,10 @@
 
     const data = await (await fetch('/assets/maps/locations.json')).json();
     const LOCS = data.locations;
+    try {
+      const cr = await fetch('/api/maps/custom');
+      if (cr.ok) for (const c of (await cr.json()).locations) LOCS.push(c);
+    } catch (_) { /* custom locations are optional */ }
 
     const map = new mapboxgl.Map({
       container: 'map',
@@ -329,13 +405,13 @@
     const markers = new Map(); // id -> {marker, el, loc}
 
     // ── Markers ──
-    for (const loc of LOCS) {
+    function addMarker(loc) {
       // Outer wrap is positioned by Mapbox (it owns its transform); inner el carries shape/color/rotation.
       const wrap = document.createElement('div');
       wrap.className = 'mk';
       const el = document.createElement('div');
       const t = TYPES[loc.type] || {};
-      el.className = 'marker ' + (t.shape || 'circle') + ((loc.enrollment && loc.enrollment >= 20000) || (loc.beds && loc.beds >= 300) ? ' lg' : '');
+      el.className = 'marker ' + (t.shape || 'circle') + ((loc.enrollment && loc.enrollment >= 20000) || (loc.beds && loc.beds >= 300) ? ' lg' : '') + (loc.custom ? ' custom' : '');
       el.style.background = t.color || '#fff';
       el.title = loc.name;
       wrap.appendChild(el);
@@ -343,6 +419,15 @@
       wrap.addEventListener('click', (e) => { e.stopPropagation(); select(loc.id, false); });
       markers.set(loc.id, { marker, el, wrap, loc });
     }
+    function removeMarker(id) {
+      const m = markers.get(id);
+      if (!m) return;
+      m.marker.remove(); markers.delete(id);
+      const i = LOCS.findIndex((l) => l.id === id);
+      if (i >= 0) LOCS.splice(i, 1);
+      if (selected === id) clearSelection();
+    }
+    for (const loc of LOCS) addMarker(loc);
 
     function visible(loc) {
       if (!enabled[loc.type]) return false;
@@ -395,7 +480,7 @@
             ? `${loc.schools} sites`
             : (loc.enrollment ? loc.enrollment.toLocaleString() : '—');
           it.innerHTML = `<span class="dot ${s.shape}" style="background:${COLORS[loc.type]}"></span>
-            <span><div class="name">${loc.name}</div><div class="city">${loc.city}</div></span>
+            <span><div class="name">${loc.name}${loc.custom ? '<span class="custom-tag">CUSTOM</span>' : ''}</div><div class="city">${loc.city || ''}</div></span>
             <span class="num">${stat}</span>`;
           it.addEventListener('click', () => select(loc.id, true));
           listEl.appendChild(it);
@@ -638,6 +723,173 @@
     document.getElementById('lassoClear').addEventListener('click', clearLasso);
     document.getElementById('lassoClose').addEventListener('click', () => lassoPanel.classList.remove('show'));
     document.getElementById('lassoDownload').addEventListener('click', downloadLassoXlsx);
+
+    // ── Locations table + add/edit form ──
+    const tblOverlay = document.getElementById('tblOverlay');
+    const tblQ = document.getElementById('tblQ');
+    const tblSector = document.getElementById('tblSector');
+    const tblSource = document.getElementById('tblSource');
+    const addForm = document.getElementById('addForm');
+    const afSector = document.getElementById('afSector');
+    const afType = document.getElementById('afType');
+    const afMsg = document.getElementById('afMsg');
+    let tblSort = { key: 'name', dir: 1 };
+
+    for (const sec of SECTORS) { const o = document.createElement('option'); o.value = sec.key; o.textContent = sec.label; afSector.appendChild(o); }
+    function fillTypeOptions(sectorKey, selectedType) {
+      afType.innerHTML = '';
+      const sec = SECTORS.find((x) => x.key === sectorKey) || SECTORS[0];
+      for (const t of sec.types) { const o = document.createElement('option'); o.value = t.key; o.textContent = t.label; if (t.key === selectedType) o.selected = true; afType.appendChild(o); }
+    }
+    afSector.addEventListener('change', () => fillTypeOptions(afSector.value));
+    fillTypeOptions(SECTORS[0].key);
+
+    const TBL_COLS = [
+      { key: 'name', label: 'Name' },
+      { key: 'sector', label: 'Type', get: (l) => TYPES[l.type].sectorLabel },
+      { key: 'type', label: 'Category', get: (l) => TYPES[l.type].label },
+      { key: 'address', label: 'Address' },
+      { key: 'city', label: 'City' },
+      { key: 'parent', label: 'Parent / Operator', get: (l) => l.parent || '' },
+      { key: 'stat', label: 'Size', get: (l) => l.stat || (l.enrollment ? l.enrollment.toLocaleString() + ' enrolled' : '') || (l.schools ? l.schools + ' school sites' : '') },
+      { key: 'custom', label: 'Source', get: (l) => (l.custom ? 'Custom' : 'Built-in') }
+    ];
+    const colVal = (c, l) => (c.get ? c.get(l) : (l[c.key] || ''));
+
+    function tableRows() {
+      const q = tblQ.value.trim().toLowerCase();
+      const sec = tblSector.value, src = tblSource.value;
+      let rows = LOCS.filter((l) => {
+        if (sec && TYPES[l.type].sector !== sec) return false;
+        if (src === 'custom' && !l.custom) return false;
+        if (src === 'builtin' && l.custom) return false;
+        if (!q) return true;
+        return [l.name, l.address, l.city, l.parent, TYPES[l.type].label, TYPES[l.type].sectorLabel, l.detail].some((v) => (v || '').toLowerCase().includes(q));
+      });
+      const c = TBL_COLS.find((x) => x.key === tblSort.key) || TBL_COLS[0];
+      rows.sort((a, b) => String(colVal(c, a)).localeCompare(String(colVal(c, b)), undefined, { numeric: true, sensitivity: 'base' }) * tblSort.dir);
+      return rows;
+    }
+
+    function renderTable() {
+      const thead = document.querySelector('#tbl thead');
+      const tbody = document.querySelector('#tbl tbody');
+      thead.innerHTML = '<tr>' + TBL_COLS.map((c) => `<th data-key="${c.key}" class="${tblSort.key === c.key ? 'sorted' : ''}">${c.label}${tblSort.key === c.key ? (tblSort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '<th></th></tr>';
+      thead.querySelectorAll('th[data-key]').forEach((th) => th.addEventListener('click', () => {
+        const k = th.dataset.key;
+        if (tblSort.key === k) tblSort.dir *= -1; else tblSort = { key: k, dir: 1 };
+        renderTable();
+      }));
+      const rows = tableRows();
+      document.getElementById('tblCount').textContent = `${rows.length} of ${LOCS.length}`;
+      tbody.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for (const l of rows) {
+        const t = TYPES[l.type];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="name">${esc(l.name)}${l.custom ? '<span class="custom-tag">CUSTOM</span>' : ''}</td>
+          <td><span class="pill" style="color:${t.color}">${t.sectorLabel}</span></td>
+          <td>${t.label}</td>
+          <td>${esc(l.address || '')}</td>
+          <td>${esc(l.city || '')}</td>
+          <td>${esc(l.parent || '')}</td>
+          <td>${esc(colVal(TBL_COLS[6], l))}</td>
+          <td>${l.custom ? 'Custom' : 'Built-in'}</td>
+          <td class="actions"><button data-act="show">Show on map</button>${l.custom ? '<button data-act="edit">Edit</button><button data-act="del">Delete</button>' : ''}</td>`;
+        tr.querySelector('[data-act="show"]').addEventListener('click', () => { closeTable(); select(l.id, true); });
+        if (l.custom) {
+          tr.querySelector('[data-act="edit"]').addEventListener('click', () => openForm(l));
+          tr.querySelector('[data-act="del"]').addEventListener('click', () => deleteCustom(l));
+        }
+        frag.appendChild(tr);
+      }
+      tbody.appendChild(frag);
+    }
+    function esc(v) { return String(v).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
+
+    function openTable() { tblOverlay.classList.add('show'); renderTable(); }
+    function closeTable() { tblOverlay.classList.remove('show'); addForm.classList.remove('show'); }
+
+    function openForm(loc) {
+      addForm.classList.add('show');
+      afMsg.textContent = ''; afMsg.className = 'msg';
+      document.getElementById('afId').value = loc ? loc.id : '';
+      document.getElementById('afName').value = loc ? loc.name : '';
+      afSector.value = loc ? TYPES[loc.type].sector : SECTORS[0].key;
+      fillTypeOptions(afSector.value, loc ? loc.type : null);
+      document.getElementById('afParent').value = loc ? (loc.parent || '') : '';
+      document.getElementById('afAddress').value = loc ? (loc.address || '') : '';
+      document.getElementById('afStat').value = loc ? (loc.stat || '') : '';
+      document.getElementById('afDetail').value = loc ? (loc.detail || '') : '';
+      document.getElementById('afSave').textContent = loc ? 'Save changes' : 'Save & pin on map';
+      document.getElementById('afName').focus();
+      tblOverlay.querySelector('.tbl-scroll').scrollTop = 0;
+    }
+
+    addForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('afId').value;
+      const payload = {
+        name: document.getElementById('afName').value.trim(),
+        type: afType.value,
+        address: document.getElementById('afAddress').value.trim(),
+        parent: document.getElementById('afParent').value.trim(),
+        stat: document.getElementById('afStat').value.trim(),
+        detail: document.getElementById('afDetail').value.trim()
+      };
+      const btn = document.getElementById('afSave');
+      btn.disabled = true; afMsg.className = 'msg'; afMsg.textContent = 'Looking up address…';
+      try {
+        const r = await fetch(id ? `/api/maps/custom/${id}` : '/api/maps/custom', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const d = await r.json().catch(() => ({}));
+        if (r.status === 401) { window.location.replace('/maps'); return; }
+        if (!r.ok) throw new Error(d.error || 'Save failed.');
+        const loc = d.location;
+        if (id) { removeMarker(id); }
+        LOCS.push(loc); addMarker(loc);
+        applyFilters(); renderTable();
+        afMsg.className = 'msg ok';
+        afMsg.textContent = `Saved. Pinned at ${loc.matchedAddress || loc.address}${loc.accuracy && !['exact', 'high'].includes(loc.accuracy) ? ` (approximate — geocoder confidence: ${loc.accuracy})` : ''}.`;
+        if (!id) { addForm.reset(); fillTypeOptions(afSector.value); document.getElementById('afId').value = ''; }
+        else { addForm.classList.remove('show'); }
+      } catch (err) {
+        afMsg.className = 'msg err'; afMsg.textContent = err.message;
+      } finally { btn.disabled = false; }
+    });
+
+    async function deleteCustom(loc) {
+      if (!window.confirm(`Delete "${loc.name}"? This removes it for everyone.`)) return;
+      const r = await fetch(`/api/maps/custom/${loc.id}`, { method: 'DELETE' });
+      if (r.status === 401) { window.location.replace('/maps'); return; }
+      if (!r.ok) { alert('Delete failed.'); return; }
+      removeMarker(loc.id); applyFilters(); renderTable();
+    }
+
+    function downloadAllXlsx() {
+      if (typeof XLSX === 'undefined') return;
+      const rows = tableRows().map((l) => ({
+        'Name': l.name, 'Type': TYPES[l.type].sectorLabel, 'Category': TYPES[l.type].label, 'Address': l.address || '', 'City': l.city || '',
+        'Parent / Operator': l.parent || '', 'Region / Jurisdiction': l.region || '', 'Size': colVal(TBL_COLS[6], l), 'Notes': l.detail || '',
+        'Source': l.custom ? 'Custom' : 'Built-in', 'Latitude': l.lat, 'Longitude': l.lng
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 22 }, { wch: 46 }, { wch: 16 }, { wch: 30 }, { wch: 26 }, { wch: 18 }, { wch: 60 }, { wch: 9 }, { wch: 10 }, { wch: 11 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Locations');
+      const d = new Date();
+      XLSX.writeFile(wb, `all-locations-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.xlsx`);
+    }
+
+    document.getElementById('tableBtn').addEventListener('click', openTable);
+    document.getElementById('tblClose').addEventListener('click', closeTable);
+    document.getElementById('tblAdd').addEventListener('click', () => openForm(null));
+    document.getElementById('afCancel').addEventListener('click', () => addForm.classList.remove('show'));
+    document.getElementById('tblDownload').addEventListener('click', downloadAllXlsx);
+    tblQ.addEventListener('input', renderTable);
+    tblSector.addEventListener('change', renderTable);
+    tblSource.addEventListener('change', renderTable);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && tblOverlay.classList.contains('show')) closeTable(); });
 
     // ── Wiring ──
     filtersEl.addEventListener('change', (e) => {
