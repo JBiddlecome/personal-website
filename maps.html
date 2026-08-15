@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Denver Education Market Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js"></script>
+  <style>
+    :root {
+      --bg0: #081120; --bg1: #0c1828; --bg2: #101f33;
+      --line: #1c2c42; --line-bright: #2a405e;
+      --text: #e8eef6; --dim: #93a5bc; --faint: #5f7490;
+      --amber: #ffb224; --cyan: #56c8e8; --ok: #34d399; --danger: #f0645c;
+      --college: #ffb224; --community: #56c8e8; --district: #34d399;
+      --font-display: "Archivo", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg0); color: var(--text);
+      font-family: var(--font-display); font-size: 15px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased; overflow: hidden;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .layout { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+    aside {
+      background: var(--bg1); border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .side-head { padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-top: 4px; }
+    .sub { color: var(--dim); font-size: 13px; margin-top: 4px; }
+
+    .filters { padding: 14px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+    .filter { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 14px; }
+    .filter input { accent-color: var(--amber); width: 16px; height: 16px; cursor: pointer; }
+    .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); flex: none; }
+    .swatch.college { background: var(--college); }
+    .swatch.community { background: var(--community); }
+    .swatch.district { background: var(--district); }
+    .filter .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
+
+    .search { padding: 12px 18px; border-bottom: 1px solid var(--line); }
+    .search input {
+      width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text);
+      padding: 8px 10px; border-radius: 6px; font: inherit; font-size: 14px;
+    }
+    .search input:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+
+    .list { overflow-y: auto; flex: 1; min-height: 0; padding: 6px 0; }
+    .group-label { padding: 10px 18px 4px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+    .item {
+      display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: baseline;
+      padding: 8px 18px; cursor: pointer; border-left: 3px solid transparent;
+    }
+    .item:hover { background: var(--bg2); }
+    .item.active { background: var(--bg2); border-left-color: var(--amber); }
+    .item .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+    .item .name { font-size: 13.5px; line-height: 1.3; }
+    .item .city { color: var(--faint); font-size: 12px; }
+    .item .num { font-family: var(--font-mono); font-size: 12px; color: var(--dim); white-space: nowrap; }
+
+    .side-foot { padding: 12px 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--faint); }
+    .side-foot .status { font-family: var(--font-mono); font-size: 11px; color: var(--dim); min-height: 16px; }
+
+    #map { width: 100%; height: 100%; }
+    .map-wrap { position: relative; min-width: 0; }
+
+    .iso-panel {
+      position: absolute; top: 12px; left: 12px; z-index: 5;
+      background: rgba(12,24,40,.94); border: 1px solid var(--line-bright); border-radius: 8px;
+      padding: 12px 14px; max-width: 320px; backdrop-filter: blur(6px);
+      display: none;
+    }
+    .iso-panel.show { display: block; }
+    .iso-panel h2 { font-size: 15px; font-weight: 700; line-height: 1.3; padding-right: 22px; }
+    .iso-panel .addr { color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+    .iso-panel .meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); margin-top: 6px; }
+    .iso-panel .close { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--faint); font-size: 18px; cursor: pointer; line-height: 1; }
+    .iso-panel .close:hover { color: var(--text); }
+    .iso-legend { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .iso-legend button {
+      font-family: var(--font-mono); font-size: 11.5px; padding: 5px 9px; border-radius: 999px; cursor: pointer;
+      border: 1px solid var(--line-bright); background: var(--bg2); color: var(--dim);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .iso-legend button .sw { width: 10px; height: 10px; border-radius: 50%; }
+    .iso-legend button.on { color: var(--text); border-color: currentColor; }
+    .iso-legend button.on[data-min="15"] { color: #ffb224; }
+    .iso-legend button.on[data-min="30"] { color: #ff8a3d; }
+    .iso-legend button.on[data-min="45"] { color: #f0645c; }
+    .iso-panel .within { margin-top: 10px; font-size: 12.5px; color: var(--dim); }
+    .iso-panel .within b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+    .iso-panel .mode { margin-top: 8px; display: flex; gap: 6px; }
+    .iso-panel .mode button { font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line-bright); background: transparent; color: var(--faint); cursor: pointer; }
+    .iso-panel .mode button.on { color: var(--text); border-color: var(--amber); }
+    .loading { color: var(--amber); }
+
+    .mapboxgl-popup-content { background: var(--bg1); color: var(--text); font-family: var(--font-display); border: 1px solid var(--line-bright); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+    .mapboxgl-popup-tip { border-top-color: var(--line-bright) !important; }
+    .mapboxgl-popup-close-button { color: var(--faint); font-size: 16px; }
+    .mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo { opacity: .7; }
+
+    .marker { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); cursor: pointer; transition: transform .12s; }
+    .marker.college { background: var(--college); }
+    .marker.community { background: var(--community); }
+    .marker.district { background: var(--district); }
+    .marker.lg { width: 22px; height: 22px; }
+    .marker:hover, .marker.active { transform: scale(1.35); z-index: 3; }
+    .marker.active { box-shadow: 0 0 0 4px rgba(255,178,36,.45); }
+
+    .toggle-side { display: none; position: absolute; top: 12px; right: 12px; z-index: 6; background: var(--bg1); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+      aside { position: absolute; inset: 0; z-index: 10; width: 100%; transform: translateX(-100%); transition: transform .2s; }
+      aside.open { transform: none; }
+      .toggle-side { display: block; }
+      .iso-panel { top: auto; bottom: 12px; left: 12px; right: 12px; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside id="side">
+      <div class="side-head">
+        <div class="eyebrow">Hillyard · Denver District</div>
+        <h1>Education Account Universe</h1>
+        <div class="sub">4-year colleges, community colleges &amp; K-12 district HQs. Click a pin for 15 / 30 / 45-min drive time.</div>
+      </div>
+      <div class="filters" id="filters">
+        <label class="filter"><input type="checkbox" data-type="college" checked><span class="swatch college"></span>4-Year Colleges<span class="count" id="cnt-college"></span></label>
+        <label class="filter"><input type="checkbox" data-type="community" checked><span class="swatch community"></span>Community Colleges<span class="count" id="cnt-community"></span></label>
+        <label class="filter"><input type="checkbox" data-type="district" checked><span class="swatch district"></span>School Districts<span class="count" id="cnt-district"></span></label>
+      </div>
+      <div class="search"><input id="q" type="search" placeholder="Search name or city…" autocomplete="off"></div>
+      <div class="list" id="list"></div>
+      <div class="side-foot">
+        <div class="status" id="status"></div>
+        Enrollment figures are sizing guides from mixed reporting years. Districts are pinned at their administrative HQ.
+        <div style="margin-top:6px"><a href="#" id="logout">Sign out</a></div>
+      </div>
+    </aside>
+    <div class="map-wrap">
+      <button class="toggle-side" id="toggleSide">☰ List</button>
+      <div id="map"></div>
+      <div class="iso-panel" id="isoPanel">
+        <button class="close" id="isoClose" aria-label="Close">×</button>
+        <h2 id="isoName"></h2>
+        <div class="addr" id="isoAddr"></div>
+        <div class="meta" id="isoMeta"></div>
+        <div class="mode">
+          <button data-profile="driving" class="on">Driving</button>
+          <button data-profile="driving-traffic">Driving w/ traffic</button>
+        </div>
+        <div class="iso-legend">
+          <button data-min="15" class="on"><span class="sw" style="background:#ffb224"></span>15 min</button>
+          <button data-min="30" class="on"><span class="sw" style="background:#ff8a3d"></span>30 min</button>
+          <button data-min="45" class="on"><span class="sw" style="background:#f0645c"></span>45 min</button>
+        </div>
+        <div class="within" id="isoWithin"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (async function () {
+    const TYPE_LABEL = { college: '4-Year Colleges', community: 'Community Colleges', district: 'School Districts' };
+    const COLORS = { college: '#ffb224', community: '#56c8e8', district: '#34d399' };
+    const ISO_COLORS = { 15: '#ffb224', 30: '#ff8a3d', 45: '#f0645c' };
+    const statusEl = document.getElementById('status');
+    const setStatus = (t, cls) => { statusEl.textContent = t; statusEl.className = 'status ' + (cls || ''); };
+
+    document.getElementById('logout').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/maps-logout', { method: 'POST' });
+      window.location.replace('/maps');
+    });
+
+    let token;
+    try {
+      const r = await fetch('/api/mapbox-token');
+      if (r.status === 401) { window.location.replace('/maps'); return; }
+      if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+      token = (await r.json()).token;
+    } catch (e) { setStatus('Map unavailable: ' + e.message, 'loading'); return; }
+    mapboxgl.accessToken = token;
+
+    const data = await (await fetch('/assets/maps/locations.json')).json();
+    const LOCS = data.locations;
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [-104.95, 39.75],
+      zoom: 9,
+      attributionControl: true
+    });
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+    // ── State ──
+    const enabled = { college: true, community: true, district: true };
+    let query = '';
+    let selected = null;
+    let profile = 'driving';
+    const minutesOn = { 15: true, 30: true, 45: true };
+    let isoData = null; // FeatureCollection for selected
+    const markers = new Map(); // id -> {marker, el, loc}
+
+    // ── Markers ──
+    for (const loc of LOCS) {
+      const el = document.createElement('div');
+      el.className = 'marker ' + loc.type + (loc.enrollment && loc.enrollment >= 20000 ? ' lg' : '');
+      el.title = loc.name;
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([loc.lng, loc.lat]).addTo(map);
+      el.addEventListener('click', (e) => { e.stopPropagation(); select(loc.id, false); });
+      markers.set(loc.id, { marker, el, loc });
+    }
+
+    function visible(loc) {
+      if (!enabled[loc.type]) return false;
+      if (!query) return true;
+      const q = query.toLowerCase();
+      return loc.name.toLowerCase().includes(q) || (loc.city || '').toLowerCase().includes(q) || (loc.address || '').toLowerCase().includes(q);
+    }
+
+    function applyFilters() {
+      const counts = { college: 0, community: 0, district: 0 };
+      for (const { el, loc } of markers.values()) {
+        const v = visible(loc);
+        el.style.display = v ? '' : 'none';
+        if (v) counts[loc.type]++;
+      }
+      for (const t in counts) document.getElementById('cnt-' + t).textContent = counts[t];
+      renderList();
+      updateWithin();
+    }
+
+    // ── Sidebar list ──
+    const listEl = document.getElementById('list');
+    function renderList() {
+      listEl.innerHTML = '';
+      for (const type of ['college', 'community', 'district']) {
+        const rows = LOCS.filter((l) => l.type === type && visible(l));
+        if (!rows.length) continue;
+        const gl = document.createElement('div');
+        gl.className = 'group-label'; gl.textContent = TYPE_LABEL[type];
+        listEl.appendChild(gl);
+        for (const loc of rows) {
+          const it = document.createElement('div');
+          it.className = 'item' + (selected === loc.id ? ' active' : '');
+          it.dataset.id = loc.id;
+          const stat = loc.type === 'district'
+            ? `${loc.schools} sites`
+            : (loc.enrollment ? loc.enrollment.toLocaleString() : '—');
+          it.innerHTML = `<span class="dot" style="background:${COLORS[loc.type]}"></span>
+            <span><div class="name">${loc.name}</div><div class="city">${loc.city}</div></span>
+            <span class="num">${stat}</span>`;
+          it.addEventListener('click', () => select(loc.id, true));
+          listEl.appendChild(it);
+        }
+      }
+    }
+
+    // ── Isochrones ──
+    map.on('load', () => {
+      window.__map = map;
+      const firstSymbol = (map.getStyle().layers.find((l) => l.type === 'symbol') || {}).id;
+      map.addSource('iso', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({
+        id: 'iso-fill', type: 'fill', source: 'iso',
+        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 }
+      }, firstSymbol);
+      map.addLayer({
+        id: 'iso-line', type: 'line', source: 'iso',
+        paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.95 }
+      }, firstSymbol);
+      applyFilters();
+    });
+
+    const panel = document.getElementById('isoPanel');
+    async function loadIsochrone(loc) {
+      setStatus('Loading drive-time areas…', 'loading');
+      const url = `https://api.mapbox.com/isochrone/v1/mapbox/${profile}/${loc.lng},${loc.lat}?contours_minutes=15,30,45&polygons=true&denoise=1&access_token=${token}`;
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('Isochrone ' + r.status);
+        const fc = await r.json();
+        // Attach our colors; Mapbox returns largest contour first — keep that order so smaller draws on top.
+        fc.features.forEach((f) => { f.properties.color = ISO_COLORS[f.properties.contour] || '#fff'; });
+        isoData = fc;
+        drawIso();
+        setStatus('');
+      } catch (e) {
+        setStatus('Drive-time load failed: ' + e.message, 'loading');
+      }
+    }
+
+    function drawIso() {
+      const src = map.getSource('iso');
+      if (!src) return;
+      if (!isoData) { src.setData({ type: 'FeatureCollection', features: [] }); return; }
+      const feats = isoData.features.filter((f) => minutesOn[f.properties.contour]);
+      src.setData({ type: 'FeatureCollection', features: feats });
+      updateWithin();
+    }
+
+    // Point-in-polygon (ray cast) over MultiPolygon/Polygon rings.
+    function pointInRing(pt, ring) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        const intersect = ((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+    function pointInFeature(pt, f) {
+      const g = f.geometry;
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      return polys.some((poly) => pointInRing(pt, poly[0]) && !poly.slice(1).some((hole) => pointInRing(pt, hole)));
+    }
+
+    function updateWithin() {
+      const el = document.getElementById('isoWithin');
+      if (!isoData || selected == null) { el.innerHTML = ''; return; }
+      const byMin = {};
+      for (const f of isoData.features) byMin[f.properties.contour] = f;
+      const others = LOCS.filter((l) => l.id !== selected && visible(l));
+      const parts = [];
+      for (const m of [15, 30, 45]) {
+        if (!byMin[m]) continue;
+        const n = others.filter((l) => pointInFeature([l.lng, l.lat], byMin[m])).length;
+        parts.push(`<b style="color:${ISO_COLORS[m]}">${n}</b> within ${m} min`);
+      }
+      el.innerHTML = 'Other visible accounts: ' + parts.join(' · ');
+    }
+
+    function select(id, flyTo) {
+      selected = id;
+      for (const { el, loc } of markers.values()) el.classList.toggle('active', loc.id === id);
+      const loc = markers.get(id).loc;
+      document.getElementById('isoName').textContent = loc.name;
+      document.getElementById('isoAddr').textContent = loc.address;
+      const bits = [TYPE_LABEL[loc.type].replace(/s$/, ''), loc.region];
+      if (loc.enrollment) bits.push(loc.enrollment.toLocaleString() + ' enrolled');
+      if (loc.schools) bits.push(loc.schools + ' school sites');
+      if (loc.detail) bits.push(loc.detail);
+      document.getElementById('isoMeta').textContent = bits.join(' · ');
+      panel.classList.add('show');
+      renderList();
+      const active = listEl.querySelector('.item.active');
+      if (active) active.scrollIntoView({ block: 'nearest' });
+      if (flyTo) map.flyTo({ center: [loc.lng, loc.lat], zoom: Math.max(map.getZoom(), 10), speed: 1.2 });
+      if (window.innerWidth <= 820) document.getElementById('side').classList.remove('open');
+      loadIsochrone(loc);
+    }
+
+    function clearSelection() {
+      selected = null; isoData = null;
+      panel.classList.remove('show');
+      for (const { el } of markers.values()) el.classList.remove('active');
+      drawIso(); renderList();
+    }
+
+    // ── Wiring ──
+    document.getElementById('filters').addEventListener('change', (e) => {
+      if (e.target.dataset.type) { enabled[e.target.dataset.type] = e.target.checked; applyFilters(); }
+    });
+    document.getElementById('q').addEventListener('input', (e) => { query = e.target.value.trim(); applyFilters(); });
+    document.getElementById('isoClose').addEventListener('click', clearSelection);
+    panel.querySelectorAll('.iso-legend button').forEach((b) => b.addEventListener('click', () => {
+      const m = b.dataset.min; minutesOn[m] = !minutesOn[m]; b.classList.toggle('on', minutesOn[m]); drawIso();
+    }));
+    panel.querySelectorAll('.mode button').forEach((b) => b.addEventListener('click', () => {
+      profile = b.dataset.profile;
+      panel.querySelectorAll('.mode button').forEach((x) => x.classList.toggle('on', x === b));
+      if (selected != null) loadIsochrone(markers.get(selected).loc);
+    }));
+    document.getElementById('toggleSide').addEventListener('click', () => document.getElementById('side').classList.toggle('open'));
+    map.on('click', () => { /* keep selection; close via × */ });
+
+    applyFilters();
+  })();
+  </script>
+</body>
+</html>
