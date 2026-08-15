@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>Denver Education Market Map</title>
+  <title>Education, Government, and Healthcare Map</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +16,6 @@
       --line: #1c2c42; --line-bright: #2a405e;
       --text: #e8eef6; --dim: #93a5bc; --faint: #5f7490;
       --amber: #ffb224; --cyan: #56c8e8; --ok: #34d399; --danger: #f0645c;
-      --college: #ffb224; --community: #56c8e8; --district: #34d399;
       --font-display: "Archivo", system-ui, sans-serif;
       --font-mono: "JetBrains Mono", ui-monospace, monospace;
     }
@@ -40,13 +39,21 @@
     h1 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-top: 4px; }
     .sub { color: var(--dim); font-size: 13px; margin-top: 4px; }
 
-    .filters { padding: 14px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
-    .filter { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 14px; }
-    .filter input { accent-color: var(--amber); width: 16px; height: 16px; cursor: pointer; }
+    .filters { border-bottom: 1px solid var(--line); max-height: 42vh; overflow-y: auto; }
+    .sector { padding: 10px 18px 8px; }
+    .sector + .sector { border-top: 1px solid var(--line); }
+    .sector-head { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .sector-head input { accent-color: var(--amber); width: 16px; height: 16px; cursor: pointer; }
+    .sector-head .title { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+    .sector-head .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
+    .sector-head .chev { color: var(--faint); font-size: 11px; transition: transform .15s; }
+    .sector.collapsed .chev { transform: rotate(-90deg); }
+    .sector.collapsed .types { display: none; }
+    .types { display: grid; gap: 4px; margin-top: 8px; padding-left: 4px; }
+    .filter { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 13.5px; }
+    .filter input { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
     .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); flex: none; }
-    .swatch.college { background: var(--college); }
-    .swatch.community { background: var(--community); }
-    .swatch.district { background: var(--district); }
+    .swatch.sq { border-radius: 3px; }
     .filter .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
 
     .search { padding: 12px 18px; border-bottom: 1px solid var(--line); }
@@ -65,6 +72,8 @@
     .item:hover { background: var(--bg2); }
     .item.active { background: var(--bg2); border-left-color: var(--amber); }
     .item .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+    .item .dot.sq { border-radius: 2px; }
+    .sector-label { padding: 12px 18px 2px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); font-weight: 600; }
     .item .name { font-size: 13.5px; line-height: 1.3; }
     .item .city { color: var(--faint); font-size: 12px; }
     .item .num { font-family: var(--font-mono); font-size: 12px; color: var(--dim); white-space: nowrap; }
@@ -110,11 +119,10 @@
     .mapboxgl-popup-close-button { color: var(--faint); font-size: 16px; }
     .mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo { opacity: .7; }
 
-    .marker { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); cursor: pointer; transition: transform .12s; }
-    .marker.college { background: var(--college); }
-    .marker.community { background: var(--community); }
-    .marker.district { background: var(--district); }
+    .marker { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); cursor: pointer; transition: transform .12s; }
+    .marker.sq { border-radius: 3px; width: 13px; height: 13px; }
     .marker.lg { width: 22px; height: 22px; }
+    .marker.sq.lg { width: 19px; height: 19px; }
     .marker:hover, .marker.active { transform: scale(1.35); z-index: 3; }
     .marker.active { box-shadow: 0 0 0 4px rgba(255,178,36,.45); }
 
@@ -134,19 +142,15 @@
     <aside id="side">
       <div class="side-head">
         <div class="eyebrow">Hillyard · Denver District</div>
-        <h1>Education Account Universe</h1>
-        <div class="sub">4-year colleges, community colleges &amp; K-12 district HQs. Click a pin for 15 / 30 / 45-min drive time.</div>
+        <h1>Education &amp; Government Account Map</h1>
+        <div class="sub">Colleges, school districts, and public-sector facilities across the Denver metro. Click a pin for 15 / 30 / 45-min drive time.</div>
       </div>
-      <div class="filters" id="filters">
-        <label class="filter"><input type="checkbox" data-type="college" checked><span class="swatch college"></span>4-Year Colleges<span class="count" id="cnt-college"></span></label>
-        <label class="filter"><input type="checkbox" data-type="community" checked><span class="swatch community"></span>Community Colleges<span class="count" id="cnt-community"></span></label>
-        <label class="filter"><input type="checkbox" data-type="district" checked><span class="swatch district"></span>School Districts<span class="count" id="cnt-district"></span></label>
-      </div>
+      <div class="filters" id="filters"></div>
       <div class="search"><input id="q" type="search" placeholder="Search name or city…" autocomplete="off"></div>
       <div class="list" id="list"></div>
       <div class="side-foot">
         <div class="status" id="status"></div>
-        Enrollment figures are sizing guides from mixed reporting years. Districts are pinned at their administrative HQ.
+        Sizing figures are guides from mixed reporting years. Districts, agencies, and departments are pinned at their HQ / main facility.
         <div style="margin-top:6px"><a href="#" id="logout">Sign out</a></div>
       </div>
     </aside>
@@ -174,8 +178,52 @@
 
   <script>
   (async function () {
-    const TYPE_LABEL = { college: '4-Year Colleges', community: 'Community Colleges', district: 'School Districts' };
-    const COLORS = { college: '#ffb224', community: '#56c8e8', district: '#34d399' };
+    const SECTORS = [
+      { key: 'education', label: 'Education', shape: 'circle', types: [
+        { key: 'college', label: '4-Year Colleges', color: '#ffb224' },
+        { key: 'community', label: 'Community Colleges', color: '#56c8e8' },
+        { key: 'district', label: 'School Districts', color: '#34d399' }
+      ] },
+      { key: 'government', label: 'Government', shape: 'sq', types: [
+        { key: 'federal', label: 'Federal', color: '#a78bfa' },
+        { key: 'state', label: 'State of Colorado', color: '#e879f9' },
+        { key: 'transit', label: 'Transit & Airports', color: '#f472b6' },
+        { key: 'county', label: 'Counties', color: '#fb7185' },
+        { key: 'city', label: 'Cities & Towns', color: '#fb923c' },
+        { key: 'parks', label: 'Parks & Rec', color: '#a3e635' },
+        { key: 'fire', label: 'Fire', color: '#ef4444' },
+        { key: 'police', label: 'Police & Detention', color: '#60a5fa' },
+        { key: 'library', label: 'Libraries', color: '#c084fc' },
+        { key: 'venue', label: 'Venues & Cultural', color: '#2dd4bf' },
+        { key: 'utility', label: 'Water & Utilities', color: '#38bdf8' },
+        { key: 'housing', label: 'Housing & Authorities', color: '#d4a373' }
+      ] }
+    ];
+    const TYPES = {};
+    for (const s of SECTORS) for (const t of s.types) TYPES[t.key] = { ...t, sector: s.key, sectorLabel: s.label, shape: s.shape };
+    const TYPE_LABEL = Object.fromEntries(Object.values(TYPES).map((t) => [t.key, t.label]));
+    const COLORS = Object.fromEntries(Object.values(TYPES).map((t) => [t.key, t.color]));
+
+    // Build filter UI
+    const filtersEl = document.getElementById('filters');
+    for (const s of SECTORS) {
+      const sec = document.createElement('div');
+      sec.className = 'sector';
+      sec.dataset.sector = s.key;
+      sec.innerHTML = `<div class="sector-head"><input type="checkbox" data-sector="${s.key}" checked><span class="title">${s.label}</span><span class="count" id="cnt-sector-${s.key}"></span><span class="chev">&#9660;</span></div><div class="types"></div>`;
+      const typesEl = sec.querySelector('.types');
+      for (const t of s.types) {
+        const l = document.createElement('label');
+        l.className = 'filter';
+        l.innerHTML = `<input type="checkbox" data-type="${t.key}" checked><span class="swatch ${s.shape === 'sq' ? 'sq' : ''}" style="background:${t.color}"></span>${t.label}<span class="count" id="cnt-${t.key}"></span>`;
+        typesEl.appendChild(l);
+      }
+      sec.querySelector('.sector-head').addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        sec.classList.toggle('collapsed');
+      });
+      filtersEl.appendChild(sec);
+    }
     const ISO_COLORS = { 15: '#ffb224', 30: '#ff8a3d', 45: '#f0645c' };
     const statusEl = document.getElementById('status');
     const setStatus = (t, cls) => { statusEl.textContent = t; statusEl.className = 'status ' + (cls || ''); };
@@ -209,7 +257,7 @@
     map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
     // ── State ──
-    const enabled = { college: true, community: true, district: true };
+    const enabled = Object.fromEntries(Object.keys(TYPES).map((k) => [k, true]));
     let query = '';
     let selected = null;
     let profile = 'driving';
@@ -220,7 +268,9 @@
     // ── Markers ──
     for (const loc of LOCS) {
       const el = document.createElement('div');
-      el.className = 'marker ' + loc.type + (loc.enrollment && loc.enrollment >= 20000 ? ' lg' : '');
+      const t = TYPES[loc.type] || {};
+      el.className = 'marker' + (t.shape === 'sq' ? ' sq' : '') + (loc.enrollment && loc.enrollment >= 20000 ? ' lg' : '');
+      el.style.background = t.color || '#fff';
       el.title = loc.name;
       const marker = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([loc.lng, loc.lat]).addTo(map);
       el.addEventListener('click', (e) => { e.stopPropagation(); select(loc.id, false); });
@@ -235,13 +285,20 @@
     }
 
     function applyFilters() {
-      const counts = { college: 0, community: 0, district: 0 };
+      const counts = Object.fromEntries(Object.keys(TYPES).map((k) => [k, 0]));
+      const sectorCounts = Object.fromEntries(SECTORS.map((s) => [s.key, 0]));
       for (const { el, loc } of markers.values()) {
         const v = visible(loc);
         el.style.display = v ? '' : 'none';
-        if (v) counts[loc.type]++;
+        if (v) { counts[loc.type]++; sectorCounts[TYPES[loc.type].sector]++; }
       }
       for (const t in counts) document.getElementById('cnt-' + t).textContent = counts[t];
+      for (const sk in sectorCounts) document.getElementById('cnt-sector-' + sk).textContent = sectorCounts[sk];
+      for (const s of SECTORS) {
+        const on = s.types.filter((t) => enabled[t.key]).length;
+        const cb = filtersEl.querySelector(`input[data-sector="${s.key}"]`);
+        cb.checked = on === s.types.length; cb.indeterminate = on > 0 && on < s.types.length;
+      }
       renderList();
       updateWithin();
     }
@@ -250,7 +307,13 @@
     const listEl = document.getElementById('list');
     function renderList() {
       listEl.innerHTML = '';
-      for (const type of ['college', 'community', 'district']) {
+      for (const s of SECTORS) {
+        if (!LOCS.some((l) => TYPES[l.type].sector === s.key && visible(l))) continue;
+        const sl = document.createElement('div');
+        sl.className = 'sector-label'; sl.textContent = s.label;
+        listEl.appendChild(sl);
+        for (const t of s.types) {
+        const type = t.key;
         const rows = LOCS.filter((l) => l.type === type && visible(l));
         if (!rows.length) continue;
         const gl = document.createElement('div');
@@ -260,14 +323,15 @@
           const it = document.createElement('div');
           it.className = 'item' + (selected === loc.id ? ' active' : '');
           it.dataset.id = loc.id;
-          const stat = loc.type === 'district'
+          const stat = loc.stat ? loc.stat : loc.type === 'district'
             ? `${loc.schools} sites`
             : (loc.enrollment ? loc.enrollment.toLocaleString() : '—');
-          it.innerHTML = `<span class="dot" style="background:${COLORS[loc.type]}"></span>
+          it.innerHTML = `<span class="dot ${s.shape === 'sq' ? 'sq' : ''}" style="background:${COLORS[loc.type]}"></span>
             <span><div class="name">${loc.name}</div><div class="city">${loc.city}</div></span>
             <span class="num">${stat}</span>`;
           it.addEventListener('click', () => select(loc.id, true));
           listEl.appendChild(it);
+        }
         }
       }
     }
@@ -286,6 +350,7 @@
         paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.95 }
       }, firstSymbol);
       applyFilters();
+      drawIso(); // in case a pin was clicked before the style finished loading
     });
 
     const panel = document.getElementById('isoPanel');
@@ -352,9 +417,10 @@
       const loc = markers.get(id).loc;
       document.getElementById('isoName').textContent = loc.name;
       document.getElementById('isoAddr').textContent = loc.address;
-      const bits = [TYPE_LABEL[loc.type].replace(/s$/, ''), loc.region];
+      const bits = [TYPES[loc.type].sectorLabel + ' · ' + TYPE_LABEL[loc.type], loc.region];
       if (loc.enrollment) bits.push(loc.enrollment.toLocaleString() + ' enrolled');
       if (loc.schools) bits.push(loc.schools + ' school sites');
+      if (loc.stat) bits.push(loc.stat);
       if (loc.detail) bits.push(loc.detail);
       document.getElementById('isoMeta').textContent = bits.join(' · ');
       panel.classList.add('show');
@@ -374,8 +440,13 @@
     }
 
     // ── Wiring ──
-    document.getElementById('filters').addEventListener('change', (e) => {
+    filtersEl.addEventListener('change', (e) => {
       if (e.target.dataset.type) { enabled[e.target.dataset.type] = e.target.checked; applyFilters(); }
+      else if (e.target.dataset.sector) {
+        const s = SECTORS.find((x) => x.key === e.target.dataset.sector);
+        for (const t of s.types) { enabled[t.key] = e.target.checked; filtersEl.querySelector(`input[data-type="${t.key}"]`).checked = e.target.checked; }
+        applyFilters();
+      }
     });
     document.getElementById('q').addEventListener('input', (e) => { query = e.target.value.trim(); applyFilters(); });
     document.getElementById('isoClose').addEventListener('click', clearSelection);
