@@ -39,7 +39,7 @@
     h1 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-top: 4px; }
     .sub { color: var(--dim); font-size: 13px; margin-top: 4px; }
 
-    .filters { border-bottom: 1px solid var(--line); max-height: 42vh; overflow-y: auto; }
+    .filters { border-bottom: 1px solid var(--line); max-height: 40vh; overflow-y: auto; }
     .sector { padding: 10px 18px 8px; }
     .sector + .sector { border-top: 1px solid var(--line); }
     .sector-head { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
@@ -54,6 +54,7 @@
     .filter input { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
     .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); flex: none; }
     .swatch.sq { border-radius: 3px; }
+    .swatch.dia { border-radius: 2px; transform: rotate(45deg) scale(.85); }
     .filter .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
 
     .search { padding: 12px 18px; border-bottom: 1px solid var(--line); }
@@ -73,6 +74,7 @@
     .item.active { background: var(--bg2); border-left-color: var(--amber); }
     .item .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
     .item .dot.sq { border-radius: 2px; }
+    .item .dot.dia { border-radius: 1px; transform: rotate(45deg) scale(.9); }
     .sector-label { padding: 12px 18px 2px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); font-weight: 600; }
     .item .name { font-size: 13.5px; line-height: 1.3; }
     .item .city { color: var(--faint); font-size: 12px; }
@@ -119,10 +121,14 @@
     .mapboxgl-popup-close-button { color: var(--faint); font-size: 16px; }
     .mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo { opacity: .7; }
 
+    .mk { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; cursor: pointer; }
     .marker { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); cursor: pointer; transition: transform .12s; }
     .marker.sq { border-radius: 3px; width: 13px; height: 13px; }
+    .marker.dia { border-radius: 2px; width: 12px; height: 12px; transform: rotate(45deg); }
     .marker.lg { width: 22px; height: 22px; }
     .marker.sq.lg { width: 19px; height: 19px; }
+    .marker.dia.lg { width: 17px; height: 17px; }
+    .marker.dia:hover, .marker.dia.active { transform: rotate(45deg) scale(1.35); }
     .marker:hover, .marker.active { transform: scale(1.35); z-index: 3; }
     .marker.active { box-shadow: 0 0 0 4px rgba(255,178,36,.45); }
 
@@ -142,15 +148,15 @@
     <aside id="side">
       <div class="side-head">
         <div class="eyebrow">Hillyard · Denver District</div>
-        <h1>Education &amp; Government Account Map</h1>
-        <div class="sub">Colleges, school districts, and public-sector facilities across the Denver metro. Click a pin for 15 / 30 / 45-min drive time.</div>
+        <h1>Education, Government &amp; Healthcare Map</h1>
+        <div class="sub">Colleges, school districts, public-sector facilities, hospitals, and long-term care across the Denver metro. Click a pin for 15 / 30 / 45-min drive time. Search matches name, city, or parent system.</div>
       </div>
       <div class="filters" id="filters"></div>
       <div class="search"><input id="q" type="search" placeholder="Search name or city…" autocomplete="off"></div>
       <div class="list" id="list"></div>
       <div class="side-foot">
         <div class="status" id="status"></div>
-        Sizing figures are guides from mixed reporting years. Districts, agencies, and departments are pinned at their HQ / main facility.
+        Sizing figures are guides from mixed reporting years. Districts, agencies, and departments are pinned at their HQ / main facility; healthcare beds are licensed, not staffed.
         <div style="margin-top:6px"><a href="#" id="logout">Sign out</a></div>
       </div>
     </aside>
@@ -197,6 +203,14 @@
         { key: 'venue', label: 'Venues & Cultural', color: '#2dd4bf' },
         { key: 'utility', label: 'Water & Utilities', color: '#38bdf8' },
         { key: 'housing', label: 'Housing & Authorities', color: '#d4a373' }
+      ] },
+      { key: 'healthcare', label: 'Healthcare', shape: 'dia', types: [
+        { key: 'hospital', label: 'Hospitals', color: '#f43f5e' },
+        { key: 'snf', label: 'Skilled Nursing', color: '#fb923c' },
+        { key: 'senior', label: 'Senior Living (AL / MC / CCRC)', color: '#facc15' },
+        { key: 'behavioral', label: 'Behavioral Health', color: '#c084fc' },
+        { key: 'rehab', label: 'Rehab & LTACH', color: '#34d399' },
+        { key: 'other', label: 'Other Healthcare', color: '#94a3b8' }
       ] }
     ];
     const TYPES = {};
@@ -210,12 +224,13 @@
       const sec = document.createElement('div');
       sec.className = 'sector';
       sec.dataset.sector = s.key;
+      if (s.types.length > 6) sec.classList.add('collapsed'); // long lists start collapsed; header still shows count
       sec.innerHTML = `<div class="sector-head"><input type="checkbox" data-sector="${s.key}" checked><span class="title">${s.label}</span><span class="count" id="cnt-sector-${s.key}"></span><span class="chev">&#9660;</span></div><div class="types"></div>`;
       const typesEl = sec.querySelector('.types');
       for (const t of s.types) {
         const l = document.createElement('label');
         l.className = 'filter';
-        l.innerHTML = `<input type="checkbox" data-type="${t.key}" checked><span class="swatch ${s.shape === 'sq' ? 'sq' : ''}" style="background:${t.color}"></span>${t.label}<span class="count" id="cnt-${t.key}"></span>`;
+        l.innerHTML = `<input type="checkbox" data-type="${t.key}" checked><span class="swatch ${s.shape}" style="background:${t.color}"></span>${t.label}<span class="count" id="cnt-${t.key}"></span>`;
         typesEl.appendChild(l);
       }
       sec.querySelector('.sector-head').addEventListener('click', (e) => {
@@ -267,29 +282,33 @@
 
     // ── Markers ──
     for (const loc of LOCS) {
+      // Outer wrap is positioned by Mapbox (it owns its transform); inner el carries shape/color/rotation.
+      const wrap = document.createElement('div');
+      wrap.className = 'mk';
       const el = document.createElement('div');
       const t = TYPES[loc.type] || {};
-      el.className = 'marker' + (t.shape === 'sq' ? ' sq' : '') + (loc.enrollment && loc.enrollment >= 20000 ? ' lg' : '');
+      el.className = 'marker ' + (t.shape || 'circle') + ((loc.enrollment && loc.enrollment >= 20000) || (loc.beds && loc.beds >= 300) ? ' lg' : '');
       el.style.background = t.color || '#fff';
       el.title = loc.name;
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([loc.lng, loc.lat]).addTo(map);
-      el.addEventListener('click', (e) => { e.stopPropagation(); select(loc.id, false); });
-      markers.set(loc.id, { marker, el, loc });
+      wrap.appendChild(el);
+      const marker = new mapboxgl.Marker({ element: wrap, anchor: 'center' }).setLngLat([loc.lng, loc.lat]).addTo(map);
+      wrap.addEventListener('click', (e) => { e.stopPropagation(); select(loc.id, false); });
+      markers.set(loc.id, { marker, el, wrap, loc });
     }
 
     function visible(loc) {
       if (!enabled[loc.type]) return false;
       if (!query) return true;
       const q = query.toLowerCase();
-      return loc.name.toLowerCase().includes(q) || (loc.city || '').toLowerCase().includes(q) || (loc.address || '').toLowerCase().includes(q);
+      return loc.name.toLowerCase().includes(q) || (loc.city || '').toLowerCase().includes(q) || (loc.address || '').toLowerCase().includes(q) || (loc.parent || '').toLowerCase().includes(q);
     }
 
     function applyFilters() {
       const counts = Object.fromEntries(Object.keys(TYPES).map((k) => [k, 0]));
       const sectorCounts = Object.fromEntries(SECTORS.map((s) => [s.key, 0]));
-      for (const { el, loc } of markers.values()) {
+      for (const { wrap, loc } of markers.values()) {
         const v = visible(loc);
-        el.style.display = v ? '' : 'none';
+        wrap.style.display = v ? '' : 'none';
         if (v) { counts[loc.type]++; sectorCounts[TYPES[loc.type].sector]++; }
       }
       for (const t in counts) document.getElementById('cnt-' + t).textContent = counts[t];
@@ -326,7 +345,7 @@
           const stat = loc.stat ? loc.stat : loc.type === 'district'
             ? `${loc.schools} sites`
             : (loc.enrollment ? loc.enrollment.toLocaleString() : '—');
-          it.innerHTML = `<span class="dot ${s.shape === 'sq' ? 'sq' : ''}" style="background:${COLORS[loc.type]}"></span>
+          it.innerHTML = `<span class="dot ${s.shape}" style="background:${COLORS[loc.type]}"></span>
             <span><div class="name">${loc.name}</div><div class="city">${loc.city}</div></span>
             <span class="num">${stat}</span>`;
           it.addEventListener('click', () => select(loc.id, true));
@@ -420,6 +439,7 @@
       const bits = [TYPES[loc.type].sectorLabel + ' · ' + TYPE_LABEL[loc.type], loc.region];
       if (loc.enrollment) bits.push(loc.enrollment.toLocaleString() + ' enrolled');
       if (loc.schools) bits.push(loc.schools + ' school sites');
+      if (loc.parent) bits.push('Parent: ' + loc.parent);
       if (loc.stat) bits.push(loc.stat);
       if (loc.detail) bits.push(loc.detail);
       document.getElementById('isoMeta').textContent = bits.join(' · ');
