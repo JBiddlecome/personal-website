@@ -2,3 +2,4 @@ node_modules/
 prompts.log
 contact-submissions.log
 .env
+data/
