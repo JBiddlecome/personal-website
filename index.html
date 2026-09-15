@@ -267,6 +267,84 @@
             <p>ADP payroll and Xero accounting integrations, digital onboarding with real government forms, geolocation clock-in, push notifications — and production release.</p>
           </div>
         </div>
+
+        <div class="app-showcase">
+          <div class="showcase-head reveal">
+            <p class="route"><span class="verb">GET</span> /staffing-platform/screens</p>
+            <h3>The product, not the pitch deck.</h3>
+            <p>Native iOS and Android apps for workers and clients, plus web portals for admins, clients, and employees — every screen backed by the same API. Shown with demo data.</p>
+          </div>
+
+          <p class="showcase-label reveal">Mobile app <span>· React Native / Expo</span></p>
+          <div class="phone-rail reveal-stagger">
+            <button type="button" class="phone" style="--i:0" data-shot="employee-find-shifts-map">
+              <span class="phone-frame"><img src="assets/platform/employee-find-shifts-map.webp" alt="Mobile app: map-based shift search" loading="lazy" width="640" height="1425" /></span>
+              <span class="phone-cap"><b>Find shifts</b>Map search by role, date, and distance</span>
+            </button>
+            <button type="button" class="phone" style="--i:1" data-shot="employee-shift-request-details">
+              <span class="phone-frame"><img src="assets/platform/employee-shift-request-details.webp" alt="Mobile app: shift request details with pay and check-in info" loading="lazy" width="640" height="1425" /></span>
+              <span class="phone-cap"><b>Shift details</b>Pay, check-in, and venue info</span>
+            </button>
+            <button type="button" class="phone" style="--i:2" data-shot="employee-timeclock">
+              <span class="phone-frame"><img src="assets/platform/employee-timeclock.webp" alt="Mobile app: timeclock with meal break and clock out" loading="lazy" width="640" height="1425" /></span>
+              <span class="phone-cap"><b>Timeclock</b>Geolocation clock-in, breaks, clock-out</span>
+            </button>
+            <button type="button" class="phone" style="--i:3" data-shot="employee-profile-badges">
+              <span class="phone-frame"><img src="assets/platform/employee-profile-badges.webp" alt="Mobile app: worker profile with badges and ratings" loading="lazy" width="640" height="1425" /></span>
+              <span class="phone-cap"><b>Worker profile</b>Badges, ratings, uniform checks</span>
+            </button>
+            <button type="button" class="phone" style="--i:4" data-shot="client-approved-timesheets">
+              <span class="phone-frame"><img src="assets/platform/client-approved-timesheets.webp" alt="Client app: approved timesheets with no-show flag" loading="lazy" width="640" height="1425" /></span>
+              <span class="phone-cap"><b>Timesheet review</b>Client approvals and no-show flags</span>
+            </button>
+            <button type="button" class="phone" style="--i:5" data-shot="client-employee-experience">
+              <span class="phone-frame"><img src="assets/platform/client-employee-experience.webp" alt="Client app: worker experience summary" loading="lazy" width="640" height="1425" /></span>
+              <span class="phone-cap"><b>Worker summaries</b>Experience summarized from worker documents</span>
+            </button>
+          </div>
+
+          <p class="showcase-label reveal">Web portals <span>· admin / client / employee</span></p>
+          <div class="web-rail reveal-stagger">
+            <button type="button" class="browser" style="--i:0" data-shot="web-employee-calendar">
+              <span class="browser-frame"><i></i><i></i><i></i><img src="assets/platform/web-employee-calendar.webp" alt="Employee portal: availability calendar and shift requests" loading="lazy" /></span>
+              <span class="phone-cap"><b>Employee portal</b>Availability calendar, open shifts, requests</span>
+            </button>
+            <button type="button" class="browser" style="--i:1" data-shot="web-shift-details">
+              <span class="browser-frame"><i></i><i></i><i></i><img src="assets/platform/web-shift-details.webp" alt="Employee portal: shift details with pay breakdown" loading="lazy" /></span>
+              <span class="phone-cap"><b>Shift details</b>Pay breakdown with bonus, travel, and mileage</span>
+            </button>
+            <button type="button" class="browser" style="--i:2" data-shot="web-client-event-reviews">
+              <span class="browser-frame"><i></i><i></i><i></i><img src="assets/platform/web-client-event-reviews.webp" alt="Client portal: event staffing with worker reviews" loading="lazy" /></span>
+              <span class="phone-cap"><b>Client portal</b>Event staffing, estimated billing, reviews</span>
+            </button>
+          </div>
+
+          <div class="showcase-cta reveal">
+            <button type="button" class="gallery-open" id="gallery-open">View all 42 screens <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+
+        <dialog class="gallery" id="gallery" aria-label="Staffing platform screenshots">
+          <div class="gallery-bar">
+            <div class="gallery-tabs" role="group" aria-label="Filter screenshots">
+              <button type="button" data-filter="all" aria-pressed="true">All</button>
+              <button type="button" data-filter="employee" aria-pressed="false">Employee app</button>
+              <button type="button" data-filter="client" aria-pressed="false">Client app</button>
+              <button type="button" data-filter="web" aria-pressed="false">Web portals</button>
+            </div>
+            <button type="button" class="gallery-close" id="gallery-close" aria-label="Close gallery">×</button>
+          </div>
+          <div class="gallery-body" id="gallery-body"></div>
+          <div class="lightbox" id="lightbox" hidden>
+            <button type="button" class="lb-nav lb-prev" id="lb-prev" aria-label="Previous screenshot">‹</button>
+            <figure>
+              <img id="lightbox-img" alt="" />
+              <figcaption id="lightbox-caption"></figcaption>
+            </figure>
+            <button type="button" class="lb-nav lb-next" id="lb-next" aria-label="Next screenshot">›</button>
+            <button type="button" class="gallery-close lb-close" id="lb-close" aria-label="Close screenshot">×</button>
+          </div>
+        </dialog>
       </div>
     </section>
 

@@ -278,4 +278,177 @@
       });
     });
   }
+
+  /* ── App screenshot gallery ─────────────────────────────── */
+  var gallery = document.getElementById('gallery');
+  if (gallery && typeof gallery.showModal === 'function') {
+    var GROUPS = { employee: 'Employee app', client: 'Client app', web: 'Web portals' };
+    // [group, caption, file id in assets/platform]
+    var SHOTS = [
+      ['employee', 'Home — confirmed shift', 'employee-dashboard-confirmed-shift'],
+      ['employee', 'Home — on my way', 'employee-dashboard-on-my-way'],
+      ['employee', 'Timeclock', 'employee-timeclock'],
+      ['employee', 'Home — timesheet to review', 'employee-dashboard-with-timesheet'],
+      ['employee', 'Find shifts map', 'employee-find-shifts-map'],
+      ['employee', 'Shift request details', 'employee-shift-request-details'],
+      ['employee', 'Event details', 'employee-event-details'],
+      ['employee', 'Event details — venue', 'employee-event-details-2'],
+      ['employee', 'Shift request notifications', 'employee-notifications-shift-request'],
+      ['employee', 'Notification message', 'employee-notification-message'],
+      ['employee', 'Onboarding', 'employee-onboarding'],
+      ['employee', 'Tutorial', 'employee-tutorial'],
+      ['employee', 'Tutorial, page 2', 'employee-tutorial-page-2'],
+      ['employee', 'Choose positions', 'employee-choose-positions'],
+      ['employee', 'Upload certificates', 'employee-upload-certificates'],
+      ['employee', 'Uniform & professional photos', 'employee-uniform-professional-photos'],
+      ['employee', 'Profile & badges', 'employee-profile-badges'],
+      ['employee', 'Profile menu', 'employee-profile-menu'],
+      ['employee', 'Ratings', 'employee-ratings-page'],
+      ['employee', 'Sick & vacation requests', 'employee-sick-vacation-requests'],
+      ['client', 'Client dashboard', 'client-dashboard-page'],
+      ['client', 'Events list', 'client-events-list'],
+      ['client', 'Event page', 'client-event-page'],
+      ['client', 'Add shift — choose position', 'client-add-shift-choose-position'],
+      ['client', 'Add shift — set time', 'client-add-shift-set-time'],
+      ['client', 'Add shift — uniform & post', 'client-add-shift-uniform-and-post'],
+      ['client', 'Request an employee', 'client-request-employee'],
+      ['client', 'Employee details', 'client-employee-details'],
+      ['client', 'Employee experience summary', 'client-employee-experience'],
+      ['client', 'Employee photo', 'client-view-employee-photo'],
+      ['client', 'Employee uniform check', 'client-view-employee-uniform'],
+      ['client', 'Message an employee', 'client-message-employee'],
+      ['client', 'Review timesheets', 'client-review-timesheets'],
+      ['client', 'Approved timesheets', 'client-approved-timesheets'],
+      ['client', 'Ratings', 'client-ratings-page'],
+      ['web', 'Employee portal — home', 'web-employee-home'],
+      ['web', 'Employee portal — calendar', 'web-employee-calendar'],
+      ['web', 'Employee portal — shift details', 'web-shift-details'],
+      ['web', 'Client portal — event & reviews', 'web-client-event-reviews'],
+      ['web', 'Admin — employee reviews', 'web-admin-employee-reviews'],
+      ['web', 'Admin — message the crew', 'web-admin-message-crew'],
+      ['web', 'Admin — certifications catalog', 'web-admin-certifications']
+    ];
+    var galleryBody = document.getElementById('gallery-body');
+    var lightbox = document.getElementById('lightbox');
+    var lbImg = document.getElementById('lightbox-img');
+    var lbCaption = document.getElementById('lightbox-caption');
+    var tabs = gallery.querySelectorAll('[data-filter]');
+    var filter = 'all';
+    var current = 0;
+    var closeWithLightbox = false;
+
+    function shotSrc(shot) { return 'assets/platform/' + shot[2] + '.webp'; }
+
+    Object.keys(GROUPS).forEach(function (group) {
+      var section = document.createElement('section');
+      section.className = 'gallery-group';
+      section.dataset.group = group;
+      var heading = document.createElement('h3');
+      heading.textContent = GROUPS[group];
+      var grid = document.createElement('div');
+      grid.className = 'gallery-grid' + (group === 'web' ? ' is-web' : '');
+      SHOTS.forEach(function (shot, i) {
+        if (shot[0] !== group) return;
+        var tile = document.createElement('button');
+        tile.type = 'button';
+        tile.className = 'tile';
+        var img = document.createElement('img');
+        img.src = shotSrc(shot);
+        img.alt = GROUPS[group] + ': ' + shot[1];
+        img.loading = 'lazy';
+        var label = document.createElement('span');
+        label.textContent = shot[1];
+        tile.appendChild(img);
+        tile.appendChild(label);
+        tile.addEventListener('click', function () { openShot(i, false); });
+        grid.appendChild(tile);
+      });
+      section.appendChild(heading);
+      section.appendChild(grid);
+      galleryBody.appendChild(section);
+    });
+    var sections = galleryBody.querySelectorAll('.gallery-group');
+
+    function setFilter(next) {
+      filter = next;
+      tabs.forEach(function (tab) { tab.setAttribute('aria-pressed', String(tab.dataset.filter === next)); });
+      sections.forEach(function (section) { section.hidden = next !== 'all' && section.dataset.group !== next; });
+      galleryBody.scrollTop = 0;
+    }
+
+    function showShot() {
+      var shot = SHOTS[current];
+      lbImg.src = shotSrc(shot);
+      lbImg.alt = GROUPS[shot[0]] + ': ' + shot[1];
+      lbCaption.textContent = GROUPS[shot[0]] + ' · ' + shot[1];
+    }
+
+    function openShot(index, fromShowcase) {
+      current = index;
+      closeWithLightbox = fromShowcase;
+      showShot();
+      lightbox.hidden = false;
+      document.getElementById('lb-next').focus();
+    }
+
+    function step(delta) {
+      var pool = [];
+      SHOTS.forEach(function (shot, i) { if (filter === 'all' || shot[0] === filter) pool.push(i); });
+      var pos = pool.indexOf(current);
+      current = pool[(pos + delta + pool.length) % pool.length];
+      showShot();
+    }
+
+    function closeLightbox() {
+      lightbox.hidden = true;
+      if (closeWithLightbox) gallery.close();
+    }
+
+    function openGallery() {
+      setFilter('all');
+      lightbox.hidden = true;
+      if (!gallery.open) gallery.showModal();
+    }
+
+    document.getElementById('gallery-open').addEventListener('click', openGallery);
+    document.querySelectorAll('[data-shot]').forEach(function (trigger) {
+      trigger.addEventListener('click', function () {
+        var index = SHOTS.findIndex(function (shot) { return shot[2] === trigger.dataset.shot; });
+        if (index < 0) return;
+        openGallery();
+        openShot(index, true);
+      });
+    });
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () { setFilter(tab.dataset.filter); });
+    });
+    document.getElementById('gallery-close').addEventListener('click', function () { gallery.close(); });
+    document.getElementById('lb-close').addEventListener('click', closeLightbox);
+    document.getElementById('lb-prev').addEventListener('click', function () { step(-1); });
+    document.getElementById('lb-next').addEventListener('click', function () { step(1); });
+
+    gallery.addEventListener('cancel', function (e) {
+      if (!lightbox.hidden && !closeWithLightbox) {
+        e.preventDefault();
+        lightbox.hidden = true;
+      }
+    });
+    gallery.addEventListener('click', function (e) {
+      if (e.target === gallery) gallery.close();
+    });
+    gallery.addEventListener('keydown', function (e) {
+      if (lightbox.hidden) return;
+      if (e.key === 'ArrowRight') step(1);
+      if (e.key === 'ArrowLeft') step(-1);
+    });
+
+    var touchX = null;
+    lightbox.addEventListener('touchstart', function (e) { touchX = e.touches[0].clientX; }, { passive: true });
+    lightbox.addEventListener('touchend', function (e) {
+      if (touchX === null) return;
+      var dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1);
+      touchX = null;
+    });
+  }
 })();
