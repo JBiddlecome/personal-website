@@ -411,6 +411,34 @@
       </div>
     </section>
 
+    <!-- ── AI concierge ──────────────────────────────────── -->
+    <section class="block" id="concierge">
+      <div class="wrap">
+        <p class="route reveal"><span class="verb post">POST</span> /api/chat</p>
+        <h2 class="section-title reveal">Ask the concierge.</h2>
+        <p class="section-sub reveal">This chat is a live demo of the smallest thing I build for clients: a model wired to real business context, with guardrails, streaming from this site's own API. Ask it about my experience, services, or how an engagement runs.</p>
+
+        <div class="chat-shell reveal">
+          <div class="chat-head"><span class="status-dot" aria-hidden="true"></span> concierge — online</div>
+          <div class="chat-window" id="chat-window" aria-live="polite">
+            <div class="msg ai">Hi — I'm Jake's AI concierge. Ask me about his experience, what he builds, how engagements work, or whether your project is a fit.</div>
+          </div>
+          <div class="chat-presets" id="chat-presets">
+            <button type="button" data-q="Give me a quick summary of Jake's background and experience.">His background</button>
+            <button type="button" data-q="What would a first engagement with Jake look like?">First engagement</button>
+            <button type="button" data-q="My company is behind on AI. Where would Jake start?">Behind on AI?</button>
+            <button type="button" data-q="What did Jake build for the staffing agency client?">The flagship build</button>
+            <button type="button" data-q="Can Jake work as a fractional CTO or direct hire?">Fractional CTO / hire</button>
+          </div>
+          <form class="chat-form" id="chat-form">
+            <label class="visually-hidden" for="chat-input">Ask a question</label>
+            <input id="chat-input" name="message" type="text" placeholder="Ask about his experience, services, or a project idea…" autocomplete="off" required />
+            <button class="btn btn-amber btn-sm" type="submit">Send</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Experience ────────────────────────────────────── -->
     <section class="block" id="experience">
       <div class="wrap">
