@@ -27,7 +27,7 @@ const ASSISTANT_ID = process.env.ASSISTANT_ID || 'asst_l7877S10rt2TO0Yvr1Nm6rxW'
 
 // Contact form: submissions are always logged; email delivery uses Resend if configured.
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const CONTACT_TO = process.env.CONTACT_TO || 'jake.biddlecome@gmail.com';
+const CONTACT_TO = process.env.CONTACT_TO || 'contact@jakebiddlecome.com';
 const CONTACT_FROM = process.env.CONTACT_FROM || 'onboarding@resend.dev';
 
 // /maps page gate: single shared login for the Denver education map.
@@ -60,10 +60,10 @@ const MIME_TYPES = {
   '.pdf': 'application/pdf'
 };
 
-const SYSTEM_PROMPT = `You are the AI concierge on Jake Biddlecome's consulting website. You are itself a demonstration of the kind of AI integration Jake builds for clients, so be genuinely useful, direct, and concise. Answer questions about Jake's experience, services, and how an engagement works. Qualify serious inquiries by suggesting they use the contact form on the page (the "Start a project" button) or email jake.biddlecome@gmail.com.
+const SYSTEM_PROMPT = `You are the AI concierge on Jake Biddlecome's consulting website. You are itself a demonstration of the kind of AI integration Jake builds for clients, so be genuinely useful, direct, and concise. Answer questions about Jake's experience, services, and how an engagement works. Qualify serious inquiries by suggesting they use the contact form on the page (the "Start a project" button) or email contact@jakebiddlecome.com.
 
 FACTS ABOUT JAKE:
-- Jake Biddlecome, based in Los Angeles (Pacific time). Email jake.biddlecome@gmail.com, phone +1 213-924-4006, LinkedIn linkedin.com/in/jake-biddlecome-03883228.
+- Jake Biddlecome, based in Los Angeles (Pacific time). Email contact@jakebiddlecome.com, phone +1 213-924-4006, LinkedIn linkedin.com/in/jake-biddlecome-03883228.
 - Positioning: Fractional CTO, Senior Technical Programs Manager, and full-stack systems architect for small and mid-market businesses. He takes companies from "we know we're behind on AI and modern tooling" to a working, integrated, production system — fast.
 - Services (engagement models, custom-priced): (1) Rapid MVP / full product build — idea to production in roughly 30 days: backend, web, mobile, payments, auth, cloud. (2) Fractional CTO / technical program ownership — strategy, vendor and stack decisions, cost optimization, team and pipeline management. (3) AI & workflow automation — integrating Claude/OpenAI, automating operations, connecting SaaS tools (Stripe, Xero, Microsoft 365, HRIS) via APIs. (4) Technology stack & infrastructure audits — architecture review, security and compliance posture, cloud cost containment.
 - Flagship build (for a staffing agency; the client's name is confidential — refer to it only as "a staffing agency"): a complete enterprise staffing platform engineered solo, zero to production in under 30 days and still growing. As it runs today: ~118,000 lines of code, 658 HTTP endpoints (159 REST API + 499 web routes), 74 SQLAlchemy/PostgreSQL models (Neon serverless), a React Native/Expo mobile app with 56 screens shipped through App Store/Play Store pipelines, three server-rendered web portals, Cloudflare R2 object storage, Render/Railway deployment with Semgrep+Gitleaks security CI, field-level PII encryption, and 15 integrations wired end-to-end: ADP payroll (certificate-based OAuth), Xero accounting, DHS E-Verify (including photo matching), WOTC batch filing, Accurate background checks, Microsoft Graph mailbox sync, Amazon SES, Mapbox geolocation with clock-in verification, web + mobile push, PBX screen-pop telephony, and an AI pipeline (Claude vision moderation, cost-flat incremental email summarization, plus a custom MCP server exposing the platform's ticketing API to AI agents).
@@ -266,7 +266,7 @@ async function handleChat(req, res, body) {
       await handleOpenAiChat(res, messages);
     } else {
       console.error('Chat unavailable: no ANTHROPIC_API_KEY or RESUME_AI_KEY configured.');
-      sendJson(res, 503, { error: 'The concierge is offline right now — email jake.biddlecome@gmail.com instead.' });
+      sendJson(res, 503, { error: 'The concierge is offline right now — email contact@jakebiddlecome.com instead.' });
     }
   } catch (error) {
     console.error('Chat error:', error);
