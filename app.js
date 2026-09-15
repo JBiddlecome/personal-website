@@ -206,7 +206,7 @@
     }).then(function () {
       if (!answer) {
         aiMsg.classList.remove('thinking');
-        aiMsg.textContent = 'No answer came back — try again, or email jake.biddlecome@gmail.com.';
+        aiMsg.textContent = 'No answer came back — try again, or email contact@jakebiddlecome.com.';
       } else {
         history.push({ role: 'assistant', content: answer });
       }
@@ -272,7 +272,7 @@
         });
       }).catch(function (err) {
         cfStatus.className = 'form-status err';
-        cfStatus.textContent = (err.message || 'Something went wrong.') + ' You can also email jake.biddlecome@gmail.com.';
+        cfStatus.textContent = (err.message || 'Something went wrong.') + ' You can also email contact@jakebiddlecome.com.';
       }).finally(function () {
         cfSubmit.disabled = false;
       });
