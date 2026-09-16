@@ -231,6 +231,33 @@
     });
   }
 
+  /* ── Chat bubble launcher ───────────────────────────────── */
+  var chatBubble = document.getElementById('chat-bubble');
+  var chatLauncher = document.getElementById('chat-launcher');
+  var chatClose = document.getElementById('chat-close');
+  if (chatBubble && chatLauncher) {
+    var setChatOpen = function (open) {
+      chatBubble.classList.toggle('open', open);
+      chatLauncher.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open && chatInput) chatInput.focus();
+    };
+    chatLauncher.addEventListener('click', function () {
+      setChatOpen(!chatBubble.classList.contains('open'));
+    });
+    if (chatClose) {
+      chatClose.addEventListener('click', function () {
+        setChatOpen(false);
+        chatLauncher.focus();
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && chatBubble.classList.contains('open')) {
+        setChatOpen(false);
+        chatLauncher.focus();
+      }
+    });
+  }
+
   /* ── Contact form ───────────────────────────────────────── */
   var contactForm = document.getElementById('contact-form');
   var cfStatus = document.getElementById('cf-status');

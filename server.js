@@ -3,17 +3,30 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-// Load .env for local development (Render supplies real env vars in production).
-try {
-  const envFile = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
+// Load .env files for local development (Render supplies real env vars in production).
+// First definition of a key wins, and real environment variables beat both files.
+// The shared parent file is listed first so it takes precedence over the older
+// per-repo one; swap these two lines to flip that.
+const ENV_FILES = [
+  path.join(__dirname, '..', '.env'), // shared across repos in GitHub/
+  path.join(__dirname, '.env')        // per-repo fallback
+];
+for (const envPath of ENV_FILES) {
+  let envFile;
+  try {
+    envFile = fs.readFileSync(envPath, 'utf8');
+  } catch (_) {
+    continue; // missing file is fine — expected in production
+  }
+  let loaded = 0;
   for (const line of envFile.split('\n')) {
     const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
     if (match && !(match[1] in process.env)) {
       process.env[match[1]] = match[2].replace(/^["']|["']$/g, '');
+      loaded += 1;
     }
   }
-} catch (_) {
-  // No .env file — fine in production.
+  console.log(`env: loaded ${loaded} new var(s) from ${envPath}`);
 }
 
 const PORT = process.env.PORT || 3000;
