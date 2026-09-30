@@ -43,16 +43,16 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO = process.env.CONTACT_TO || 'contact@jakebiddlecome.com';
 const CONTACT_FROM = process.env.CONTACT_FROM || 'onboarding@resend.dev';
 
-// /maps page gate: single shared login for the Denver education map.
+// /maps page gate: single shared login for the LAUSD schools map.
 const MAPS_USER = process.env.MAPS_USER || 'kristinbooth';
 const MAPS_PASS = process.env.MAPS_PASS || 'kbooth3342';
 const MAPS_COOKIE = 'maps_session';
 const MAPS_COOKIE_SECRET = process.env.MAPS_COOKIE_SECRET || crypto.createHash('sha256').update(`${MAPS_USER}:${MAPS_PASS}`).digest('hex');
 const MAPS_SESSION_DAYS = 30;
-// User-added map locations are stored as a JSON file. On Render, point MAPS_DATA_PATH at a persistent disk.
-const MAPS_DATA_PATH = process.env.MAPS_DATA_PATH || path.join(__dirname, 'data', 'custom-locations.json');
-const MAPS_TYPES = new Set(['college', 'community', 'district', 'federal', 'state', 'transit', 'county', 'city', 'parks', 'fire', 'police', 'library', 'venue', 'utility', 'housing', 'hospital', 'snf', 'senior', 'behavioral', 'rehab', 'other']);
-const MAPS_SECTOR_BY_TYPE = { college: 'education', community: 'education', district: 'education', federal: 'government', state: 'government', transit: 'government', county: 'government', city: 'government', parks: 'government', fire: 'government', police: 'government', library: 'government', venue: 'government', utility: 'government', housing: 'government', hospital: 'healthcare', snf: 'healthcare', senior: 'healthcare', behavioral: 'healthcare', rehab: 'healthcare', other: 'healthcare' };
+// School contact details entered on the map (per-school phone/email/director/notes, per-region default director)
+// are stored as one JSON file. On Render, point MAPS_DATA_PATH at a persistent disk or edits are lost on redeploy.
+const MAPS_DATA_PATH = process.env.MAPS_DATA_PATH || path.join(__dirname, 'data', 'maps-contacts.json');
+const MAPS_REGIONS = new Set(['N1', 'N2', 'C1', 'C2', 'C3', 'S1', 'S2']);
 
 const ROOT_DIR = __dirname;
 const CHAT_LOG_PATH = process.env.CHAT_LOG_PATH || path.join(ROOT_DIR, 'prompts.log');
@@ -427,88 +427,48 @@ function handleMapsLogout(res) {
   res.end(JSON.stringify({ ok: true }));
 }
 
-// ── /maps custom locations (user-added pins) ─────────────────────
-function readCustomLocations() {
-  try { return JSON.parse(fs.readFileSync(MAPS_DATA_PATH, 'utf8')); } catch (_) { return []; }
+// ── /maps school contacts (phone / email / area director / notes) ─
+function readMapsData() {
+  try {
+    const d = JSON.parse(fs.readFileSync(MAPS_DATA_PATH, 'utf8'));
+    if (d && typeof d === 'object' && !Array.isArray(d)) return { schools: d.schools || {}, regions: d.regions || {} };
+  } catch (_) { /* first run */ }
+  return { schools: {}, regions: {} };
 }
-function writeCustomLocations(list) {
+function writeMapsData(data) {
   fs.mkdirSync(path.dirname(MAPS_DATA_PATH), { recursive: true });
   const tmp = MAPS_DATA_PATH + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, MAPS_DATA_PATH);
 }
-async function geocodeAddress(address) {
-  const url = `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(address)}&country=us&limit=1&proximity=-104.99,39.74&access_token=${process.env.MAPBOX_TOKEN}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Geocoder ${r.status}`);
-  const d = await r.json();
-  const f = d.features && d.features[0];
-  if (!f) return null;
-  const ctx = f.properties.context || {};
-  // Only accept a real address (or at least a street) inside Colorado — otherwise typos land in random towns.
-  const isAddress = f.properties.feature_type === 'address' && f.properties.match_code;
-  const isStreet = f.properties.feature_type === 'street';
-  const inColorado = ctx.region && ctx.region.region_code === 'CO';
-  if (!(isAddress || isStreet) || !inColorado) return null;
-  return {
-    lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-    matched: f.properties.full_address || f.properties.name,
-    accuracy: isAddress ? f.properties.match_code.confidence : 'street',
-    city: ctx.place && ctx.place.name
-  };
-}
-function cleanLocationInput(body) {
-  const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-  return {
-    name: clean(body.name, 200),
-    type: clean(body.type, 40),
-    address: clean(body.address, 300),
-    city: clean(body.city, 100),
-    parent: clean(body.parent, 200),
-    stat: clean(body.stat, 100),
-    detail: clean(body.detail, 1000)
-  };
-}
-async function handleCustomLocations(req, res, method, id, body) {
+const cleanText = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+function handleMapsContacts(req, res, method, kind, id, body) {
   if (!hasMapsSession(req)) { sendJson(res, 401, { error: 'Login required.' }); return; }
-  const list = readCustomLocations();
-  if (method === 'GET') { sendJson(res, 200, { locations: list }); return; }
-  if (method === 'DELETE') {
-    const idx = list.findIndex((l) => l.id === id);
-    if (idx < 0) { sendJson(res, 404, { error: 'Not found.' }); return; }
-    list.splice(idx, 1); writeCustomLocations(list);
-    sendJson(res, 200, { ok: true }); return;
-  }
+  const data = readMapsData();
+  if (method === 'GET') { sendJson(res, 200, data); return; }
   let parsed;
   try { parsed = body ? JSON.parse(body) : {}; } catch (_) { sendJson(res, 400, { error: 'Invalid JSON body.' }); return; }
-  const input = cleanLocationInput(parsed);
-  if (!input.name || !input.type || !input.address) { sendJson(res, 400, { error: 'Name, type, and address are required.' }); return; }
-  if (!MAPS_TYPES.has(input.type)) { sendJson(res, 400, { error: 'Unknown type.' }); return; }
-  if (!process.env.MAPBOX_TOKEN) { sendJson(res, 503, { error: 'MAPBOX_TOKEN is not configured.' }); return; }
-  let geo;
-  try { geo = await geocodeAddress(input.address); } catch (e) { sendJson(res, 502, { error: 'Geocoding failed: ' + e.message }); return; }
-  if (!geo) { sendJson(res, 422, { error: 'Could not match that to a Colorado street address. Include street number, city, state, and ZIP.' }); return; }
-  const record = {
-    ...input,
-    sector: MAPS_SECTOR_BY_TYPE[input.type],
-    city: input.city || geo.city || '',
-    matchedAddress: geo.matched,
-    accuracy: geo.accuracy,
-    lng: geo.lng, lat: geo.lat,
-    custom: true,
-    updatedAt: new Date().toISOString()
-  };
-  if (method === 'PUT') {
-    const idx = list.findIndex((l) => l.id === id);
-    if (idx < 0) { sendJson(res, 404, { error: 'Not found.' }); return; }
-    list[idx] = { ...list[idx], ...record, id };
-    writeCustomLocations(list);
-    sendJson(res, 200, { location: list[idx] }); return;
+  const now = new Date().toISOString();
+  if (kind === 'regions') {
+    if (!MAPS_REGIONS.has(id)) { sendJson(res, 404, { error: 'Unknown region.' }); return; }
+    const director = cleanText(parsed.director, 200);
+    if (director) data.regions[id] = { director, updatedAt: now }; else delete data.regions[id];
+    writeMapsData(data);
+    sendJson(res, 200, { region: id, ...(data.regions[id] || { director: '' }) });
+    return;
   }
-  record.id = 'c_' + crypto.randomBytes(6).toString('hex');
-  record.createdAt = record.updatedAt;
-  list.push(record); writeCustomLocations(list);
-  sendJson(res, 201, { location: record });
+  // kind === 'schools': the id is a 14-digit CDS code from lausd-schools.json
+  if (!/^\d{14}$/.test(id)) { sendJson(res, 400, { error: 'Bad school id.' }); return; }
+  const rec = {
+    phone: cleanText(parsed.phone, 100),
+    email: cleanText(parsed.email, 200),
+    director: cleanText(parsed.director, 200),
+    notes: cleanText(parsed.notes, 2000)
+  };
+  if (rec.email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(rec.email)) { sendJson(res, 422, { error: 'That email address does not look valid.' }); return; }
+  if (Object.values(rec).some(Boolean)) data.schools[id] = { ...rec, updatedAt: now }; else delete data.schools[id];
+  writeMapsData(data);
+  sendJson(res, 200, { school: id, ...(data.schools[id] || rec) });
 }
 
 // ── Logs (protected) ─────────────────────────────────────────────
@@ -560,14 +520,14 @@ const server = http.createServer((req, res) => {
   const { method, url } = req;
   const [pathname] = (url || '/').split('?');
 
-  const customMatch = pathname.match(/^\/api\/maps\/custom(?:\/([A-Za-z0-9_-]+))?$/);
-  if (customMatch) {
-    const id = customMatch[1] || null;
-    if (method === 'GET' || method === 'DELETE') { handleCustomLocations(req, res, method, id, ''); return; }
-    if (method === 'POST' || method === 'PUT') {
+  const contactsMatch = pathname.match(/^\/api\/maps\/(contacts|schools|regions)(?:\/([A-Za-z0-9_-]+))?$/);
+  if (contactsMatch) {
+    const [, kind, id] = contactsMatch;
+    if (method === 'GET' && kind === 'contacts') { handleMapsContacts(req, res, 'GET', kind, null, ''); return; }
+    if (method === 'PUT' && kind !== 'contacts' && id) {
       let body = '';
-      req.on('data', (chunk) => { body += chunk; if (body.length > 1e6) req.socket.destroy(); });
-      req.on('end', () => handleCustomLocations(req, res, method, id, body));
+      req.on('data', (chunk) => { body += chunk; if (body.length > 1e5) req.socket.destroy(); });
+      req.on('end', () => handleMapsContacts(req, res, 'PUT', kind, id, body));
       return;
     }
   }

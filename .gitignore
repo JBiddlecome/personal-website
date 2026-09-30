@@ -3,3 +3,4 @@ prompts.log
 contact-submissions.log
 .env
 data/
+scripts/.lausd-cache/

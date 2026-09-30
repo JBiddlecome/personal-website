@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>Education, Government, and Healthcare Map</title>
+  <title>LAUSD Schools Map</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,196 +22,124 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; }
-    body {
-      background: var(--bg0); color: var(--text);
-      font-family: var(--font-display); font-size: 15px; line-height: 1.5;
-      -webkit-font-smoothing: antialiased; overflow: hidden;
-    }
+    body { background: var(--bg0); color: var(--text); font-family: var(--font-display); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow: hidden; }
     a { color: var(--cyan); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    button { font: inherit; color: inherit; }
 
     .layout { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
-    aside {
-      background: var(--bg1); border-right: 1px solid var(--line);
-      display: flex; flex-direction: column; min-height: 0;
-    }
+    aside { background: var(--bg1); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
     .side-head { padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
     .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
     h1 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-top: 4px; }
     .sub { color: var(--dim); font-size: 13px; margin-top: 4px; }
 
-    .filters { border-bottom: 1px solid var(--line); max-height: 40vh; overflow-y: auto; }
-    .sector { padding: 10px 18px 8px; }
-    .sector + .sector { border-top: 1px solid var(--line); }
-    .sector-head { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-    .sector-head input { accent-color: var(--amber); width: 16px; height: 16px; cursor: pointer; }
-    .sector-head .title { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
-    .sector-head .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
-    .sector-head .chev { color: var(--faint); font-size: 11px; transition: transform .15s; }
-    .sector.collapsed .chev { transform: rotate(-90deg); }
-    .sector.collapsed .types { display: none; }
-    .types { display: grid; gap: 4px; margin-top: 8px; padding-left: 4px; }
-    .filter { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 13.5px; }
-    .filter input { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
-    .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); flex: none; }
-    .swatch.sq { border-radius: 3px; }
-    .swatch.dia { border-radius: 2px; transform: rotate(45deg) scale(.85); }
-    .filter .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
+    .filters { border-bottom: 1px solid var(--line); padding: 10px 18px 12px; }
+    .filters-head { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; margin-bottom: 6px; }
+    .filters-head .links { margin-left: auto; display: flex; gap: 10px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+    .filters-head .links button { background: none; border: none; color: var(--cyan); cursor: pointer; font-size: 12px; }
+    .filters-head .links button:hover { text-decoration: underline; }
+    .region { display: grid; grid-template-columns: 16px 12px 1fr auto; align-items: center; gap: 9px; padding: 3px 0; font-size: 13.5px; }
+    .region input[type=checkbox] { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
+    .region label { display: contents; cursor: pointer; user-select: none; }
+    .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); }
+    .region .count { font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
+    details.dirs { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+    details.dirs summary { cursor: pointer; font-size: 12.5px; color: var(--cyan); user-select: none; }
+    .dirs .dir { display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 8px; margin-top: 6px; }
+    .dirs .dir span { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); }
+    .dir input { width: 100%; background: var(--bg2); border: 1px solid var(--line); color: var(--text); padding: 3px 8px; border-radius: 5px; font: inherit; font-size: 12px; }
+    .dir input::placeholder { color: var(--faint); }
+    .dir input:focus { outline: 1px solid var(--amber); border-color: var(--amber); }
+    .opt { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 13px; cursor: pointer; user-select: none; }
+    .opt input { accent-color: var(--amber); width: 15px; height: 15px; }
+    .opt .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
 
     .search { padding: 12px 18px; border-bottom: 1px solid var(--line); }
-    .search input {
-      width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text);
-      padding: 8px 10px; border-radius: 6px; font: inherit; font-size: 14px;
-    }
+    .search input { width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text); padding: 8px 10px; border-radius: 6px; font: inherit; font-size: 14px; }
     .search input:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
 
     .list { overflow-y: auto; flex: 1; min-height: 0; padding: 6px 0; }
     .group-label { padding: 10px 18px 4px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
-    .item {
-      display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: baseline;
-      padding: 8px 18px; cursor: pointer; border-left: 3px solid transparent;
-    }
+    .item { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: baseline; padding: 7px 18px; cursor: pointer; border-left: 3px solid transparent; }
     .item:hover { background: var(--bg2); }
     .item.active { background: var(--bg2); border-left-color: var(--amber); }
     .item .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
-    .item .dot.sq { border-radius: 2px; }
-    .item .dot.dia { border-radius: 1px; transform: rotate(45deg) scale(.9); }
-    .sector-label { padding: 12px 18px 2px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); font-weight: 600; }
     .item .name { font-size: 13.5px; line-height: 1.3; }
     .item .city { color: var(--faint); font-size: 12px; }
-    .item .num { font-family: var(--font-mono); font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .item .has { color: var(--ok); font-size: 12px; }
+    .empty { padding: 20px 18px; color: var(--faint); font-size: 13px; }
 
     .side-foot { padding: 12px 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--faint); }
     .side-foot .status { font-family: var(--font-mono); font-size: 11px; color: var(--dim); min-height: 16px; }
-
-    #map { width: 100%; height: 100%; }
-    .map-wrap { position: relative; min-width: 0; }
-
-    .iso-panel {
-      position: absolute; top: 12px; left: 12px; z-index: 5;
-      background: rgba(12,24,40,.94); border: 1px solid var(--line-bright); border-radius: 8px;
-      padding: 12px 14px; max-width: 320px; backdrop-filter: blur(6px);
-      display: none;
-    }
-    .iso-panel.show { display: block; }
-    .iso-panel h2 { font-size: 15px; font-weight: 700; line-height: 1.3; padding-right: 22px; }
-    .iso-panel .addr { color: var(--dim); font-size: 12.5px; margin-top: 2px; }
-    .iso-panel .meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); margin-top: 6px; }
-    .iso-panel .close { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--faint); font-size: 18px; cursor: pointer; line-height: 1; }
-    .iso-panel .close:hover { color: var(--text); }
-    .iso-legend { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .iso-legend button {
-      font-family: var(--font-mono); font-size: 11.5px; padding: 5px 9px; border-radius: 999px; cursor: pointer;
-      border: 1px solid var(--line-bright); background: var(--bg2); color: var(--dim);
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .iso-legend button .sw { width: 10px; height: 10px; border-radius: 50%; }
-    .iso-legend button.on { color: var(--text); border-color: currentColor; }
-    .iso-legend button.on[data-min="15"] { color: #ffb224; }
-    .iso-legend button.on[data-min="30"] { color: #ff8a3d; }
-    .iso-legend button.on[data-min="45"] { color: #f0645c; }
-    .iso-panel .within { margin-top: 10px; font-size: 12.5px; color: var(--dim); }
-    .iso-panel .within b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
-    .iso-panel .mode { margin-top: 8px; display: flex; gap: 6px; }
-    .iso-panel .mode button { font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line-bright); background: transparent; color: var(--faint); cursor: pointer; }
-    .iso-panel .mode button.on { color: var(--text); border-color: var(--amber); }
+    .side-foot .foot-actions { display: flex; gap: 14px; margin-top: 6px; }
     .loading { color: var(--amber); }
 
-    .mapboxgl-popup-content { background: var(--bg1); color: var(--text); font-family: var(--font-display); border: 1px solid var(--line-bright); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
-    .mapboxgl-popup-tip { border-top-color: var(--line-bright) !important; }
-    .mapboxgl-popup-close-button { color: var(--faint); font-size: 16px; }
-    .mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo { opacity: .7; }
+    .map-wrap { position: relative; min-width: 0; }
+    #map { width: 100%; height: 100%; }
 
-    .mk { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; cursor: pointer; }
-    .marker { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); cursor: pointer; transition: transform .12s; }
-    .marker.sq { border-radius: 3px; width: 13px; height: 13px; }
-    .marker.dia { border-radius: 2px; width: 12px; height: 12px; transform: rotate(45deg); }
-    .marker.lg { width: 22px; height: 22px; }
-    .marker.sq.lg { width: 19px; height: 19px; }
-    .marker.dia.lg { width: 17px; height: 17px; }
-    .marker.dia:hover, .marker.dia.active { transform: rotate(45deg) scale(1.35); }
-    .marker.custom { border-style: dashed; border-color: #fff; }
-    .item .custom-tag, .lp-item .custom-tag { font-family: var(--font-mono); font-size: 10px; color: var(--amber); margin-left: 6px; }
+    /* Selected-school panel */
+    .school-panel { position: absolute; top: 12px; left: 12px; z-index: 5; width: 340px; max-width: calc(100% - 24px); max-height: calc(100% - 44px); overflow-y: auto; background: rgba(12,24,40,.96); border: 1px solid var(--line-bright); border-radius: 8px; padding: 14px; backdrop-filter: blur(6px); display: none; }
+    .school-panel.show { display: block; }
+    .school-panel .close { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--faint); font-size: 20px; cursor: pointer; line-height: 1; }
+    .school-panel .close:hover { color: var(--text); }
+    .school-panel h2 { font-size: 16px; font-weight: 700; line-height: 1.3; padding-right: 24px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .chip { font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+    .chip.plain { color: var(--dim); }
+    .school-panel .addr { color: var(--dim); font-size: 13px; margin-top: 8px; }
+    .school-panel .facts { font-size: 12.5px; color: var(--dim); margin-top: 6px; display: grid; gap: 2px; }
+    .school-panel .warn { margin-top: 8px; font-size: 12px; color: var(--amber); background: rgba(255,178,36,.08); border: 1px solid rgba(255,178,36,.3); border-radius: 6px; padding: 6px 8px; }
+    .contact { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .contact h3 { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; font-weight: 600; }
+    .contact label { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 8px 0 3px; }
+    .contact input, .contact textarea { width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text); padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13.5px; }
+    .contact textarea { min-height: 56px; resize: vertical; }
+    .contact input:focus, .contact textarea:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+    .contact .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+    .contact .save { background: var(--amber); color: var(--bg0); border: 1px solid var(--amber); font-weight: 700; padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .contact .save:disabled { opacity: .6; cursor: default; }
+    .contact .msg { font-size: 12.5px; color: var(--dim); }
+    .contact .msg.ok { color: var(--ok); }
+    .contact .msg.err { color: var(--danger); }
 
-    /* Locations table / add form */
-    .tbl-overlay { position: absolute; inset: 0; z-index: 20; background: rgba(8,17,32,.97); display: none; flex-direction: column; }
-    .tbl-overlay.show { display: flex; }
-    .tbl-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-    .tbl-head h2 { font-size: 16px; font-weight: 700; margin-right: auto; }
-    .tbl-head input[type=search], .tbl-head select { background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
-    .tbl-head button { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); color: var(--text); }
-    .tbl-head button.primary { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
-    .tbl-head .close { background: none; border: none; color: var(--faint); font-size: 22px; line-height: 1; padding: 0 4px; }
-    .tbl-scroll { overflow: auto; flex: 1; }
-    table.loc { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-    table.loc th, table.loc td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    table.loc th { position: sticky; top: 0; background: var(--bg1); font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); cursor: pointer; user-select: none; white-space: nowrap; z-index: 1; }
-    table.loc th.sorted { color: var(--amber); }
-    table.loc tr:hover td { background: var(--bg2); }
-    table.loc td.name { font-weight: 600; }
-    table.loc td .sub { color: var(--faint); font-size: 11.5px; }
-    table.loc td.actions { white-space: nowrap; }
-    table.loc td.actions button { font: inherit; font-size: 11.5px; padding: 3px 7px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line-bright); background: transparent; color: var(--dim); margin-right: 4px; }
-    table.loc td.actions button:hover { color: var(--text); border-color: var(--amber); }
-    .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-family: var(--font-mono); font-size: 10.5px; border: 1px solid currentColor; }
-    .tbl-foot { padding: 8px 16px; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); }
-
-    .addform { border-bottom: 1px solid var(--line); background: var(--bg1); padding: 12px 16px; display: none; }
-    .addform.show { display: block; }
-    .addform .grid { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 10px; }
-    .addform .grid .full { grid-column: 1 / -1; }
-    .addform label { display: block; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
-    .addform input, .addform select, .addform textarea { width: 100%; background: var(--bg2); border: 1px solid var(--line-bright); color: var(--text); padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
-    .addform textarea { min-height: 38px; resize: vertical; }
-    .addform .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
-    .addform .row button { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); color: var(--text); }
-    .addform .row button.primary { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
-    .addform .row button:disabled { opacity: .6; cursor: default; }
-    .addform .msg { font-size: 12.5px; color: var(--dim); }
-    .addform .msg.err { color: var(--danger); }
-    .addform .msg.ok { color: var(--ok); }
-    @media (max-width: 820px) { .addform .grid { grid-template-columns: 1fr 1fr; } }
-    .marker:hover, .marker.active { transform: scale(1.35); z-index: 3; }
-    .marker.active { box-shadow: 0 0 0 4px rgba(255,178,36,.45); }
-
+    /* Map tools + lasso */
     .map-tools { position: absolute; top: 12px; right: 56px; z-index: 5; display: flex; gap: 6px; }
-    .map-tools button {
-      background: var(--bg1); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px;
-      font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-    }
+    .map-tools button { background: var(--bg1); border: 1px solid var(--line-bright); padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .map-tools button:hover { border-color: var(--amber); }
     .map-tools button.on { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
     .lasso-hint { position: absolute; top: 52px; right: 56px; z-index: 5; background: rgba(12,24,40,.94); border: 1px solid var(--line-bright); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--dim); display: none; }
     .lasso-hint.show { display: block; }
-    .map-wrap.lassoing .mapboxgl-canvas-container { cursor: crosshair !important; }
-    .map-wrap.lassoing .mk { pointer-events: none; }
-    .lasso-panel {
-      position: absolute; right: 12px; bottom: 32px; z-index: 5; width: 360px; max-width: calc(100% - 24px); max-height: 60vh;
-      background: rgba(12,24,40,.96); border: 1px solid var(--line-bright); border-radius: 8px; backdrop-filter: blur(6px);
-      display: none; flex-direction: column;
-    }
+    .map-wrap.lassoing .mapboxgl-canvas-container, .map-wrap.lassoing .mapboxgl-canvas { cursor: crosshair !important; }
+    .lasso-panel { position: absolute; right: 12px; bottom: 32px; z-index: 5; width: 380px; max-width: calc(100% - 24px); max-height: 60vh; background: rgba(12,24,40,.96); border: 1px solid var(--line-bright); border-radius: 8px; backdrop-filter: blur(6px); display: none; flex-direction: column; }
     .lasso-panel.show { display: flex; }
     .lasso-panel .lp-head { padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
     .lasso-panel h2 { font-size: 15px; font-weight: 700; padding-right: 22px; }
     .lasso-panel .lp-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); margin-top: 3px; }
     .lasso-panel .lp-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .lasso-panel .lp-actions button { font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); color: var(--text); }
+    .lasso-panel .lp-actions button { font-size: 12.5px; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--bg2); }
     .lasso-panel .lp-actions button.primary { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
     .lasso-panel .lp-list { overflow-y: auto; padding: 4px 0 8px; }
     .lasso-panel .lp-group { padding: 8px 14px 2px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
     .lasso-panel .lp-item { display: grid; grid-template-columns: 10px 1fr; gap: 8px; padding: 5px 14px; font-size: 12.5px; cursor: pointer; align-items: baseline; }
     .lasso-panel .lp-item:hover { background: var(--bg2); }
+    .lasso-panel .lp-item .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
     .lasso-panel .lp-item .addr { color: var(--faint); font-size: 11.5px; }
     .lasso-panel .close { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--faint); font-size: 18px; cursor: pointer; line-height: 1; }
-    @media (max-width: 820px) { .lasso-panel { right: 12px; left: 12px; width: auto; bottom: 12px; max-height: 50vh; } .map-tools { right: 100px; } .lasso-hint { right: 100px; } }
-    .toggle-side { display: none; position: absolute; top: 12px; right: 12px; z-index: 6; background: var(--bg1); border: 1px solid var(--line-bright); color: var(--text); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 13px; }
+    .toggle-side { display: none; position: absolute; top: 12px; right: 12px; z-index: 6; background: var(--bg1); border: 1px solid var(--line-bright); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+
+    .mapboxgl-popup-content { background: var(--bg1); color: var(--text); font-family: var(--font-display); border: 1px solid var(--line-bright); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; }
+    .mapboxgl-popup-tip { border-top-color: var(--line-bright) !important; }
+    .mapboxgl-ctrl-attrib, .mapboxgl-ctrl-logo { opacity: .7; }
 
     @media (max-width: 820px) {
       .layout { grid-template-columns: 1fr; grid-template-rows: 1fr; }
       aside { position: absolute; inset: 0; z-index: 10; width: 100%; transform: translateX(-100%); transition: transform .2s; }
       aside.open { transform: none; }
       .toggle-side { display: block; }
-      .iso-panel { top: auto; bottom: 12px; left: 12px; right: 12px; max-width: none; }
+      .map-tools { right: 100px; } .lasso-hint { right: 100px; }
+      .school-panel { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-width: none; max-height: 70vh; }
+      .lasso-panel { right: 12px; left: 12px; width: auto; bottom: 12px; max-height: 50vh; }
     }
   </style>
 </head>
@@ -219,61 +147,53 @@
   <div class="layout">
     <aside id="side">
       <div class="side-head">
-        <div class="eyebrow">Hillyard · Denver District</div>
-        <h1>Education, Government &amp; Healthcare Map</h1>
-        <div class="sub">Colleges, school districts, public-sector facilities, hospitals, and long-term care across the Denver metro. Click a pin for 15 / 30 / 45-min drive time. Search matches name, city, or parent system.</div>
+        <div class="eyebrow">LAUSD · Maintenance &amp; Operations</div>
+        <h1>LAUSD Schools by Area</h1>
+        <div class="sub">Every active Los Angeles Unified school, colored by M&amp;O area. Toggle areas on/off, lasso a neighborhood, or click a pin to add contact details.</div>
       </div>
-      <div class="filters" id="filters"></div>
-      <div class="search"><input id="q" type="search" placeholder="Search name or city…" autocomplete="off"></div>
+      <div class="filters">
+        <div class="filters-head">Areas <span class="links"><button id="allOn">All</button><button id="allOff">None</button></span></div>
+        <div id="regions"></div>
+        <details class="dirs"><summary>Area directors</summary><div id="dirList"></div></details>
+        <label class="opt"><input type="checkbox" id="charterOn" checked> Charter schools<span class="count" id="cnt-charter"></span></label>
+      </div>
+      <div class="search"><input id="q" type="search" placeholder="Search name, address, city, ZIP…" autocomplete="off"></div>
       <div class="list" id="list"></div>
       <div class="side-foot">
         <div class="status" id="status"></div>
-        Sizing figures are guides from mixed reporting years. Districts, agencies, and departments are pinned at their HQ / main facility; healthcare beds are licensed, not staffed.
-        <div style="margin-top:6px"><a href="#" id="logout">Sign out</a></div>
+        Areas come from LAUSD's 2010 M&amp;O Areas map; pins within ~½ mile of an area line are flagged to double-check.
+        <div class="foot-actions"><a href="#" id="dlAll">Download visible (Excel)</a><a href="#" id="logout">Sign out</a></div>
       </div>
     </aside>
     <div class="map-wrap">
       <button class="toggle-side" id="toggleSide">☰ List</button>
       <div class="map-tools">
-        <button id="lassoBtn" title="Draw a freehand area to list the pins inside it">&#9186; Lasso</button>
-        <button id="tableBtn" title="View every location as a table, add your own, or download all">&#9776; Locations</button>
-      </div>
-      <div class="tbl-overlay" id="tblOverlay">
-        <div class="tbl-head">
-          <h2>All locations <span id="tblCount" style="font-family:var(--font-mono);font-size:12px;color:var(--faint);font-weight:400"></span></h2>
-          <input type="search" id="tblQ" placeholder="Search name, address, city, parent…" autocomplete="off">
-          <select id="tblSector"><option value="">All sectors</option><option value="education">Education</option><option value="government">Government</option><option value="healthcare">Healthcare</option></select>
-          <select id="tblSource"><option value="">Built-in + custom</option><option value="custom">Custom only</option><option value="builtin">Built-in only</option></select>
-          <button class="primary" id="tblAdd">+ Add location</button>
-          <button id="tblDownload">&#11015; Download all (Excel)</button>
-          <button class="close" id="tblClose" aria-label="Close">×</button>
-        </div>
-        <form class="addform" id="addForm" autocomplete="off">
-          <input type="hidden" id="afId">
-          <div class="grid">
-            <div><label for="afName">Name *</label><input id="afName" required maxlength="200" placeholder="e.g. Cherry Creek Village Rec Center"></div>
-            <div><label for="afSector">Sector *</label><select id="afSector" required></select></div>
-            <div><label for="afType">Category *</label><select id="afType" required></select></div>
-            <div><label for="afParent">Parent / operator (optional)</label><input id="afParent" maxlength="200" placeholder="e.g. City of Aurora, HCA HealthONE"></div>
-            <div class="full"><label for="afAddress">Street address * (include city, state, ZIP)</label><input id="afAddress" required maxlength="300" placeholder="e.g. 1437 Bannock St, Denver, CO 80202"></div>
-            <div><label for="afStat">Size (optional)</label><input id="afStat" maxlength="100" placeholder="e.g. 120 beds · 45,000 sq ft"></div>
-            <div class="full" style="grid-column: 2 / -1"><label for="afDetail">Notes (optional)</label><textarea id="afDetail" maxlength="1000" placeholder="Incumbent, contacts, contract dates…"></textarea></div>
-          </div>
-          <div class="row">
-            <button type="submit" class="primary" id="afSave">Save &amp; pin on map</button>
-            <button type="button" id="afCancel">Cancel</button>
-            <span class="msg" id="afMsg"></span>
-          </div>
-        </form>
-        <div class="tbl-scroll"><table class="loc" id="tbl"><thead></thead><tbody></tbody></table></div>
-        <div class="tbl-foot">Built-in rows come from the research workbooks (read-only). Custom rows are saved on the server and visible to everyone who signs in; the address is geocoded with Mapbox when saved.</div>
+        <button id="lassoBtn" title="Draw a freehand area to list the schools inside it">&#9186; Lasso</button>
       </div>
       <div class="lasso-hint" id="lassoHint">Click and drag to circle an area. Press Esc to cancel.</div>
       <div id="map"></div>
+
+      <div class="school-panel" id="schoolPanel">
+        <button class="close" id="panelClose" aria-label="Close">×</button>
+        <h2 id="spName"></h2>
+        <div class="chips" id="spChips"></div>
+        <div class="addr" id="spAddr"></div>
+        <div class="facts" id="spFacts"></div>
+        <div class="warn" id="spWarn" hidden>This school sits close to an area boundary on the 2010 map, so its area may be off. Confirm before relying on it.</div>
+        <form class="contact" id="contactForm" autocomplete="off">
+          <h3>Your contact details</h3>
+          <label for="cfPhone">Phone</label><input id="cfPhone" type="tel" maxlength="100" placeholder="e.g. (213) 555-0142">
+          <label for="cfEmail">Email</label><input id="cfEmail" type="email" maxlength="200" placeholder="name@lausd.net">
+          <label for="cfDir">Area director</label><input id="cfDir" maxlength="200">
+          <label for="cfNotes">Notes</label><textarea id="cfNotes" maxlength="2000" placeholder="Principal, site contact, anything useful…"></textarea>
+          <div class="row"><button type="submit" class="save" id="cfSave">Save</button><span class="msg" id="cfMsg"></span></div>
+        </form>
+      </div>
+
       <div class="lasso-panel" id="lassoPanel">
         <button class="close" id="lassoClose" aria-label="Close">×</button>
         <div class="lp-head">
-          <h2>Locations in selected area</h2>
+          <h2>Schools in selected area</h2>
           <div class="lp-sub" id="lassoSub"></div>
           <div class="lp-actions">
             <button class="primary" id="lassoDownload">&#11015; Download Excel</button>
@@ -283,87 +203,27 @@
         </div>
         <div class="lp-list" id="lassoList"></div>
       </div>
-      <div class="iso-panel" id="isoPanel">
-        <button class="close" id="isoClose" aria-label="Close">×</button>
-        <h2 id="isoName"></h2>
-        <div class="addr" id="isoAddr"></div>
-        <div class="meta" id="isoMeta"></div>
-        <div class="mode">
-          <button data-profile="driving" class="on">Driving</button>
-          <button data-profile="driving-traffic">Driving w/ traffic</button>
-        </div>
-        <div class="iso-legend">
-          <button data-min="15" class="on"><span class="sw" style="background:#ffb224"></span>15 min</button>
-          <button data-min="30" class="on"><span class="sw" style="background:#ff8a3d"></span>30 min</button>
-          <button data-min="45" class="on"><span class="sw" style="background:#f0645c"></span>45 min</button>
-        </div>
-        <div class="within" id="isoWithin"></div>
-      </div>
     </div>
   </div>
 
   <script>
   (async function () {
-    const SECTORS = [
-      { key: 'education', label: 'Education', shape: 'circle', types: [
-        { key: 'college', label: '4-Year Colleges', color: '#ffb224' },
-        { key: 'community', label: 'Community Colleges', color: '#56c8e8' },
-        { key: 'district', label: 'School Districts', color: '#34d399' }
-      ] },
-      { key: 'government', label: 'Government', shape: 'sq', types: [
-        { key: 'federal', label: 'Federal', color: '#a78bfa' },
-        { key: 'state', label: 'State of Colorado', color: '#e879f9' },
-        { key: 'transit', label: 'Transit & Airports', color: '#f472b6' },
-        { key: 'county', label: 'Counties', color: '#fb7185' },
-        { key: 'city', label: 'Cities & Towns', color: '#fb923c' },
-        { key: 'parks', label: 'Parks & Rec', color: '#a3e635' },
-        { key: 'fire', label: 'Fire', color: '#ef4444' },
-        { key: 'police', label: 'Police & Detention', color: '#60a5fa' },
-        { key: 'library', label: 'Libraries', color: '#c084fc' },
-        { key: 'venue', label: 'Venues & Cultural', color: '#2dd4bf' },
-        { key: 'utility', label: 'Water & Utilities', color: '#38bdf8' },
-        { key: 'housing', label: 'Housing & Authorities', color: '#d4a373' }
-      ] },
-      { key: 'healthcare', label: 'Healthcare', shape: 'dia', types: [
-        { key: 'hospital', label: 'Hospitals', color: '#f43f5e' },
-        { key: 'snf', label: 'Skilled Nursing', color: '#fb923c' },
-        { key: 'senior', label: 'Senior Living (AL / MC / CCRC)', color: '#facc15' },
-        { key: 'behavioral', label: 'Behavioral Health', color: '#c084fc' },
-        { key: 'rehab', label: 'Rehab & LTACH', color: '#34d399' },
-        { key: 'other', label: 'Other Healthcare', color: '#94a3b8' }
-      ] }
+    const REGIONS = [
+      { key: 'N1', label: 'North 1', color: '#facc15' },
+      { key: 'N2', label: 'North 2', color: '#fb923c' },
+      { key: 'C1', label: 'Central 1', color: '#38bdf8' },
+      { key: 'C2', label: 'Central 2', color: '#818cf8' },
+      { key: 'C3', label: 'Central 3', color: '#34d399' },
+      { key: 'S1', label: 'South 1', color: '#f472b6' },
+      { key: 'S2', label: 'South 2', color: '#f87171' }
     ];
-    const TYPES = {};
-    for (const s of SECTORS) for (const t of s.types) TYPES[t.key] = { ...t, sector: s.key, sectorLabel: s.label, shape: s.shape };
-    const TYPE_LABEL = Object.fromEntries(Object.values(TYPES).map((t) => [t.key, t.label]));
-    const COLORS = Object.fromEntries(Object.values(TYPES).map((t) => [t.key, t.color]));
-
-    // Build filter UI
-    const filtersEl = document.getElementById('filters');
-    for (const s of SECTORS) {
-      const sec = document.createElement('div');
-      sec.className = 'sector';
-      sec.dataset.sector = s.key;
-      if (s.types.length > 6) sec.classList.add('collapsed'); // long lists start collapsed; header still shows count
-      sec.innerHTML = `<div class="sector-head"><input type="checkbox" data-sector="${s.key}" checked><span class="title">${s.label}</span><span class="count" id="cnt-sector-${s.key}"></span><span class="chev">&#9660;</span></div><div class="types"></div>`;
-      const typesEl = sec.querySelector('.types');
-      for (const t of s.types) {
-        const l = document.createElement('label');
-        l.className = 'filter';
-        l.innerHTML = `<input type="checkbox" data-type="${t.key}" checked><span class="swatch ${s.shape}" style="background:${t.color}"></span>${t.label}<span class="count" id="cnt-${t.key}"></span>`;
-        typesEl.appendChild(l);
-      }
-      sec.querySelector('.sector-head').addEventListener('click', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        sec.classList.toggle('collapsed');
-      });
-      filtersEl.appendChild(sec);
-    }
-    const ISO_COLORS = { 15: '#ffb224', 30: '#ff8a3d', 45: '#f0645c' };
-    const statusEl = document.getElementById('status');
+    const R = Object.fromEntries(REGIONS.map((r) => [r.key, r]));
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    const statusEl = $('status');
     const setStatus = (t, cls) => { statusEl.textContent = t; statusEl.className = 'status ' + (cls || ''); };
 
-    document.getElementById('logout').addEventListener('click', async (e) => {
+    $('logout').addEventListener('click', async (e) => {
       e.preventDefault();
       await fetch('/api/maps-logout', { method: 'POST' });
       window.location.replace('/maps');
@@ -378,277 +238,233 @@
     } catch (e) { setStatus('Map unavailable: ' + e.message, 'loading'); return; }
     mapboxgl.accessToken = token;
 
-    const data = await (await fetch('/assets/maps/locations.json')).json();
-    const LOCS = data.locations;
+    const SCHOOLS = (await (await fetch('/assets/maps/lausd-schools.json')).json()).schools;
+    const BY_ID = new Map(SCHOOLS.map((s) => [s.id, s]));
+    let contacts = { schools: {}, regions: {} };
     try {
-      const cr = await fetch('/api/maps/custom');
-      if (cr.ok) for (const c of (await cr.json()).locations) LOCS.push(c);
-    } catch (_) { /* custom locations are optional */ }
+      const cr = await fetch('/api/maps/contacts');
+      if (cr.status === 401) { window.location.replace('/maps'); return; }
+      if (cr.ok) contacts = await cr.json();
+    } catch (_) { setStatus('Saved contact details could not be loaded.', 'loading'); }
 
     const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-104.95, 39.75],
-      zoom: 9,
-      attributionControl: true
+      container: 'map', style: 'mapbox://styles/mapbox/dark-v11',
+      bounds: [[-118.7, 33.7], [-118.13, 34.34]], fitBoundsOptions: { padding: 30 }
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
     // ── State ──
-    const enabled = Object.fromEntries(Object.keys(TYPES).map((k) => [k, true]));
-    let query = '';
-    let selected = null;
-    let profile = 'driving';
-    const minutesOn = { 15: true, 30: true, 45: true };
-    let isoData = null; // FeatureCollection for selected
-    const markers = new Map(); // id -> {marker, el, loc}
+    const enabled = Object.fromEntries(REGIONS.map((r) => [r.key, true]));
+    let charterOn = true, query = '', selected = null;
 
-    // ── Markers ──
-    function addMarker(loc) {
-      // Outer wrap is positioned by Mapbox (it owns its transform); inner el carries shape/color/rotation.
-      const wrap = document.createElement('div');
-      wrap.className = 'mk';
-      const el = document.createElement('div');
-      const t = TYPES[loc.type] || {};
-      el.className = 'marker ' + (t.shape || 'circle') + ((loc.enrollment && loc.enrollment >= 20000) || (loc.beds && loc.beds >= 300) ? ' lg' : '') + (loc.custom ? ' custom' : '');
-      el.style.background = t.color || '#fff';
-      el.title = loc.name;
-      wrap.appendChild(el);
-      const marker = new mapboxgl.Marker({ element: wrap, anchor: 'center' }).setLngLat([loc.lng, loc.lat]).addTo(map);
-      wrap.addEventListener('click', (e) => { e.stopPropagation(); select(loc.id, false); });
-      markers.set(loc.id, { marker, el, wrap, loc });
-    }
-    function removeMarker(id) {
-      const m = markers.get(id);
-      if (!m) return;
-      m.marker.remove(); markers.delete(id);
-      const i = LOCS.findIndex((l) => l.id === id);
-      if (i >= 0) LOCS.splice(i, 1);
-      if (selected === id) clearSelection();
-    }
-    for (const loc of LOCS) addMarker(loc);
-
-    function visible(loc) {
-      if (!enabled[loc.type]) return false;
+    const directorFor = (s) => (contacts.schools[s.id] && contacts.schools[s.id].director) || (contacts.regions[s.region] && contacts.regions[s.region].director) || '';
+    const hasContact = (s) => !!contacts.schools[s.id];
+    function visible(s) {
+      if (!enabled[s.region]) return false;
+      if (!charterOn && s.charter) return false;
       if (!query) return true;
       const q = query.toLowerCase();
-      return loc.name.toLowerCase().includes(q) || (loc.city || '').toLowerCase().includes(q) || (loc.address || '').toLowerCase().includes(q) || (loc.parent || '').toLowerCase().includes(q);
+      return s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q) || s.zip.includes(q) || s.phone.replace(/\D/g, '').includes(q.replace(/\D/g, '') || '\u0000') || (contacts.schools[s.id] && JSON.stringify(contacts.schools[s.id]).toLowerCase().includes(q));
     }
 
-    function applyFilters() {
-      const counts = Object.fromEntries(Object.keys(TYPES).map((k) => [k, 0]));
-      const sectorCounts = Object.fromEntries(SECTORS.map((s) => [s.key, 0]));
-      for (const { wrap, loc } of markers.values()) {
-        const v = visible(loc);
-        wrap.style.display = v ? '' : 'none';
-        if (v) { counts[loc.type]++; sectorCounts[TYPES[loc.type].sector]++; }
-      }
-      for (const t in counts) document.getElementById('cnt-' + t).textContent = counts[t];
-      if (typeof lassoPts !== 'undefined' && lassoPts.length > 2 && lassoPanel.classList.contains('show')) finishLasso();
-      for (const sk in sectorCounts) document.getElementById('cnt-sector-' + sk).textContent = sectorCounts[sk];
-      for (const s of SECTORS) {
-        const on = s.types.filter((t) => enabled[t.key]).length;
-        const cb = filtersEl.querySelector(`input[data-sector="${s.key}"]`);
-        cb.checked = on === s.types.length; cb.indeterminate = on > 0 && on < s.types.length;
-      }
-      renderList();
-      updateWithin();
+    // ── Sidebar: region toggles + per-region default director ──
+    const regionsEl = $('regions');
+    for (const r of REGIONS) {
+      const row = document.createElement('div');
+      row.className = 'region';
+      row.innerHTML = `<input type="checkbox" id="rg-${r.key}" data-region="${r.key}" checked><label for="rg-${r.key}"><span class="swatch" style="background:${r.color}"></span><span>${r.label} <span style="color:var(--faint)">(${r.key})</span></span><span class="count" id="cnt-${r.key}"></span></label>
+`;
+      regionsEl.appendChild(row);
+      const dir = document.createElement('div');
+      dir.className = 'dir';
+      dir.innerHTML = `<span>${r.key}</span><input data-dir="${r.key}" maxlength="200" placeholder="Area director name…" value="${esc((contacts.regions[r.key] || {}).director || '')}" aria-label="Area director for ${r.label}">`;
+      $('dirList').appendChild(dir);
     }
-
-    // ── Sidebar list ──
-    const listEl = document.getElementById('list');
-    function renderList() {
-      listEl.innerHTML = '';
-      for (const s of SECTORS) {
-        if (!LOCS.some((l) => TYPES[l.type].sector === s.key && visible(l))) continue;
-        const sl = document.createElement('div');
-        sl.className = 'sector-label'; sl.textContent = s.label;
-        listEl.appendChild(sl);
-        for (const t of s.types) {
-        const type = t.key;
-        const rows = LOCS.filter((l) => l.type === type && visible(l));
-        if (!rows.length) continue;
-        const gl = document.createElement('div');
-        gl.className = 'group-label'; gl.textContent = TYPE_LABEL[type];
-        listEl.appendChild(gl);
-        for (const loc of rows) {
-          const it = document.createElement('div');
-          it.className = 'item' + (selected === loc.id ? ' active' : '');
-          it.dataset.id = loc.id;
-          const stat = loc.stat ? loc.stat : loc.type === 'district'
-            ? `${loc.schools} sites`
-            : (loc.enrollment ? loc.enrollment.toLocaleString() : '—');
-          it.innerHTML = `<span class="dot ${s.shape}" style="background:${COLORS[loc.type]}"></span>
-            <span><div class="name">${loc.name}${loc.custom ? '<span class="custom-tag">CUSTOM</span>' : ''}</div><div class="city">${loc.city || ''}</div></span>
-            <span class="num">${stat}</span>`;
-          it.addEventListener('click', () => select(loc.id, true));
-          listEl.appendChild(it);
-        }
-        }
+    regionsEl.addEventListener('change', (e) => { const t = e.target; if (t.dataset.region) { enabled[t.dataset.region] = t.checked; applyFilters(); } });
+    $('dirList').addEventListener('change', async (e) => {
+      const t = e.target;
+      if (t.dataset.dir) {
+        const key = t.dataset.dir, director = t.value.trim();
+        try {
+          const r = await fetch('/api/maps/regions/' + key, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ director }) });
+          if (r.status === 401) { window.location.replace('/maps'); return; }
+          if (!r.ok) throw new Error('Save failed');
+          if (director) contacts.regions[key] = { director }; else delete contacts.regions[key];
+          setStatus(`${key} area director saved.`); if (selected) fillForm(BY_ID.get(selected));
+        } catch (err) { setStatus('Could not save area director: ' + err.message, 'loading'); }
       }
-    }
-
-    // ── Isochrones ──
-    map.on('load', () => {
-      window.__map = map;
-      const firstSymbol = (map.getStyle().layers.find((l) => l.type === 'symbol') || {}).id;
-      map.addSource('iso', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.addLayer({
-        id: 'iso-fill', type: 'fill', source: 'iso',
-        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 }
-      }, firstSymbol);
-      map.addLayer({
-        id: 'iso-line', type: 'line', source: 'iso',
-        paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.95 }
-      }, firstSymbol);
-      applyFilters();
-      drawIso(); // in case a pin was clicked before the style finished loading
     });
+    const setAll = (on) => { for (const r of REGIONS) { enabled[r.key] = on; $('rg-' + r.key).checked = on; } applyFilters(); };
+    $('allOn').addEventListener('click', () => setAll(true));
+    $('allOff').addEventListener('click', () => setAll(false));
+    $('charterOn').addEventListener('change', (e) => { charterOn = e.target.checked; applyFilters(); });
+    $('q').addEventListener('input', (e) => { query = e.target.value.trim(); applyFilters(); });
 
-    const panel = document.getElementById('isoPanel');
-    async function loadIsochrone(loc) {
-      setStatus('Loading drive-time areas…', 'loading');
-      const url = `https://api.mapbox.com/isochrone/v1/mapbox/${profile}/${loc.lng},${loc.lat}?contours_minutes=15,30,45&polygons=true&denoise=1&access_token=${token}`;
-      try {
-        const r = await fetch(url);
-        if (!r.ok) throw new Error('Isochrone ' + r.status);
-        const fc = await r.json();
-        // Attach our colors; Mapbox returns largest contour first — keep that order so smaller draws on top.
-        fc.features.forEach((f) => { f.properties.color = ISO_COLORS[f.properties.contour] || '#fff'; });
-        isoData = fc;
-        drawIso();
-        setStatus('');
-      } catch (e) {
-        setStatus('Drive-time load failed: ' + e.message, 'loading');
-      }
-    }
-
-    function drawIso() {
-      const src = map.getSource('iso');
-      if (!src) return;
-      if (!isoData) { src.setData({ type: 'FeatureCollection', features: [] }); return; }
-      const feats = isoData.features.filter((f) => minutesOn[f.properties.contour]);
-      src.setData({ type: 'FeatureCollection', features: feats });
-      updateWithin();
-    }
-
-    // Point-in-polygon (ray cast) over MultiPolygon/Polygon rings.
-    function pointInRing(pt, ring) {
-      let inside = false;
-      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
-        const intersect = ((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-      }
-      return inside;
-    }
-    function pointInFeature(pt, f) {
-      const g = f.geometry;
-      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
-      return polys.some((poly) => pointInRing(pt, poly[0]) && !poly.slice(1).some((hole) => pointInRing(pt, hole)));
-    }
-
-    function updateWithin() {
-      const el = document.getElementById('isoWithin');
-      if (!isoData || selected == null) { el.innerHTML = ''; return; }
-      const byMin = {};
-      for (const f of isoData.features) byMin[f.properties.contour] = f;
-      const others = LOCS.filter((l) => l.id !== selected && visible(l));
-      const parts = [];
-      for (const m of [15, 30, 45]) {
-        if (!byMin[m]) continue;
-        const n = others.filter((l) => pointInFeature([l.lng, l.lat], byMin[m])).length;
-        parts.push(`<b style="color:${ISO_COLORS[m]}">${n}</b> within ${m} min`);
-      }
-      el.innerHTML = 'Other visible accounts: ' + parts.join(' · ');
-    }
-
-    function select(id, flyTo) {
-      selected = id;
-      for (const { el, loc } of markers.values()) el.classList.toggle('active', loc.id === id);
-      const loc = markers.get(id).loc;
-      document.getElementById('isoName').textContent = loc.name;
-      document.getElementById('isoAddr').textContent = loc.address;
-      const bits = [TYPES[loc.type].sectorLabel + ' · ' + TYPE_LABEL[loc.type], loc.region];
-      if (loc.enrollment) bits.push(loc.enrollment.toLocaleString() + ' enrolled');
-      if (loc.schools) bits.push(loc.schools + ' school sites');
-      if (loc.parent) bits.push('Parent: ' + loc.parent);
-      if (loc.stat) bits.push(loc.stat);
-      if (loc.detail) bits.push(loc.detail);
-      document.getElementById('isoMeta').textContent = bits.join(' · ');
-      panel.classList.add('show');
-      renderList();
-      const active = listEl.querySelector('.item.active');
-      if (active) active.scrollIntoView({ block: 'nearest' });
-      if (flyTo) map.flyTo({ center: [loc.lng, loc.lat], zoom: Math.max(map.getZoom(), 10), speed: 1.2 });
-      if (window.innerWidth <= 820) document.getElementById('side').classList.remove('open');
-      loadIsochrone(loc);
-    }
-
-    function clearSelection() {
-      selected = null; isoData = null;
-      panel.classList.remove('show');
-      for (const { el } of markers.values()) el.classList.remove('active');
-      drawIso(); renderList();
-    }
-
-    // ── Lasso ──
-    const mapWrap = document.querySelector('.map-wrap');
-    const lassoBtn = document.getElementById('lassoBtn');
-    const lassoHint = document.getElementById('lassoHint');
-    const lassoPanel = document.getElementById('lassoPanel');
-    let lassoActive = false, lassoDrawing = false, lassoPts = [], lassoResults = [];
-
+    // ── Map layers ──
+    const geojson = () => ({
+      type: 'FeatureCollection',
+      features: SCHOOLS.map((s) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lng, s.lat] }, properties: { id: s.id, region: s.region, name: s.name } }))
+    });
+    const colorExpr = ['match', ['get', 'region'], ...REGIONS.flatMap((r) => [r.key, r.color]), '#ffffff'];
     map.on('load', () => {
+      map.addSource('schools', { type: 'geojson', data: geojson() });
+      map.addLayer({
+        id: 'schools', type: 'circle', source: 'schools',
+        paint: {
+          'circle-color': colorExpr,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 11, 5, 14, 8, 17, 11],
+          'circle-stroke-color': '#ffffff', 'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 13, 1.5],
+          'circle-opacity': 0.92
+        }
+      });
+      map.addLayer({
+        id: 'schools-sel', type: 'circle', source: 'schools', filter: ['==', ['get', 'id'], ''],
+        paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': 15, 'circle-stroke-color': '#ffb224', 'circle-stroke-width': 3 }
+      });
       map.addSource('lasso', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({ id: 'lasso-fill', type: 'fill', source: 'lasso', paint: { 'fill-color': '#56c8e8', 'fill-opacity': 0.12 } });
       map.addLayer({ id: 'lasso-line', type: 'line', source: 'lasso', paint: { 'line-color': '#56c8e8', 'line-width': 2, 'line-dasharray': [2, 1.5] } });
+
+      const hover = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
+      map.on('mouseenter', 'schools', (e) => {
+        if (lassoActive) return;
+        map.getCanvas().style.cursor = 'pointer';
+        hover.setLngLat(e.features[0].geometry.coordinates).setText(e.features[0].properties.name).addTo(map);
+      });
+      map.on('mouseleave', 'schools', () => { if (!lassoActive) map.getCanvas().style.cursor = ''; hover.remove(); });
+      map.on('click', 'schools', (e) => { if (!lassoActive && Date.now() - lassoEndedAt > 400) select(e.features[0].properties.id, false); });
+      applyFilters();
     });
 
+    function applyFilters() {
+      let charters = 0; const ids = [];
+      for (const s of SCHOOLS) {
+        if (s.charter) charters++;
+        if (!visible(s)) continue;
+        ids.push(s.id);
+      }
+      // Region counts ignore the on/off switch so you can see what turning an area on would add.
+      const total = Object.fromEntries(REGIONS.map((r) => [r.key, 0]));
+      for (const s of SCHOOLS) if ((charterOn || !s.charter)) total[s.region]++;
+      for (const r of REGIONS) $('cnt-' + r.key).textContent = total[r.key];
+      $('cnt-charter').textContent = charters;
+      if (map.getLayer('schools')) map.setFilter('schools', ['in', ['get', 'id'], ['literal', ids]]);
+      if (map.getLayer('schools-sel')) map.setFilter('schools-sel', ['==', ['get', 'id'], selected && ids.includes(selected) ? selected : '']);
+      setStatus(`${ids.length} of ${SCHOOLS.length} schools shown`);
+      renderList();
+      if (lassoPts.length > 2 && lassoPanel.classList.contains('show')) finishLasso();
+    }
+
+    // ── Sidebar list ──
+    const listEl = $('list');
+    function renderList() {
+      const frag = document.createDocumentFragment();
+      let n = 0;
+      for (const r of REGIONS) {
+        const rows = SCHOOLS.filter((s) => s.region === r.key && visible(s));
+        if (!rows.length) continue;
+        const gl = document.createElement('div');
+        gl.className = 'group-label'; gl.textContent = `${r.label} · ${rows.length}`;
+        frag.appendChild(gl);
+        for (const s of rows) {
+          const it = document.createElement('div');
+          it.className = 'item' + (selected === s.id ? ' active' : '');
+          it.dataset.id = s.id;
+          it.innerHTML = `<span class="dot" style="background:${r.color}"></span><span><div class="name">${esc(s.name)}</div><div class="city">${esc(s.city)}${s.charter ? ' · Charter' : ''}</div></span><span class="has" title="Contact details saved">${hasContact(s) ? '&#10003;' : ''}</span>`;
+          it.addEventListener('click', () => select(s.id, true));
+          frag.appendChild(it); n++;
+        }
+      }
+      listEl.innerHTML = '';
+      if (!n) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No schools match. Turn an area back on or clear the search.'; listEl.appendChild(e); }
+      else listEl.appendChild(frag);
+    }
+
+    // ── Selected school panel ──
+    const panel = $('schoolPanel'), form = $('contactForm'), cfMsg = $('cfMsg');
+    const siteUrl = (w) => (/^https?:\/\//i.test(w) ? w : 'https://' + w);
+    function fillForm(s) {
+      const c = contacts.schools[s.id] || {};
+      $('cfPhone').value = c.phone || ''; $('cfEmail').value = c.email || ''; $('cfNotes').value = c.notes || '';
+      $('cfDir').value = c.director || '';
+      $('cfDir').placeholder = (contacts.regions[s.region] && contacts.regions[s.region].director) ? `${contacts.regions[s.region].director} (${s.region} default)` : `Name (or set a ${s.region} default in the sidebar)`;
+    }
+    function select(id, flyTo) {
+      const s = BY_ID.get(id); if (!s) return;
+      selected = id;
+      const r = R[s.region];
+      $('spName').textContent = s.name;
+      $('spChips').innerHTML = `<span class="chip" style="color:${r.color}">${r.label} · ${r.key}</span><span class="chip plain">${esc(s.level)}</span>${s.charter ? '<span class="chip plain">Charter</span>' : ''}`;
+      $('spAddr').textContent = s.address;
+      const facts = [];
+      if (s.phone) facts.push(`Main office: <a href="tel:${esc(s.phone.replace(/[^\d+]/g, ''))}">${esc(s.phone)}</a>`);
+      if (s.website) facts.push(`<a href="${esc(siteUrl(s.website))}" target="_blank" rel="noopener">${esc(s.website)}</a>`);
+      if (s.grades) facts.push('Grades: ' + esc(s.grades));
+      const dir = directorFor(s); if (dir) facts.push('Area director: ' + esc(dir));
+      $('spFacts').innerHTML = facts.map((f) => `<div>${f}</div>`).join('');
+      $('spWarn').hidden = !s.border;
+      fillForm(s); cfMsg.textContent = ''; cfMsg.className = 'msg';
+      panel.classList.add('show');
+      if (map.getLayer('schools-sel')) map.setFilter('schools-sel', ['==', ['get', 'id'], id]);
+      renderList();
+      const active = listEl.querySelector('.item.active'); if (active) active.scrollIntoView({ block: 'nearest' });
+      if (flyTo) map.flyTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
+      if (window.innerWidth <= 820) $('side').classList.remove('open');
+    }
+    function clearSelection() {
+      selected = null; panel.classList.remove('show');
+      if (map.getLayer('schools-sel')) map.setFilter('schools-sel', ['==', ['get', 'id'], '']);
+      renderList();
+    }
+    $('panelClose').addEventListener('click', clearSelection);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selected) return;
+      const s = BY_ID.get(selected), btn = $('cfSave');
+      const payload = { phone: $('cfPhone').value, email: $('cfEmail').value, director: $('cfDir').value, notes: $('cfNotes').value };
+      btn.disabled = true; cfMsg.className = 'msg'; cfMsg.textContent = 'Saving…';
+      try {
+        const r = await fetch('/api/maps/schools/' + s.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (r.status === 401) { window.location.replace('/maps'); return; }
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Save failed.');
+        if (d.phone || d.email || d.director || d.notes) contacts.schools[s.id] = { phone: d.phone, email: d.email, director: d.director, notes: d.notes }; else delete contacts.schools[s.id];
+        cfMsg.className = 'msg ok'; cfMsg.textContent = 'Saved.';
+        select(s.id, false); cfMsg.className = 'msg ok'; cfMsg.textContent = 'Saved.';
+      } catch (err) { cfMsg.className = 'msg err'; cfMsg.textContent = err.message; }
+      finally { btn.disabled = false; }
+    });
+
+    // ── Lasso ──
+    const mapWrap = document.querySelector('.map-wrap'), lassoBtn = $('lassoBtn'), lassoHint = $('lassoHint'), lassoPanel = $('lassoPanel');
+    let lassoActive = false, lassoDrawing = false, lassoPts = [], lassoResults = [], lassoEndedAt = 0;
     function setLassoData(coords) {
-      const src = map.getSource('lasso');
-      if (!src) return;
+      const src = map.getSource('lasso'); if (!src) return;
       src.setData(coords && coords.length > 2
         ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]]] }, properties: {} }] }
         : { type: 'FeatureCollection', features: [] });
     }
-
     function setLassoMode(on) {
       lassoActive = on;
-      lassoBtn.classList.toggle('on', on);
-      lassoHint.classList.toggle('show', on);
-      mapWrap.classList.toggle('lassoing', on);
-      if (on) { map.dragPan.disable(); map.boxZoom.disable(); map.doubleClickZoom.disable(); }
-      else { map.dragPan.enable(); map.boxZoom.enable(); map.doubleClickZoom.enable(); lassoDrawing = false; }
+      lassoBtn.classList.toggle('on', on); lassoHint.classList.toggle('show', on); mapWrap.classList.toggle('lassoing', on);
+      if (on) { map.dragPan.disable(); map.boxZoom.disable(); map.doubleClickZoom.disable(); map.touchZoomRotate.disable(); }
+      else { map.dragPan.enable(); map.boxZoom.enable(); map.doubleClickZoom.enable(); map.touchZoomRotate.enable(); lassoDrawing = false; }
     }
-
     const evtPoint = (e) => {
-      const r = map.getCanvas().getBoundingClientRect();
-      const src = e.touches ? e.touches[0] : e;
+      const r = map.getCanvas().getBoundingClientRect(), src = e.touches ? e.touches[0] : e;
       return map.unproject([src.clientX - r.left, src.clientY - r.top]);
     };
-    const canvasEl = map.getCanvasContainer();
-    function lassoStart(e) {
-      if (!lassoActive) return;
-      e.preventDefault();
-      lassoDrawing = true; lassoPts = [];
-      const p = evtPoint(e); lassoPts.push([p.lng, p.lat]);
-    }
-    function lassoMove(e) {
-      if (!lassoActive || !lassoDrawing) return;
-      e.preventDefault();
-      const p = evtPoint(e); lassoPts.push([p.lng, p.lat]);
-      setLassoData(lassoPts);
-    }
-    function lassoEnd(e) {
+    function lassoStart(e) { if (!lassoActive) return; e.preventDefault(); lassoDrawing = true; const p = evtPoint(e); lassoPts = [[p.lng, p.lat]]; }
+    function lassoMove(e) { if (!lassoActive || !lassoDrawing) return; e.preventDefault(); const p = evtPoint(e); lassoPts.push([p.lng, p.lat]); setLassoData(lassoPts); }
+    function lassoEnd() {
       if (!lassoActive || !lassoDrawing) return;
       lassoDrawing = false;
       if (lassoPts.length < 3) { setLassoData(null); return; }
-      setLassoData(lassoPts);
-      setLassoMode(false);
-      finishLasso();
+      setLassoData(lassoPts); setLassoMode(false); lassoEndedAt = Date.now(); finishLasso();
     }
+    const canvasEl = map.getCanvasContainer();
     canvasEl.addEventListener('mousedown', lassoStart);
     canvasEl.addEventListener('mousemove', lassoMove);
     window.addEventListener('mouseup', lassoEnd);
@@ -657,262 +473,66 @@
     window.addEventListener('touchend', lassoEnd);
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lassoActive) { setLassoMode(false); setLassoData(null); } });
 
+    function pointInRing(pt, ring) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) inside = !inside;
+      }
+      return inside;
+    }
     function finishLasso() {
       const ring = [...lassoPts, lassoPts[0]];
-      lassoResults = LOCS.filter((l) => visible(l) && pointInRing([l.lng, l.lat], ring));
+      lassoResults = SCHOOLS.filter((s) => visible(s) && pointInRing([s.lng, s.lat], ring));
       renderLassoPanel();
     }
-
     function renderLassoPanel() {
-      const listEl = document.getElementById('lassoList');
-      listEl.innerHTML = '';
-      const bySector = {};
-      for (const l of lassoResults) (bySector[TYPES[l.type].sector] ||= []).push(l);
-      const parts = SECTORS.filter((s) => bySector[s.key]).map((s) => `${bySector[s.key].length} ${s.label.toLowerCase()}`);
-      document.getElementById('lassoSub').textContent = lassoResults.length
-        ? `${lassoResults.length} location${lassoResults.length === 1 ? '' : 's'} · ${parts.join(' · ')} (visible filters only)`
-        : 'No visible pins inside the area — check your filters or draw a larger area.';
-      for (const s of SECTORS) {
-        const rows = bySector[s.key];
-        if (!rows) continue;
-        for (const t of s.types) {
-          const tr = rows.filter((l) => l.type === t.key);
-          if (!tr.length) continue;
-          const g = document.createElement('div'); g.className = 'lp-group'; g.textContent = `${s.label} · ${t.label}`; listEl.appendChild(g);
-          for (const l of tr) {
-            const it = document.createElement('div'); it.className = 'lp-item';
-            it.innerHTML = `<span class="dot ${s.shape}" style="background:${t.color};width:8px;height:8px;border-radius:50%;display:inline-block;align-self:center"></span><span>${l.name}<div class="addr">${l.address || ''}</div></span>`;
-            it.addEventListener('click', () => select(l.id, true));
-            listEl.appendChild(it);
-          }
+      const listEl = $('lassoList'); listEl.innerHTML = '';
+      const by = {}; for (const s of lassoResults) (by[s.region] ||= []).push(s);
+      const parts = REGIONS.filter((r) => by[r.key]).map((r) => `${by[r.key].length} ${r.key}`);
+      $('lassoSub').textContent = lassoResults.length
+        ? `${lassoResults.length} school${lassoResults.length === 1 ? '' : 's'} · ${parts.join(' · ')} (shown areas only)`
+        : 'No visible schools inside the area. Check your area toggles or draw a larger area.';
+      for (const r of REGIONS) {
+        if (!by[r.key]) continue;
+        const g = document.createElement('div'); g.className = 'lp-group'; g.textContent = `${r.label} · ${by[r.key].length}`; listEl.appendChild(g);
+        for (const s of by[r.key]) {
+          const it = document.createElement('div'); it.className = 'lp-item';
+          it.innerHTML = `<span class="dot" style="background:${r.color}"></span><span>${esc(s.name)}<div class="addr">${esc(s.address)}</div></span>`;
+          it.addEventListener('click', () => select(s.id, true));
+          listEl.appendChild(it);
         }
       }
       lassoPanel.classList.add('show');
     }
+    function clearLasso() { lassoResults = []; lassoPts = []; setLassoData(null); lassoPanel.classList.remove('show'); }
+    lassoBtn.addEventListener('click', () => { if (lassoActive) { setLassoMode(false); setLassoData(lassoResults.length ? lassoPts : null); } else setLassoMode(true); });
+    $('lassoRedraw').addEventListener('click', () => { clearLasso(); setLassoMode(true); });
+    $('lassoClear').addEventListener('click', clearLasso);
+    $('lassoClose').addEventListener('click', () => lassoPanel.classList.remove('show'));
 
-    function clearLasso() {
-      lassoResults = []; lassoPts = [];
-      setLassoData(null);
-      lassoPanel.classList.remove('show');
-    }
-
-    function downloadLassoXlsx() {
-      if (!lassoResults.length || typeof XLSX === 'undefined') return;
-      const rows = lassoResults.map((l) => ({
-        'Name': l.name,
-        'Type': TYPES[l.type].sectorLabel,
-        'Category': TYPES[l.type].label,
-        'Address': l.address || '',
-        'City': l.city || '',
-        'Parent / Operator': l.parent || '',
-        'Region / Jurisdiction': l.region || '',
-        'Size': l.stat || (l.enrollment ? l.enrollment.toLocaleString() + ' enrolled' : '') || (l.schools ? l.schools + ' school sites' : ''),
-        'Notes': l.detail || ''
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 22 }, { wch: 46 }, { wch: 16 }, { wch: 30 }, { wch: 26 }, { wch: 18 }, { wch: 60 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Locations');
-      const d = new Date();
-      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      XLSX.writeFile(wb, `map-selection-${stamp}.xlsx`);
-    }
-
-    lassoBtn.addEventListener('click', () => { if (lassoActive) { setLassoMode(false); setLassoData(lassoResults.length ? lassoPts : null); } else { setLassoMode(true); } });
-    document.getElementById('lassoRedraw').addEventListener('click', () => { clearLasso(); setLassoMode(true); });
-    document.getElementById('lassoClear').addEventListener('click', clearLasso);
-    document.getElementById('lassoClose').addEventListener('click', () => lassoPanel.classList.remove('show'));
-    document.getElementById('lassoDownload').addEventListener('click', downloadLassoXlsx);
-
-    // ── Locations table + add/edit form ──
-    const tblOverlay = document.getElementById('tblOverlay');
-    const tblQ = document.getElementById('tblQ');
-    const tblSector = document.getElementById('tblSector');
-    const tblSource = document.getElementById('tblSource');
-    const addForm = document.getElementById('addForm');
-    const afSector = document.getElementById('afSector');
-    const afType = document.getElementById('afType');
-    const afMsg = document.getElementById('afMsg');
-    let tblSort = { key: 'name', dir: 1 };
-
-    for (const sec of SECTORS) { const o = document.createElement('option'); o.value = sec.key; o.textContent = sec.label; afSector.appendChild(o); }
-    function fillTypeOptions(sectorKey, selectedType) {
-      afType.innerHTML = '';
-      const sec = SECTORS.find((x) => x.key === sectorKey) || SECTORS[0];
-      for (const t of sec.types) { const o = document.createElement('option'); o.value = t.key; o.textContent = t.label; if (t.key === selectedType) o.selected = true; afType.appendChild(o); }
-    }
-    afSector.addEventListener('change', () => fillTypeOptions(afSector.value));
-    fillTypeOptions(SECTORS[0].key);
-
-    const TBL_COLS = [
-      { key: 'name', label: 'Name' },
-      { key: 'sector', label: 'Type', get: (l) => TYPES[l.type].sectorLabel },
-      { key: 'type', label: 'Category', get: (l) => TYPES[l.type].label },
-      { key: 'address', label: 'Address' },
-      { key: 'city', label: 'City' },
-      { key: 'parent', label: 'Parent / Operator', get: (l) => l.parent || '' },
-      { key: 'stat', label: 'Size', get: (l) => l.stat || (l.enrollment ? l.enrollment.toLocaleString() + ' enrolled' : '') || (l.schools ? l.schools + ' school sites' : '') },
-      { key: 'custom', label: 'Source', get: (l) => (l.custom ? 'Custom' : 'Built-in') }
-    ];
-    const colVal = (c, l) => (c.get ? c.get(l) : (l[c.key] || ''));
-
-    function tableRows() {
-      const q = tblQ.value.trim().toLowerCase();
-      const sec = tblSector.value, src = tblSource.value;
-      let rows = LOCS.filter((l) => {
-        if (sec && TYPES[l.type].sector !== sec) return false;
-        if (src === 'custom' && !l.custom) return false;
-        if (src === 'builtin' && l.custom) return false;
-        if (!q) return true;
-        return [l.name, l.address, l.city, l.parent, TYPES[l.type].label, TYPES[l.type].sectorLabel, l.detail].some((v) => (v || '').toLowerCase().includes(q));
+    // ── Excel export ──
+    function downloadXlsx(list, prefix) {
+      if (!list.length || typeof XLSX === 'undefined') return;
+      const rows = list.map((s) => {
+        const c = contacts.schools[s.id] || {};
+        return {
+          'School': s.name, 'Area': s.region, 'Area director': directorFor(s), 'Address': s.address, 'City': s.city, 'ZIP': s.zip,
+          'Main office phone': s.phone, 'Added phone': c.phone || '', 'Email': c.email || '', 'Notes': c.notes || '',
+          'Level': s.level, 'Grades': s.grades, 'Charter': s.charter ? 'Yes' : '', 'Website': s.website, 'Near area boundary': s.border ? 'Yes' : ''
+        };
       });
-      const c = TBL_COLS.find((x) => x.key === tblSort.key) || TBL_COLS[0];
-      rows.sort((a, b) => String(colVal(c, a)).localeCompare(String(colVal(c, b)), undefined, { numeric: true, sensitivity: 'base' }) * tblSort.dir);
-      return rows;
-    }
-
-    function renderTable() {
-      const thead = document.querySelector('#tbl thead');
-      const tbody = document.querySelector('#tbl tbody');
-      thead.innerHTML = '<tr>' + TBL_COLS.map((c) => `<th data-key="${c.key}" class="${tblSort.key === c.key ? 'sorted' : ''}">${c.label}${tblSort.key === c.key ? (tblSort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '<th></th></tr>';
-      thead.querySelectorAll('th[data-key]').forEach((th) => th.addEventListener('click', () => {
-        const k = th.dataset.key;
-        if (tblSort.key === k) tblSort.dir *= -1; else tblSort = { key: k, dir: 1 };
-        renderTable();
-      }));
-      const rows = tableRows();
-      document.getElementById('tblCount').textContent = `${rows.length} of ${LOCS.length}`;
-      tbody.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      for (const l of rows) {
-        const t = TYPES[l.type];
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="name">${esc(l.name)}${l.custom ? '<span class="custom-tag">CUSTOM</span>' : ''}</td>
-          <td><span class="pill" style="color:${t.color}">${t.sectorLabel}</span></td>
-          <td>${t.label}</td>
-          <td>${esc(l.address || '')}</td>
-          <td>${esc(l.city || '')}</td>
-          <td>${esc(l.parent || '')}</td>
-          <td>${esc(colVal(TBL_COLS[6], l))}</td>
-          <td>${l.custom ? 'Custom' : 'Built-in'}</td>
-          <td class="actions"><button data-act="show">Show on map</button>${l.custom ? '<button data-act="edit">Edit</button><button data-act="del">Delete</button>' : ''}</td>`;
-        tr.querySelector('[data-act="show"]').addEventListener('click', () => { closeTable(); select(l.id, true); });
-        if (l.custom) {
-          tr.querySelector('[data-act="edit"]').addEventListener('click', () => openForm(l));
-          tr.querySelector('[data-act="del"]').addEventListener('click', () => deleteCustom(l));
-        }
-        frag.appendChild(tr);
-      }
-      tbody.appendChild(frag);
-    }
-    function esc(v) { return String(v).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
-
-    function openTable() { tblOverlay.classList.add('show'); renderTable(); }
-    function closeTable() { tblOverlay.classList.remove('show'); addForm.classList.remove('show'); }
-
-    function openForm(loc) {
-      addForm.classList.add('show');
-      afMsg.textContent = ''; afMsg.className = 'msg';
-      document.getElementById('afId').value = loc ? loc.id : '';
-      document.getElementById('afName').value = loc ? loc.name : '';
-      afSector.value = loc ? TYPES[loc.type].sector : SECTORS[0].key;
-      fillTypeOptions(afSector.value, loc ? loc.type : null);
-      document.getElementById('afParent').value = loc ? (loc.parent || '') : '';
-      document.getElementById('afAddress').value = loc ? (loc.address || '') : '';
-      document.getElementById('afStat').value = loc ? (loc.stat || '') : '';
-      document.getElementById('afDetail').value = loc ? (loc.detail || '') : '';
-      document.getElementById('afSave').textContent = loc ? 'Save changes' : 'Save & pin on map';
-      document.getElementById('afName').focus();
-      tblOverlay.querySelector('.tbl-scroll').scrollTop = 0;
-    }
-
-    addForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('afId').value;
-      const payload = {
-        name: document.getElementById('afName').value.trim(),
-        type: afType.value,
-        address: document.getElementById('afAddress').value.trim(),
-        parent: document.getElementById('afParent').value.trim(),
-        stat: document.getElementById('afStat').value.trim(),
-        detail: document.getElementById('afDetail').value.trim()
-      };
-      const btn = document.getElementById('afSave');
-      btn.disabled = true; afMsg.className = 'msg'; afMsg.textContent = 'Looking up address…';
-      try {
-        const r = await fetch(id ? `/api/maps/custom/${id}` : '/api/maps/custom', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const d = await r.json().catch(() => ({}));
-        if (r.status === 401) { window.location.replace('/maps'); return; }
-        if (!r.ok) throw new Error(d.error || 'Save failed.');
-        const loc = d.location;
-        if (id) { removeMarker(id); }
-        LOCS.push(loc); addMarker(loc);
-        applyFilters(); renderTable();
-        afMsg.className = 'msg ok';
-        afMsg.textContent = `Saved. Pinned at ${loc.matchedAddress || loc.address}${loc.accuracy && !['exact', 'high'].includes(loc.accuracy) ? ` (approximate — geocoder confidence: ${loc.accuracy})` : ''}.`;
-        if (!id) { addForm.reset(); fillTypeOptions(afSector.value); document.getElementById('afId').value = ''; }
-        else { addForm.classList.remove('show'); }
-      } catch (err) {
-        afMsg.className = 'msg err'; afMsg.textContent = err.message;
-      } finally { btn.disabled = false; }
-    });
-
-    async function deleteCustom(loc) {
-      if (!window.confirm(`Delete "${loc.name}"? This removes it for everyone.`)) return;
-      const r = await fetch(`/api/maps/custom/${loc.id}`, { method: 'DELETE' });
-      if (r.status === 401) { window.location.replace('/maps'); return; }
-      if (!r.ok) { alert('Delete failed.'); return; }
-      removeMarker(loc.id); applyFilters(); renderTable();
-    }
-
-    function downloadAllXlsx() {
-      if (typeof XLSX === 'undefined') return;
-      const rows = tableRows().map((l) => ({
-        'Name': l.name, 'Type': TYPES[l.type].sectorLabel, 'Category': TYPES[l.type].label, 'Address': l.address || '', 'City': l.city || '',
-        'Parent / Operator': l.parent || '', 'Region / Jurisdiction': l.region || '', 'Size': colVal(TBL_COLS[6], l), 'Notes': l.detail || '',
-        'Source': l.custom ? 'Custom' : 'Built-in', 'Latitude': l.lat, 'Longitude': l.lng
-      }));
       const ws = XLSX.utils.json_to_sheet(rows);
-      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 22 }, { wch: 46 }, { wch: 16 }, { wch: 30 }, { wch: 26 }, { wch: 18 }, { wch: 60 }, { wch: 9 }, { wch: 10 }, { wch: 11 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Locations');
+      ws['!cols'] = [44, 6, 22, 44, 16, 7, 16, 16, 28, 40, 12, 9, 8, 30, 10].map((wch) => ({ wch }));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Schools');
       const d = new Date();
-      XLSX.writeFile(wb, `all-locations-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.xlsx`);
+      XLSX.writeFile(wb, `${prefix}-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.xlsx`);
     }
+    $('lassoDownload').addEventListener('click', () => downloadXlsx(lassoResults, 'lausd-selection'));
+    $('dlAll').addEventListener('click', (e) => { e.preventDefault(); downloadXlsx(SCHOOLS.filter(visible), 'lausd-schools'); });
+    $('toggleSide').addEventListener('click', () => $('side').classList.toggle('open'));
 
-    document.getElementById('tableBtn').addEventListener('click', openTable);
-    document.getElementById('tblClose').addEventListener('click', closeTable);
-    document.getElementById('tblAdd').addEventListener('click', () => openForm(null));
-    document.getElementById('afCancel').addEventListener('click', () => addForm.classList.remove('show'));
-    document.getElementById('tblDownload').addEventListener('click', downloadAllXlsx);
-    tblQ.addEventListener('input', renderTable);
-    tblSector.addEventListener('change', renderTable);
-    tblSource.addEventListener('change', renderTable);
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && tblOverlay.classList.contains('show')) closeTable(); });
-
-    // ── Wiring ──
-    filtersEl.addEventListener('change', (e) => {
-      if (e.target.dataset.type) { enabled[e.target.dataset.type] = e.target.checked; applyFilters(); }
-      else if (e.target.dataset.sector) {
-        const s = SECTORS.find((x) => x.key === e.target.dataset.sector);
-        for (const t of s.types) { enabled[t.key] = e.target.checked; filtersEl.querySelector(`input[data-type="${t.key}"]`).checked = e.target.checked; }
-        applyFilters();
-      }
-    });
-    document.getElementById('q').addEventListener('input', (e) => { query = e.target.value.trim(); applyFilters(); });
-    document.getElementById('isoClose').addEventListener('click', clearSelection);
-    panel.querySelectorAll('.iso-legend button').forEach((b) => b.addEventListener('click', () => {
-      const m = b.dataset.min; minutesOn[m] = !minutesOn[m]; b.classList.toggle('on', minutesOn[m]); drawIso();
-    }));
-    panel.querySelectorAll('.mode button').forEach((b) => b.addEventListener('click', () => {
-      profile = b.dataset.profile;
-      panel.querySelectorAll('.mode button').forEach((x) => x.classList.toggle('on', x === b));
-      if (selected != null) loadIsochrone(markers.get(selected).loc);
-    }));
-    document.getElementById('toggleSide').addEventListener('click', () => document.getElementById('side').classList.toggle('open'));
-    map.on('click', () => { /* keep selection; close via × */ });
-
+    window.__map = map;
     applyFilters();
   })();
   </script>
