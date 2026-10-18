@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Grocery Tracker</title>
+    <link rel="stylesheet" href="/grocery/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <div>
+            <h1>Grocery Tracker</h1>
+            <p class="subtitle">Track product costs over time</p>
+        </div>
+        <nav class="header-nav">
+            <button class="nav-btn active" id="nav-products">Products</button>
+            <button class="nav-btn" id="nav-spending">Spending</button>
+            <button class="nav-btn" id="nav-receipts">Receipts</button>
+            <button class="nav-btn" id="logout-btn" title="Sign out">Sign out</button>
+        </nav>
+    </div>
+</header>
+
+<main id="app">
+
+    <!-- ── Products tab ─────────────────────────────────────────────────────── -->
+    <div id="tab-products">
+
+        <div id="list-view">
+            <div class="deals-summary">
+                <div class="summary-stat">
+                    <span class="summary-num" id="stat-total-purchases">—</span>
+                    <span class="summary-lbl">items purchased</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-num" id="stat-total-spend">—</span>
+                    <span class="summary-lbl">total spent</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-num" id="stat-total-savings">—</span>
+                    <span class="summary-lbl">saved with sales &amp; coupons</span>
+                </div>
+            </div>
+            <div class="controls">
+                <input type="text" id="search" placeholder="Search products..." autocomplete="off">
+                <select id="dept-filter">
+                    <option value="">All Departments</option>
+                </select>
+            </div>
+            <p id="result-count" class="result-count"></p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-rank">#</th>
+                            <th>Product</th>
+                            <th>Department</th>
+                            <th class="col-num th-sortable" data-sort="count">Purchases<span class="sort-indicator"></span></th>
+                            <th class="col-num th-sortable" data-sort="avg">Avg Price<span class="sort-indicator"></span></th>
+                            <th class="col-num th-sortable" data-sort="last">Last Paid<span class="sort-indicator"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="product-body">
+                        <tr><td colspan="6" class="loading-msg">Loading data…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="detail-view" class="hidden">
+            <button id="back-btn">&#8592; Back to Products</button>
+
+            <div class="product-header">
+                <h2 id="detail-name"></h2>
+                <span class="dept-badge" id="detail-dept"></span>
+            </div>
+
+            <div class="stats-row stats-row--4">
+                <div class="stat-card">
+                    <span class="stat-label">Purchases</span>
+                    <span class="stat-value" id="detail-count"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Average Price</span>
+                    <span class="stat-value" id="detail-avg"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Price Range</span>
+                    <span class="stat-value" id="detail-range"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Last Paid</span>
+                    <span class="stat-value" id="detail-last"></span>
+                </div>
+            </div>
+            <p class="insight" id="detail-insight"></p>
+
+            <div class="chart-wrap">
+                <h3 class="section-title">Price Over Time</h3>
+                <canvas id="price-chart"></canvas>
+            </div>
+
+            <div class="history-section">
+                <h3 class="section-title">Purchase History</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Store</th>
+                                <th>Product Name</th>
+                                <th>Brand</th>
+                                <th class="col-num">Qty</th>
+                                <th class="col-num">Unit Price</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Spending tab ─────────────────────────────────────────────────────── -->
+    <div id="tab-spending" class="hidden">
+        <div class="deals-header">
+            <div>
+                <h2 class="deals-title">Monthly Spending</h2>
+                <p class="deals-subtitle">Compare a month against any earlier month.</p>
+            </div>
+            <div class="controls spend-controls">
+                <select id="spend-month" aria-label="Month"></select>
+                <span class="spend-vs">vs</span>
+                <select id="spend-compare" aria-label="Compare to month"></select>
+            </div>
+        </div>
+
+        <div class="deals-summary">
+            <div class="summary-stat">
+                <span class="summary-num" id="spend-total">—</span>
+                <span class="summary-lbl" id="spend-total-lbl">spent</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-num" id="spend-delta">—</span>
+                <span class="summary-lbl" id="spend-delta-lbl">vs compare month</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-num" id="spend-trips">—</span>
+                <span class="summary-lbl">shopping trips</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-num" id="spend-avg">—</span>
+                <span class="summary-lbl">avg month (prior 6)</span>
+            </div>
+        </div>
+
+        <div class="chart-wrap">
+            <h3 class="section-title">Spend by Month</h3>
+            <canvas id="spend-chart"></canvas>
+        </div>
+
+        <div class="history-section">
+            <h3 class="section-title">By Department</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Department</th>
+                            <th class="col-num" id="dept-th-a">This Month</th>
+                            <th class="col-num" id="dept-th-b">Compare</th>
+                            <th class="col-num">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dept-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="history-section spend-section">
+            <h3 class="section-title">Price Changes on Things You Buy Often</h3>
+            <p class="result-count">Average price over your last 3 months vs. before that, for items bought at least 3 times in each period.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th class="col-num">Before</th>
+                            <th class="col-num">Recent</th>
+                            <th class="col-num">Change</th>
+                            <th class="col-num">Cheapest Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody id="price-change-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Receipts tab ─────────────────────────────────────────────────────── -->
+    <div id="tab-receipts" class="hidden">
+        <div class="deals-header">
+            <div>
+                <h2 class="deals-title">Receipts</h2>
+                <p class="deals-subtitle">Upload a receipt photo or PDF. You'll review the items before anything is saved.</p>
+            </div>
+            <label class="refresh-btn upload-btn">
+                Add receipt
+                <input type="file" id="receipt-file" accept="image/*,application/pdf" multiple hidden>
+            </label>
+        </div>
+
+        <div class="deals-status hidden" id="receipt-status"></div>
+
+        <div id="review" class="hidden">
+            <div class="chart-wrap">
+                <h3 class="section-title">Review receipt</h3>
+                <div class="review-fields">
+                    <label>Store <input type="text" id="rv-store"></label>
+                    <label>Date <input type="date" id="rv-date"></label>
+                    <label>Tax <input type="number" step="0.01" id="rv-tax"></label>
+                    <label>Fees <input type="number" step="0.01" id="rv-fees"></label>
+                    <label>Total <input type="number" step="0.01" id="rv-total"></label>
+                </div>
+                <ul class="review-warnings" id="rv-warnings"></ul>
+                <div class="table-wrap review-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Brand</th>
+                                <th>Type</th>
+                                <th>Department</th>
+                                <th class="col-num">Qty</th>
+                                <th class="col-num">Line Total</th>
+                                <th class="col-num">Saved</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="rv-items"></tbody>
+                    </table>
+                </div>
+                <datalist id="item-basic-list"></datalist>
+                <div class="review-footer">
+                    <span id="rv-sum"></span>
+                    <div>
+                        <button class="nav-link-btn" id="rv-cancel">Discard</button>
+                        <button class="refresh-btn" id="rv-save">Save receipt</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Store</th>
+                        <th class="col-num">Items</th>
+                        <th class="col-num">Saved</th>
+                        <th class="col-num">Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="receipt-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<script src="/grocery/app.js"></script>
+</body>
+</html>

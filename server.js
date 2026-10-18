@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { handleGrocery } = require('./grocery/api');
 
 // Load .env files for local development (Render supplies real env vars in production).
 // First definition of a key wins, and real environment variables beat both files.
@@ -524,6 +525,9 @@ function serveStaticFile(res, filePath) {
 const server = http.createServer((req, res) => {
   const { method, url } = req;
   const [pathname] = (url || '/').split('?');
+
+  // /grocery (dashboard + API) is self-contained; see grocery/api.js.
+  if (handleGrocery(req, res, pathname)) return;
 
   const contactsMatch = pathname.match(/^\/api\/maps\/(contacts|schools|regions)(?:\/([A-Za-z0-9_-]+))?$/);
   if (contactsMatch) {
