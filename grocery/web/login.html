@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Grocery Tracker</title>
+    <link rel="stylesheet" href="/grocery/styles.css">
+</head>
+<body>
+<header>
+    <div class="header-inner">
+        <div>
+            <h1>Grocery Tracker</h1>
+            <p class="subtitle">Track product costs over time</p>
+        </div>
+    </div>
+</header>
+<main>
+    <form class="login-card" id="login-form">
+        <h2 class="deals-title">Sign in</h2>
+        <label for="password" class="summary-lbl">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required autofocus>
+        <button type="submit" class="refresh-btn" id="login-btn">Sign in</button>
+        <p class="login-error hidden" id="login-error"></p>
+    </form>
+</main>
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    err.classList.add('hidden');
+    btn.disabled = true;
+    try {
+        const res = await fetch('/grocery/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: document.getElementById('password').value }),
+        });
+        if (res.ok) { location.reload(); return; }
+        err.textContent = (await res.json().catch(() => ({}))).error || 'Sign-in failed.';
+    } catch {
+        err.textContent = 'Network error. Try again.';
+    }
+    err.classList.remove('hidden');
+    btn.disabled = false;
+});
+</script>
+</body>
+</html>
