@@ -384,7 +384,12 @@ function parseCookies(req) {
   const out = {};
   for (const part of (req.headers.cookie || '').split(';')) {
     const idx = part.indexOf('=');
-    if (idx > 0) out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+    if (idx <= 0) continue;
+    try {
+      out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+    } catch {
+      // Ignore malformed cookie values rather than crashing the server.
+    }
   }
   return out;
 }
@@ -574,7 +579,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let safePath = path.posix.normalize(decodeURIComponent(pathname).replace(/\\/g, '/')).replace(/^\/+/, '');
+  // Malformed percent-encoding (e.g. from scanners) makes decodeURIComponent throw; reject it instead of crashing.
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(pathname);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad Request');
+    return;
+  }
+  let safePath = path.posix.normalize(decodedPath.replace(/\\/g, '/')).replace(/^\/+/, '');
   if (!safePath || safePath === '.' || safePath === '..') {
     safePath = 'index';
   }
