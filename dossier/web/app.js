@@ -182,18 +182,31 @@
         <div class="edu">${d.education.map((e) => `<div><span class="lvl">${esc(e.level)} · ${esc(e.years)}</span><b>${esc(e.school)}</b>${esc(e.place)}${e.note ? `<div class="muted small" style="margin-top:.25rem">${esc(e.note)}</div>` : ''}</div>`).join('')}</div>
     `, '', 'Residences');
 
-    // ── §5 Turning points ───────────────────────────────────────────────────
-    const turning = sheet('turning', 5, 'CASE NARRATIVES', 'Turning Points', d.turning_points.map((t) => `
+    // ── §5 Career ───────────────────────────────────────────────────────────
+    const jobs = d.career || [];
+    const career = sheet('career', 5, `${jobs.length} RECORDED OCCUPATIONS`, 'Career', `
+        <ol class="timeline">${jobs.map((j) => `
+            <li class="${[j.minor && 'aside', j.current && 'current', j.major && 'major'].filter(Boolean).join(' ')}">
+                <span class="when">${when(j)}</span>
+                <div class="place">${esc(j.org)} <span class="muted small">· ${esc(j.place)}</span></div>
+                <div class="with">${esc(j.role)}</div>
+                ${j.note ? `<div class="detail">${esc(j.note)}</div>` : ''}
+            </li>`).join('')}
+        </ol>
+    `, '', 'Career');
+
+    // ── §6 Turning points ───────────────────────────────────────────────────
+    const turning = sheet('turning', 6, 'CASE NARRATIVES', 'Turning Points', d.turning_points.map((t) => `
         <article class="case">
             <div class="case-head"><h4>${esc(t.title)}</h4><span class="period">${esc(t.period)}</span></div>
             ${t.paragraphs.map((x) => `<p>${esc(x)}</p>`).join('')}
             ${t.quote ? `<blockquote class="index-card">“${esc(t.quote)}”<cite>— Subject, Oct 2026</cite></blockquote>` : ''}
         </article>`).join(''), '<span class="stamp">SENSITIVE</span>', 'Turning Points');
 
-    // ── §6 Genome ───────────────────────────────────────────────────────────
+    // ── §7 Genome ───────────────────────────────────────────────────────────
     const g = d.dna;
     const maxPct = Math.max(...g.recent.map(([, v]) => v));
-    const genome = sheet('genome', 6, g.source.toUpperCase(), 'Genome & Ancestry', `
+    const genome = sheet('genome', 7, g.source.toUpperCase(), 'Genome & Ancestry', `
         <div class="two-col">
             <div>
                 <h3 style="margin-top:0">Recent ancestry · last ~5 generations</h3>
@@ -215,12 +228,12 @@
         <p class="caveat">✓ = matches what the subject reported. ${esc(g.caveat)}</p>
     `, '', 'Genome');
 
-    // ── §7 Outstanding inquiries ────────────────────────────────────────────
-    const inquiries = sheet('inquiries', 7, 'FIELD WORK REMAINING', 'Outstanding Inquiries', `
+    // ── §8 Outstanding inquiries ────────────────────────────────────────────
+    const inquiries = sheet('inquiries', 8, 'FIELD WORK REMAINING', 'Outstanding Inquiries', `
         <ul class="inq">${d.inquiries.map((q) => `<li><span class="box">${esc(q.section)}</span><div><b>${esc(q.title)}</b><div class="muted">${esc(q.detail)}</div></div></li>`).join('')}</ul>
     `, '<span class="stamp ink">OPEN</span>', 'Inquiries');
 
-    main.innerHTML = profile + origin + physical + residences + turning + genome + inquiries;
+    main.innerHTML = profile + origin + physical + residences + (jobs.length ? career : '') + turning + genome + inquiries;
     document.getElementById('colophon').textContent = `COMPILED BY OBSERVER (CLAUDE) FROM ${d.meta.sessions} INTERVIEW SESSIONS · NOT FOR DISTRIBUTION`;
 
     // Folder tabs, highlighted as each sheet scrolls into view.
