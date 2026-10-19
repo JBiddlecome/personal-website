@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="referrer" content="no-referrer">
+    <title>Restricted File</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dossier/styles.css">
+</head>
+<body>
+<div class="login-wrap">
+    <form class="folder" id="login-form">
+        <span class="stamp big">RESTRICTED</span>
+        <div class="agency">OFFICE OF XENO-ANTHROPOLOGICAL RECORDS</div>
+        <div class="label-strip">
+            <div class="no">FILE No. ████████</div>
+            <div class="nm">SUBJECT FILE</div>
+        </div>
+        <label for="password">ACCESS PHRASE</label>
+        <input type="password" id="password" autocomplete="current-password" required autofocus>
+        <button type="submit" id="login-btn">OPEN FILE</button>
+        <p class="err" id="login-error" role="alert"></p>
+    </form>
+</div>
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    err.textContent = '';
+    btn.disabled = true;
+    try {
+        const res = await fetch('/dossier/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: document.getElementById('password').value }),
+        });
+        if (res.ok) { location.reload(); return; }
+        err.textContent = (await res.json().catch(() => ({}))).error || 'Access denied.';
+    } catch {
+        err.textContent = 'Network error. Try again.';
+    }
+    btn.disabled = false;
+});
+</script>
+</body>
+</html>
