@@ -3,7 +3,7 @@
 //   node dossier/publish.js [site-url]          default site: https://jakebiddlecome.com
 //
 // Reads DOSSIER_PASSWORD from the environment or the repo's .env, logs in for a short-lived token,
-// then uploads ~/Dossier/data/dossier.json and every image in ~/Dossier/photos (override the folder
+// then uploads ~/Dossier/data/dossier.json (plus journal-prompts.json if present) and every image in ~/Dossier/photos (override the folder
 // with DOSSIER_DIR). Nothing is written to this repo.
 const fs = require('fs');
 const os = require('os');
@@ -27,6 +27,8 @@ const TYPES = { '.json': 'application/json; charset=utf-8', '.jpg': 'image/jpeg'
 async function main() {
   if (!PASSWORD) throw new Error('Set DOSSIER_PASSWORD in the environment or in .env first.');
   const files = [path.join(DIR, 'data', 'dossier.json')];
+  const prompts = path.join(DIR, 'data', 'journal-prompts.json');
+  if (fs.existsSync(prompts)) files.push(prompts);
   for (const f of fs.readdirSync(path.join(DIR, 'photos'))) if (TYPES[path.extname(f).toLowerCase()]) files.push(path.join(DIR, 'photos', f));
   JSON.parse(fs.readFileSync(files[0], 'utf8')); // fail early on a malformed data file
 

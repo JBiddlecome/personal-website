@@ -1,13 +1,15 @@
 // File storage for /dossier. The dossier's content is personal and must never be committed to this
 // (public) repo, so it lives outside it:
 //   - production: the Railway Postgres database (DATABASE_URL), uploaded with dossier/publish.js
-//   - local dev without DATABASE_URL: read straight from the private folder DOSSIER_DIR (default ~/Dossier)
+//   - local dev without DATABASE_URL: read straight from the private folder DOSSIER_DIR (default ~/Dossier);
+//     journal entries written locally land in DOSSIER_DIR/journal
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { Pool } = require('pg');
 
-const LOCAL_SUBDIRS = ['data', 'photos', 'documents'];
+const LOCAL_SUBDIRS = ['data', 'photos', 'documents', 'journal'];
+const JOURNAL_RE = /^journal-\d{4}-\d{2}-\d{2}\.json$/;
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/;
 
 let pool = null;
@@ -66,7 +68,12 @@ async function getFile(name) {
 
 async function putFile(name, contentType, body) {
   if (!isValidName(name)) throw Object.assign(new Error('Invalid file name.'), { status: 400 });
-  if (!getPool()) throw Object.assign(new Error('Publishing needs DATABASE_URL; locally the page reads DOSSIER_DIR directly.'), { status: 503 });
+  if (!getPool()) {
+    if (!JOURNAL_RE.test(name)) throw Object.assign(new Error('Publishing needs DATABASE_URL; locally the page reads DOSSIER_DIR directly.'), { status: 503 });
+    await fs.promises.mkdir(path.join(localDir(), 'journal'), { recursive: true });
+    await fs.promises.writeFile(path.join(localDir(), 'journal', name), body);
+    return;
+  }
   await ensureSchema();
   await getPool().query(
     `INSERT INTO dossier_files (name, content_type, body, updated_at) VALUES ($1, $2, $3, now())
@@ -76,7 +83,18 @@ async function putFile(name, contentType, body) {
 }
 
 async function listFiles() {
-  if (!getPool()) return [];
+  if (!getPool()) {
+    const rows = [];
+    for (const sub of LOCAL_SUBDIRS) {
+      const dir = path.join(localDir(), sub);
+      for (const name of await fs.promises.readdir(dir).catch(() => [])) {
+        if (!isValidName(name)) continue;
+        const st = await fs.promises.stat(path.join(dir, name)).catch(() => null);
+        if (st && st.isFile()) rows.push({ name, content_type: MIME[path.extname(name).toLowerCase()] || 'application/octet-stream', size: st.size, updated_at: st.mtime });
+      }
+    }
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
+  }
   await ensureSchema();
   const { rows } = await getPool().query('SELECT name, content_type, octet_length(body) AS size, updated_at FROM dossier_files ORDER BY name');
   return rows;

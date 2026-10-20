@@ -180,7 +180,7 @@
         </ol>
         <h3>Schooling</h3>
         <div class="edu">${d.education.map((e) => `<div><span class="lvl">${esc(e.level)} · ${esc(e.years)}</span><b>${esc(e.school)}</b>${esc(e.place)}${e.note ? `<div class="muted small" style="margin-top:.25rem">${esc(e.note)}</div>` : ''}</div>`).join('')}</div>
-    `, '', 'Residences');
+    `, '', 'Places');
 
     // ── §5 Career ───────────────────────────────────────────────────────────
     const jobs = d.career || [];
@@ -224,7 +224,7 @@
         <div class="bars">${pers.values.scores.map(([k, v, c]) => `<div class="bar-row"><span>${esc(k)}</span><div class="bar-track"><div class="bar-fill" style="width:${((v - 1) / 4) * 100}%"></div></div><span class="pct">${c > 0 ? '+' : ''}${c.toFixed(1)}</span></div>`).join('')}</div>
         <p class="muted small" style="margin-top:.4rem">Bars show the 1–5 rating; the number is relative to his own average (${pers.values.mean.toFixed(2)}), which is how values are compared.</p>
         <ul>${pers.values.readings.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-    `, '', 'Personality') : '';
+    `, '', 'Psyche') : '';
 
     // ── §8 Interior ─────────────────────────────────────────────────────────
     const inner = d.interior;
@@ -271,12 +271,22 @@
         <p class="caveat">✓ = matches what the subject reported. ${esc(g.caveat)}</p>
     `, '', 'Genome');
 
-    // ── §11 Outstanding inquiries ────────────────────────────────────────────
-    const inquiries = sheet('inquiries', 11, 'FIELD WORK REMAINING', 'Outstanding Inquiries', `
+    // ── §11 Personal effects ────────────────────────────────────────────────
+    const art = d.artifacts;
+    const effects = art ? sheet('effects', 11, `${art.items.length} EXHIBITS`, 'Personal Effects', `
+        <p class="muted small">${esc(art.note)}</p>
+        <div class="evidence">${art.items.map((x, i) => `
+            <figure><a href="${fileUrl(x.file)}" target="_blank" rel="noopener"><img src="${fileUrl(x.file)}" alt="${esc(x.title)}" loading="lazy"></a>
+                <figcaption><b>EXHIBIT ${String.fromCharCode(65 + i)} · ${esc(x.title)}</b>${esc(x.caption)}</figcaption></figure>`).join('')}
+        </div>
+    `, '', 'Effects') : '';
+
+    // ── §12 Outstanding inquiries ────────────────────────────────────────────
+    const inquiries = sheet('inquiries', 12, 'FIELD WORK REMAINING', 'Outstanding Inquiries', `
         <ul class="inq">${d.inquiries.map((q) => `<li><span class="box">${esc(q.section)}</span><div><b>${esc(q.title)}</b><div class="muted">${esc(q.detail)}</div></div></li>`).join('')}</ul>
     `, '<span class="stamp ink">OPEN</span>', 'Inquiries');
 
-    main.innerHTML = profile + origin + physical + residences + (jobs.length ? career : '') + (partners.length ? relationships : '') + personality + interior + turning + genome + inquiries;
+    main.innerHTML = profile + origin + physical + residences + (jobs.length ? career : '') + (partners.length ? relationships : '') + personality + interior + turning + genome + effects + inquiries;
     document.getElementById('colophon').textContent = `COMPILED BY OBSERVER (CLAUDE) FROM ${d.meta.sessions} INTERVIEW SESSIONS · NOT FOR DISTRIBUTION`;
 
     // Folder tabs, highlighted as each sheet scrolls into view.
