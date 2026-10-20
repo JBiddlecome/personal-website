@@ -57,31 +57,25 @@
         </div>
       </div>
 
-      <!-- Signature animation: manual work snapping into a pipeline -->
-      <figure class="flow-card" id="flow" aria-label="Animation: four manual filing tasks become an automated pipeline, cutting weeks of work to 15 minutes a week">
-        <div class="flow-head">
-          <span>Tax-credit filings · hundreds of employees per batch</span>
-          <button type="button" class="flow-replay" id="flow-replay" aria-label="Replay animation">↻</button>
+      <!-- Signature animation: tools pulled from a cloud through a delivery stack -->
+      <figure class="forge" id="forge" aria-label="Animation: spreadsheets, boards, dashboards, code, APIs and apps are pulled from a cloud of tools through four stages: assess, implement, test and production">
+        <div class="forge-head">
+          <span>From scattered tools to shipped systems</span>
+          <button type="button" class="forge-pause" id="forge-pause" aria-label="Pause animation" aria-pressed="false">
+            <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>
+            <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5z"/></svg>
+          </button>
         </div>
-        <div class="flow-stage">
-          <div class="flow-line" aria-hidden="true"><i class="flow-dot"></i></div>
-          <div class="chip" style="--x0:6%;--y0:8%;--r0:-7deg;--i:0">
-            <span class="messy">Copy rows from the export</span><span class="clean">Extract</span>
-          </div>
-          <div class="chip" style="--x0:44%;--y0:24%;--r0:5deg;--i:1">
-            <span class="messy">Fix every format by hand</span><span class="clean">Transform</span>
-          </div>
-          <div class="chip" style="--x0:2%;--y0:50%;--r0:4deg;--i:2">
-            <span class="messy">Re-check each record</span><span class="clean">Validate</span>
-          </div>
-          <div class="chip" style="--x0:40%;--y0:70%;--r0:-5deg;--i:3">
-            <span class="messy">Upload them one by one</span><span class="clean">Upload</span>
-          </div>
+        <div class="forge-stage" id="forge-stage">
+          <svg class="cloud-shape" viewBox="0 0 400 170" preserveAspectRatio="none" aria-hidden="true"><path d="M58 150c-30 0-50-20-50-46 0-25 19-43 44-45 6-31 33-52 66-52 24 0 45 12 56 31 9-6 20-9 32-9 30 0 54 21 58 49 4-1 8-1 12-1 31 0 55 23 55 52 0 13-5 21-14 21z"/></svg>
+          <div class="cloud" id="forge-cloud" aria-hidden="true"></div>
+          <ol class="stack" id="forge-stack">
+            <li><span class="n">01</span>Assess</li>
+            <li><span class="n">02</span>Implement</li>
+            <li><span class="n">03</span>Test</li>
+            <li><span class="n">04</span>Production<span class="live">✓ Live</span></li>
+          </ol>
         </div>
-        <figcaption class="flow-clock">
-          <span class="clock-label">Time per cycle</span>
-          <span class="clock-value"><span class="before">≈ 3 weeks</span><span class="after">15 min</span></span>
-        </figcaption>
       </figure>
     </section>
 

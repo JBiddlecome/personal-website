@@ -72,23 +72,139 @@
     onScroll();
   }
 
-  /* ── Hero: manual tasks snap into a pipeline ────────────── */
-  var flow = document.getElementById('flow');
-  var flowReplay = document.getElementById('flow-replay');
-  if (flow) {
-    var flowTimers = [];
-    var playFlow = function () {
-      flowTimers.forEach(clearTimeout);
-      flow.classList.remove('messy', 'aligned', 'done');
-      if (reducedMotion) { flow.classList.add('messy', 'aligned', 'done'); return; }
-      flowTimers = [
-        setTimeout(function () { flow.classList.add('messy'); }, 1700),
-        setTimeout(function () { flow.classList.add('aligned'); }, 1750),
-        setTimeout(function () { flow.classList.add('done'); }, 2900)
-      ];
+  /* ── Hero: tools pulled from a cloud through the delivery stack ── */
+  var forge = document.getElementById('forge');
+  if (forge && forge.animate) {
+    var cloudEl = document.getElementById('forge-cloud');
+    var stageEl = document.getElementById('forge-stage');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#forge-stack li'));
+    var pauseBtn = document.getElementById('forge-pause');
+    var ICONS = {
+      grid: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16"/></svg>',
+      board: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v6M12 8v9M17 8v4"/></svg>',
+      bars: '<svg viewBox="0 0 24 24"><path d="M4 20h16M7 16v-5M12 16V7M17 16v-8"/></svg>',
+      line: '<svg viewBox="0 0 24 24"><path d="M4 19l5-6 4 3 7-9"/><path d="M15 7h5v5"/></svg>',
+      code: '<svg viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg>',
+      api: '<svg viewBox="0 0 24 24"><path d="M8 4c-2 0-3 1-3 3v2c0 1.5-1 3-2 3 1 0 2 1.5 2 3v2c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2c0 1.5 1 3 2 3-1 0-2 1.5-2 3v2c0 2-1 3-3 3"/></svg>',
+      db: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg>',
+      bolt: '<svg viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg>',
+      spark: '<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>',
+      phone: '<svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
+      browser: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8.5h18M6 6.3h.01M8.5 6.3h.01"/></svg>'
     };
-    playFlow();
-    if (flowReplay) flowReplay.addEventListener('click', playFlow);
+    // [label, icon key or image path, icon color, x%, y% inside the cloud]
+    var TOOLS = [
+      ['Excel', 'grid', '#1f7a4a', 22, 17],
+      ['Kanban', 'board', '#2f6fb5', 50, 14],
+      ['Dashboards', 'bars', '#1f3a5f', 78, 19],
+      ['Python', 'code', '#16202e', 34, 39],
+      ['REST API', 'api', '#6a4bb5', 66, 40],
+      ['Growth', 'line', '#b5652e', 17, 61],
+      ['AI APIs', 'spark', '#b5652e', 50, 61],
+      ['SQL', 'db', '#0f6d8c', 83, 61],
+      ['Automations', 'bolt', '#c08a12', 24, 84],
+      ['Web portal', 'browser', '#1f3a5f', 54, 85],
+      ['Mobile app', 'phone', '#b5652e', 82, 83]
+    ];
+    var tiles = TOOLS.map(function (t, i) {
+      var el = document.createElement('span');
+      el.className = 'tool bob';
+      el.style.left = t[3] + '%';
+      el.style.top = t[4] + '%';
+      el.style.setProperty('--d', (-i * 0.7) + 's');
+      var icon = ICONS[t[1]] ? ICONS[t[1]] : '<img src="' + t[1] + '" alt="" loading="lazy">';
+      el.innerHTML = '<span class="ico" style="color:' + t[2] + '">' + icon + '</span>' + t[0];
+      cloudEl.appendChild(el);
+      return { el: el, busy: false };
+    });
+
+    var reduce = reducedMotion;
+    var running = false;
+    var inView = true;
+    var userPaused = false;
+    var timer = null;
+    var next = 0;
+    var flights = [];
+
+    function lightRow(i, cls, ms) {
+      var row = rows[i];
+      row.classList.add(cls);
+      setTimeout(function () { row.classList.remove(cls); }, ms);
+    }
+
+    // Pull one tile out of the cloud and walk it down the four stages.
+    function launch() {
+      var tile = null;
+      for (var k = 0; k < tiles.length && !tile; k++) {
+        var cand = tiles[(next + k) % tiles.length];
+        if (!cand.busy) { tile = cand; next = (next + k + 1) % tiles.length; }
+      }
+      if (!tile) return;
+      tile.busy = true;
+      var stageBox = stageEl.getBoundingClientRect();
+      var tileBox = tile.el.getBoundingClientRect();
+      var fromX = tileBox.left + tileBox.width / 2 - stageBox.left;
+      var fromY = tileBox.top + tileBox.height / 2 - stageBox.top;
+      var targetX = stageBox.width * 0.7;
+      var stops = rows.map(function (row) {
+        var r = row.getBoundingClientRect();
+        return [targetX - fromX, r.top + r.height / 2 - stageBox.top - fromY];
+      });
+      tile.el.classList.remove('bob');
+      tile.el.style.zIndex = 3;
+      var t = function (x, y, extra) { return 'translate(calc(-50% + ' + x + 'px), calc(-50% + ' + y + 'px))' + (extra || ''); };
+      var anim = tile.el.animate([
+        { transform: t(0, 0), offset: 0 },
+        { transform: t(stops[0][0] * 0.4, stops[0][1] * 0.45, ' scale(1.06)'), offset: 0.12 },
+        { transform: t(stops[0][0], stops[0][1]), offset: 0.24 },
+        { transform: t(stops[0][0], stops[0][1]), offset: 0.32 },
+        { transform: t(stops[1][0], stops[1][1]), offset: 0.44 },
+        { transform: t(stops[1][0], stops[1][1]), offset: 0.52 },
+        { transform: t(stops[2][0], stops[2][1]), offset: 0.64 },
+        { transform: t(stops[2][0], stops[2][1]), offset: 0.72 },
+        { transform: t(stops[3][0], stops[3][1]), offset: 0.84, opacity: 1 },
+        { transform: t(stops[3][0] + 40, stops[3][1], ' scale(.9)'), offset: 1, opacity: 0 }
+      ], { duration: 5600, easing: 'cubic-bezier(.45,0,.25,1)', fill: 'forwards' });
+      flights.push(anim);
+      [0.24, 0.44, 0.64, 0.84].forEach(function (at, i) {
+        setTimeout(function () { lightRow(i, 'lit', 900); if (i === 3) lightRow(3, 'ship', 1300); }, 5600 * at);
+      });
+      anim.onfinish = function () {
+        flights.splice(flights.indexOf(anim), 1);
+        anim.cancel();
+        tile.el.style.zIndex = '';
+        tile.el.classList.add('bob');
+        tile.el.animate([{ opacity: 0, transform: 'translate(-50%, -50%) scale(.6)' }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }], { duration: 600, easing: 'ease-out' });
+        tile.busy = false;
+      };
+    }
+
+    function setRunning(on) {
+      if (on === running) return;
+      running = on;
+      forge.classList.toggle('paused', !on);
+      flights.forEach(function (a) { on ? a.play() : a.pause(); });
+      clearInterval(timer);
+      if (on) { launch(); timer = setInterval(launch, 1900); }
+    }
+    function sync() { setRunning(!reduce && !userPaused && inView && !document.hidden); }
+
+    if (reduce) {
+      forge.classList.add('static');
+    } else {
+      new IntersectionObserver(function (entries) { inView = entries[0].isIntersecting; sync(); }).observe(forge);
+      document.addEventListener('visibilitychange', sync);
+      setTimeout(sync, 900);
+    }
+    if (pauseBtn) {
+      if (reduce) pauseBtn.hidden = true;
+      pauseBtn.addEventListener('click', function () {
+        userPaused = !userPaused;
+        pauseBtn.setAttribute('aria-pressed', String(userPaused));
+        pauseBtn.setAttribute('aria-label', userPaused ? 'Play animation' : 'Pause animation');
+        sync();
+      });
+    }
   }
 
   /* ── AI concierge chat (SSE streaming) ──────────────────── */
