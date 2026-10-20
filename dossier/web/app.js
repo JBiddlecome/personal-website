@@ -235,6 +235,7 @@
         </div>
         <h3>A typical day</h3>
         <p>${esc(inner.day)}</p>
+        ${inner.projects ? `<h3>Projects</h3><table class="kv">${inner.projects.map((p) => `<tr><th>${esc(p.name)}<div class="muted small">${esc(p.status)}</div></th><td>${esc(p.note)}${(p.links || []).filter((l) => /^https?:\/\//.test(l.url)).map((l) => ` <a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a>`).join(' ·')}</td></tr>`).join('')}</table>` : ''}
         ${inner.goals ? `<h3>Stated objectives</h3><table class="kv">${inner.goals.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : ''}
     `, '', 'Interior') : '';
 

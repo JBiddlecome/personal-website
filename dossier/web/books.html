@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="referrer" content="no-referrer">
+    <title>Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dossier/styles.css">
+    <link rel="stylesheet" href="/dossier/books.css">
+</head>
+<body class="library">
+<div class="topbar">
+    <div class="topbar-inner">
+        <span class="agency">OFFICE OF XENO-ANTHROPOLOGICAL RECORDS · SPECIMEN LIBRARY</span>
+        <span class="topbar-actions"><a href="/dossier" class="topbar-link">SUBJECT FILE</a><a href="/dossier/journal.html" class="topbar-link">FIELD LOG</a><button type="button" id="logout">CLOSE FILE</button></span>
+    </div>
+</div>
+
+<header class="lib-head">
+    <h1>The Library</h1>
+    <p class="lib-stats" id="stats"></p>
+    <div class="lib-controls">
+        <input type="search" id="search" placeholder="Search title, author, series…" aria-label="Search books">
+        <label>Arrange by
+            <select id="sort">
+                <option value="shelf">Author &amp; series</option>
+                <option value="added">Recently added</option>
+                <option value="rating">My rating</option>
+                <option value="title">Title</option>
+            </select>
+        </label>
+        <button type="button" id="add-btn" class="lib-btn">+ Add a book</button>
+    </div>
+</header>
+
+<main id="room" class="room"><p class="lib-loading">Opening the library…</p></main>
+
+<div class="drawer" id="drawer" hidden>
+    <div class="drawer-scrim" data-close></div>
+    <article class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="d-title">
+        <button type="button" class="drawer-x" data-close aria-label="Close">×</button>
+        <div class="drawer-grid">
+            <div class="d-cover" id="d-cover"></div>
+            <div class="d-info">
+                <div class="d-series" id="d-series"></div>
+                <h2 id="d-title"></h2>
+                <div class="d-author" id="d-author"></div>
+                <div class="d-meta" id="d-meta"></div>
+                <div class="d-stars" id="d-stars" role="radiogroup" aria-label="My rating"></div>
+                <div class="d-row">
+                    <label>Shelf
+                        <select id="d-shelf">
+                            <option value="reading">Reading now</option>
+                            <option value="to-read">To read</option>
+                            <option value="read">Read</option>
+                            <option value="dnf">Did not finish</option>
+                        </select>
+                    </label>
+                    <label>Finished <input type="date" id="d-read"></label>
+                </div>
+                <label class="d-notes">Notes
+                    <textarea id="d-notes" rows="6" placeholder="What stuck with you? Favorite ideas, characters, quotes…"></textarea>
+                </label>
+                <div class="d-links">
+                    <div class="d-links-head">Saved notes &amp; artifacts</div>
+                    <ul id="d-links"></ul>
+                    <form id="d-link-form" class="d-link-form">
+                        <input type="text" id="d-link-label" placeholder="Label (e.g. Claude summary)" aria-label="Link label">
+                        <input type="url" id="d-link-url" placeholder="https://…" aria-label="Link URL" required>
+                        <button type="submit" class="lib-btn small">Add link</button>
+                    </form>
+                </div>
+                <div class="d-foot">
+                    <span class="d-state" id="d-state"></span>
+                    <button type="button" class="lib-btn danger small" id="d-remove">Remove book</button>
+                </div>
+            </div>
+        </div>
+    </article>
+</div>
+
+<div class="drawer" id="adder" hidden>
+    <div class="drawer-scrim" data-close></div>
+    <form class="drawer-card add-card" id="add-form">
+        <button type="button" class="drawer-x" data-close aria-label="Close">×</button>
+        <h2>Add a book</h2>
+        <label>Title <input type="text" id="a-title" required></label>
+        <label>Author <input type="text" id="a-author" required></label>
+        <div class="d-row">
+            <label>Series <input type="text" id="a-series" placeholder="optional"></label>
+            <label># <input type="text" id="a-no" size="4"></label>
+        </div>
+        <label>Shelf
+            <select id="a-shelf">
+                <option value="to-read">To read</option>
+                <option value="reading">Reading now</option>
+                <option value="read">Read</option>
+            </select>
+        </label>
+        <p class="muted small">The cover and page count are looked up on Open Library.</p>
+        <button type="submit" class="lib-btn">Shelve it</button>
+    </form>
+</div>
+
+<script src="/dossier/books.js"></script>
+</body>
+</html>

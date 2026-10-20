@@ -1,9 +1,10 @@
-// Downloads the journal entries written on the live site into the private dossier folder, so they
+// Downloads the journal entries and library written on the live site into the private dossier folder, so they
 // can be read locally (by the subject, or by Claude) without ever touching this repo.
 //
 //   node dossier/pull.js [site-url]             default site: https://jakebiddlecome.com
 //
-// Saves journal-YYYY-MM-DD.json files to ~/Dossier/journal (override the folder with DOSSIER_DIR).
+// Saves journal-YYYY-MM-DD.json files to ~/Dossier/journal and the library to ~/Dossier/books/books.json
+// (override the base folder with DOSSIER_DIR).
 // Only entries that are new or changed since the last pull are downloaded.
 const fs = require('fs');
 const os = require('os');
@@ -20,7 +21,7 @@ function envFromFile(key) {
 }
 
 const SITE = (process.argv[2] || 'https://jakebiddlecome.com').replace(/\/$/, '');
-const DIR = path.join(process.env.DOSSIER_DIR || path.join(os.homedir(), 'Dossier'), 'journal');
+const BASE = process.env.DOSSIER_DIR || path.join(os.homedir(), 'Dossier');
 const PASSWORD = process.env.DOSSIER_PASSWORD || envFromFile('DOSSIER_PASSWORD');
 const JOURNAL_RE = /^journal-\d{4}-\d{2}-\d{2}\.json$/;
 
@@ -35,12 +36,13 @@ async function main() {
 
   const list = await fetch(`${SITE}/dossier/api/files`, { headers: auth });
   if (!list.ok) throw new Error(`Listing failed (${list.status})`);
-  const entries = (await list.json()).files.filter((f) => JOURNAL_RE.test(f.name));
+  const entries = (await list.json()).files.filter((f) => JOURNAL_RE.test(f.name) || f.name === 'books.json');
 
-  fs.mkdirSync(DIR, { recursive: true });
   let pulled = 0;
   for (const f of entries) {
-    const local = path.join(DIR, f.name);
+    const dir = path.join(BASE, f.name === 'books.json' ? 'books' : 'journal');
+    fs.mkdirSync(dir, { recursive: true });
+    const local = path.join(dir, f.name);
     const remoteTime = new Date(f.updated_at).getTime();
     if (fs.existsSync(local) && fs.statSync(local).mtimeMs >= remoteTime) continue;
     const res = await fetch(`${SITE}/dossier/api/files/${encodeURIComponent(f.name)}`, { headers: auth });
@@ -50,7 +52,7 @@ async function main() {
     pulled++;
     console.log(`pulled ${f.name}`);
   }
-  console.log(`${entries.length} entries on the site, ${pulled} new or changed, saved in ${DIR}`);
+  console.log(`${entries.length} files on the site, ${pulled} new or changed, saved under ${BASE}`);
 }
 
 main().catch((err) => { console.error(err.message); process.exit(1); });

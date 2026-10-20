@@ -1,6 +1,8 @@
 // Uploads the private dossier content (kept outside this repo) to the live site.
 //
 //   node dossier/publish.js [site-url]          default site: https://jakebiddlecome.com
+//   node dossier/publish.js --books [site-url]  also upload ~/Dossier/books/books.json. The library is edited on
+//                                               the site, so run dossier/pull.js first or you overwrite those edits.
 //
 // Reads DOSSIER_PASSWORD from the environment or the repo's .env, logs in for a short-lived token,
 // then uploads ~/Dossier/data/dossier.json (plus journal-prompts.json if present) and every image in ~/Dossier/photos (override the folder
@@ -19,7 +21,9 @@ function envFromFile(key) {
   return '';
 }
 
-const SITE = (process.argv[2] || 'https://jakebiddlecome.com').replace(/\/$/, '');
+const args = process.argv.slice(2);
+const WITH_BOOKS = args.includes('--books');
+const SITE = (args.find((a) => !a.startsWith('--')) || 'https://jakebiddlecome.com').replace(/\/$/, '');
 const DIR = process.env.DOSSIER_DIR || path.join(os.homedir(), 'Dossier');
 const PASSWORD = process.env.DOSSIER_PASSWORD || envFromFile('DOSSIER_PASSWORD');
 const TYPES = { '.json': 'application/json; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
@@ -29,8 +33,9 @@ async function main() {
   const files = [path.join(DIR, 'data', 'dossier.json')];
   const prompts = path.join(DIR, 'data', 'journal-prompts.json');
   if (fs.existsSync(prompts)) files.push(prompts);
+  if (WITH_BOOKS) files.push(path.join(DIR, 'books', 'books.json'));
   for (const f of fs.readdirSync(path.join(DIR, 'photos'))) if (TYPES[path.extname(f).toLowerCase()]) files.push(path.join(DIR, 'photos', f));
-  JSON.parse(fs.readFileSync(files[0], 'utf8')); // fail early on a malformed data file
+  for (const f of files) if (f.endsWith('.json')) JSON.parse(fs.readFileSync(f, 'utf8')); // fail early on a malformed data file
 
   const login = await fetch(`${SITE}/dossier/api/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: PASSWORD, client: 'cli' })

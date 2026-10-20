@@ -2,13 +2,13 @@
 // (public) repo, so it lives outside it:
 //   - production: the Railway Postgres database (DATABASE_URL), uploaded with dossier/publish.js
 //   - local dev without DATABASE_URL: read straight from the private folder DOSSIER_DIR (default ~/Dossier);
-//     journal entries written locally land in DOSSIER_DIR/journal
+//     journal entries and books.json written locally land in DOSSIER_DIR/journal and DOSSIER_DIR/books
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { Pool } = require('pg');
 
-const LOCAL_SUBDIRS = ['data', 'photos', 'documents', 'journal'];
+const LOCAL_SUBDIRS = ['data', 'photos', 'documents', 'journal', 'books'];
 const JOURNAL_RE = /^journal-\d{4}-\d{2}-\d{2}\.json$/;
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/;
 
@@ -69,9 +69,10 @@ async function getFile(name) {
 async function putFile(name, contentType, body) {
   if (!isValidName(name)) throw Object.assign(new Error('Invalid file name.'), { status: 400 });
   if (!getPool()) {
-    if (!JOURNAL_RE.test(name)) throw Object.assign(new Error('Publishing needs DATABASE_URL; locally the page reads DOSSIER_DIR directly.'), { status: 503 });
-    await fs.promises.mkdir(path.join(localDir(), 'journal'), { recursive: true });
-    await fs.promises.writeFile(path.join(localDir(), 'journal', name), body);
+    const sub = JOURNAL_RE.test(name) ? 'journal' : name === 'books.json' ? 'books' : null;
+    if (!sub) throw Object.assign(new Error('Publishing needs DATABASE_URL; locally the page reads DOSSIER_DIR directly.'), { status: 503 });
+    await fs.promises.mkdir(path.join(localDir(), sub), { recursive: true });
+    await fs.promises.writeFile(path.join(localDir(), sub, name), body);
     return;
   }
   await ensureSchema();

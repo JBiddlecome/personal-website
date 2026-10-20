@@ -125,6 +125,8 @@ async function readJson(req) {
 // ── Router ────────────────────────────────────────────────────────────────────
 // Returns true when the request belongs to /dossier (handled or rejected here).
 function handleDossier(req, res, pathname) {
+  // /books is a friendly address for the library page, which lives under /dossier for its session cookie.
+  if (pathname === '/books' || pathname === '/books/') { res.writeHead(302, { Location: '/dossier/books', ...PRIVATE_HEADERS }); res.end(); return true; }
   if (pathname !== '/dossier' && !pathname.startsWith('/dossier/')) return false;
   route(req, res, pathname).catch((err) => {
     const status = err.status || 500;
@@ -140,6 +142,7 @@ async function route(req, res, pathname) {
   if (!pathname.startsWith('/dossier/api/')) {
     if (method !== 'GET') { res.writeHead(405); res.end(); return; }
     if (pathname === '/dossier' || pathname === '/dossier/') { serveWeb(res, isAuthed(req) ? 'index.html' : 'login.html'); return; }
+    if (pathname === '/dossier/books') { serveWeb(res, isAuthed(req) ? 'books.html' : 'login.html'); return; }
     const file = pathname.slice('/dossier/'.length);
     if (!PUBLIC_FILES.has(file) && !isAuthed(req)) { res.writeHead(404, PRIVATE_HEADERS); res.end('Not Found'); return; }
     serveWeb(res, file);
