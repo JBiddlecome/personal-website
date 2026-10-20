@@ -76,9 +76,10 @@ body {
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs a {
-    flex: none;
+    flex: 1 0 auto;
+    text-align: center;
     font-family: var(--stencil);
-    font-size: 0.8rem;
+    font-size: 0.76rem;
     letter-spacing: 0.04em;
     color: var(--ink);
     text-decoration: none;
@@ -86,7 +87,7 @@ body {
     border: 1px solid var(--paper-edge);
     border-bottom: none;
     border-radius: 6px 6px 0 0;
-    padding: 0.3rem 0.8rem 0.25rem;
+    padding: 0.3rem 0.55rem 0.25rem;
     opacity: 0.78;
     transition: opacity 0.15s, transform 0.15s;
 }
