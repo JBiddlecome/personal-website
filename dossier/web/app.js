@@ -195,18 +195,61 @@
         </ol>
     `, '', 'Career');
 
-    // ── §6 Turning points ───────────────────────────────────────────────────
-    const turning = sheet('turning', 6, 'CASE NARRATIVES', 'Turning Points', d.turning_points.map((t) => `
+    // ── §6 Relationships ────────────────────────────────────────────────────
+    const partners = d.relationships || [];
+    const relationships = sheet('relationships', 6, `${partners.length} RECORDED ATTACHMENTS`, 'Relationships', `
+        <ol class="timeline">${partners.map((r) => `
+            <li class="${[r.current && 'current', r.major && 'major'].filter(Boolean).join(' ')}">
+                <span class="when">${when(r)}</span>
+                <div class="place">${esc(r.name)} <span class="muted small">· ${esc(r.where)}</span></div>
+                ${r.note ? `<div class="detail">${esc(r.note)}</div>` : ''}
+            </li>`).join('')}
+        </ol>
+        ${(d.people || []).length ? `
+        <h3>Known associates</h3>
+        <table class="kv">${d.people.map((p) => `<tr><th>${esc(p.name)}<div class="muted small">${esc(p.role)}</div></th><td><b>${esc(p.status)}.</b> ${esc(p.note)}</td></tr>`).join('')}</table>` : ''}
+    `, '<span class="stamp">PERSONAL</span>', 'Bonds');
+
+    // ── §7 Personality ──────────────────────────────────────────────────────
+    const pers = d.personality;
+    const personality = pers ? sheet('personality', 7, pers.instrument.toUpperCase(), 'Personality', `
+        <div class="bars">${pers.domains.map((x) => `<div class="bar-row"><span>${esc(x.name)}</span><div class="bar-track"><div class="bar-fill" style="width:${((x.score - 24) / 96) * 100}%"></div></div><span class="pct">${x.score}</span></div>`).join('')}</div>
+        <p class="muted small" style="margin-top:.4rem">Domain scores run 24–120. ${esc(pers.note)}</p>
+        <h3>Facets · 4–20 each</h3>
+        <div class="traits">${pers.domains.map((x) => `<div class="trait-card"><h5>${esc(x.name)} · ${esc(x.band)}</h5><table>${x.facets.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table></div>`).join('')}</div>
+        <h3>Observer's reading</h3>
+        <ul>${pers.readings.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
+        ${pers.values ? `
+        <h3>Values · ${esc(pers.values.instrument)}</h3>
+        <div class="bars">${pers.values.scores.map(([k, v, c]) => `<div class="bar-row"><span>${esc(k)}</span><div class="bar-track"><div class="bar-fill" style="width:${((v - 1) / 4) * 100}%"></div></div><span class="pct">${c > 0 ? '+' : ''}${c.toFixed(1)}</span></div>`).join('')}</div>
+        <p class="muted small" style="margin-top:.4rem">Bars show the 1–5 rating; the number is relative to his own average (${pers.values.mean.toFixed(2)}), which is how values are compared.</p>
+        <ul>${pers.values.readings.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+    `, '', 'Personality') : '';
+
+    // ── §8 Interior ─────────────────────────────────────────────────────────
+    const inner = d.interior;
+    const interior = inner ? sheet('interior', 8, 'BELIEFS, HABITS & INTERESTS', 'Interior', `
+        <div class="two-col">
+            <div><h3 style="margin-top:0">Creed</h3><table class="kv">${inner.creed.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table></div>
+            <div><h3 style="margin-top:0">Interests</h3><table class="kv">${inner.interests.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table></div>
+        </div>
+        <h3>A typical day</h3>
+        <p>${esc(inner.day)}</p>
+        ${inner.goals ? `<h3>Stated objectives</h3><table class="kv">${inner.goals.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : ''}
+    `, '', 'Interior') : '';
+
+    // ── §9 Turning points ───────────────────────────────────────────────────
+    const turning = sheet('turning', 9, 'CASE NARRATIVES', 'Turning Points', d.turning_points.map((t) => `
         <article class="case">
             <div class="case-head"><h4>${esc(t.title)}</h4><span class="period">${esc(t.period)}</span></div>
             ${t.paragraphs.map((x) => `<p>${esc(x)}</p>`).join('')}
             ${t.quote ? `<blockquote class="index-card">“${esc(t.quote)}”<cite>— Subject, Oct 2026</cite></blockquote>` : ''}
-        </article>`).join(''), '<span class="stamp">SENSITIVE</span>', 'Turning Points');
+        </article>`).join(''), '<span class="stamp">SENSITIVE</span>', 'Pivots');
 
-    // ── §7 Genome ───────────────────────────────────────────────────────────
+    // ── §10 Genome ───────────────────────────────────────────────────────────
     const g = d.dna;
     const maxPct = Math.max(...g.recent.map(([, v]) => v));
-    const genome = sheet('genome', 7, g.source.toUpperCase(), 'Genome & Ancestry', `
+    const genome = sheet('genome', 10, g.source.toUpperCase(), 'Genome & Ancestry', `
         <div class="two-col">
             <div>
                 <h3 style="margin-top:0">Recent ancestry · last ~5 generations</h3>
@@ -228,12 +271,12 @@
         <p class="caveat">✓ = matches what the subject reported. ${esc(g.caveat)}</p>
     `, '', 'Genome');
 
-    // ── §8 Outstanding inquiries ────────────────────────────────────────────
-    const inquiries = sheet('inquiries', 8, 'FIELD WORK REMAINING', 'Outstanding Inquiries', `
+    // ── §11 Outstanding inquiries ────────────────────────────────────────────
+    const inquiries = sheet('inquiries', 11, 'FIELD WORK REMAINING', 'Outstanding Inquiries', `
         <ul class="inq">${d.inquiries.map((q) => `<li><span class="box">${esc(q.section)}</span><div><b>${esc(q.title)}</b><div class="muted">${esc(q.detail)}</div></div></li>`).join('')}</ul>
     `, '<span class="stamp ink">OPEN</span>', 'Inquiries');
 
-    main.innerHTML = profile + origin + physical + residences + (jobs.length ? career : '') + turning + genome + inquiries;
+    main.innerHTML = profile + origin + physical + residences + (jobs.length ? career : '') + (partners.length ? relationships : '') + personality + interior + turning + genome + inquiries;
     document.getElementById('colophon').textContent = `COMPILED BY OBSERVER (CLAUDE) FROM ${d.meta.sessions} INTERVIEW SESSIONS · NOT FOR DISTRIBUTION`;
 
     // Folder tabs, highlighted as each sheet scrolls into view.
