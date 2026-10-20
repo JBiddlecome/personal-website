@@ -64,74 +64,31 @@
     counters.forEach(function (el) { countObserver.observe(el); });
   }
 
-  /* ── Architecture visualizer ────────────────────────────── */
-  var ARCH_DETAILS = {
-    mobile: {
-      name: 'mobile.app',
-      desc: 'React Native + Expo app — 56 screens, typed API client with automatic JWT refresh, secure keychain storage, push notifications, geolocation clock-in. Shipped through EAS to the App Store and Google Play.'
-    },
-    web: {
-      name: 'web.portals',
-      desc: 'Three server-rendered portals — admin, client, and employee — spanning 498 routes and 162 templates, backed by a versioned design-system package of 20 React components kept in lockstep with production CSS.'
-    },
-    api: {
-      name: 'api.core',
-      desc: 'Async FastAPI core: 159 REST endpoints for mobile plus 498 web routes. Dual session + JWT auth, configurable role-based permissions across 11 sections, and field-level encryption of PII at rest.'
-    },
-    workers: {
-      name: 'workers.async',
-      desc: 'Background loops on the event loop: timesheet auto-approval and Microsoft Graph mailbox sync every 15 minutes; shift reminders and onboarding document bundling every 60 seconds.'
-    },
-    db: {
-      name: 'data.postgres',
-      desc: 'PostgreSQL on Neon — 74 SQLAlchemy models evolved through 216 zero-downtime, in-place migrations, with slow-query and connection-pool observability built into the data layer.'
-    },
-    r2: {
-      name: 'storage.r2',
-      desc: 'S3-compatible object storage on Cloudflare R2 — resumes, IDs, profile photos, and signed government PDFs (I-9, W-4) across two isolated buckets with scoped access.'
-    },
-    ai: {
-      name: 'ai.pipeline',
-      desc: 'Claude for vision moderation and cost-flat incremental email summarization, OpenAI for approvals, LiteLLM for routing — plus a custom MCP server that lets AI agents operate the platform’s ticketing system.'
-    },
-    payroll: {
-      name: 'integrations.payroll',
-      desc: 'ADP payroll with certificate-based OAuth and onboarding push; Xero accounting sync with invoice generation; workers’-comp code tracking and a jurisdiction-aware minimum-wage engine.'
-    },
-    compliance: {
-      name: 'integrations.compliance',
-      desc: 'Direct DHS E-Verify integration including photo matching; WOTC 8850 batch filing; digital I-9, W-4, DE-4, and EEO-1 onboarding with real government PDFs filled programmatically; background checks via Accurate.'
-    },
-    comms: {
-      name: 'integrations.comms',
-      desc: 'Microsoft Graph mailbox sync, SES transactional email with 14 templates, web + mobile push behind a per-user preference matrix, Mapbox geocoding and distance checks, and PBX screen-pop telephony.'
-    }
-  };
+  /* ── Nav border once scrolled ──────────────────────────── */
+  var nav = document.querySelector('.nav');
+  if (nav) {
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
 
-  var archDetail = document.getElementById('arch-detail');
-  var archNodes = document.querySelectorAll('.arch .node');
-  if (archDetail && archNodes.length) {
-    var nameEl = archDetail.querySelector('.name');
-    var descEl = archDetail.querySelector('.desc');
-    function selectNode(node) {
-      var info = ARCH_DETAILS[node.getAttribute('data-node')];
-      if (!info) return;
-      archNodes.forEach(function (n) { n.classList.remove('active'); });
-      node.classList.add('active');
-      nameEl.textContent = info.name;
-      descEl.textContent = info.desc;
-    }
-    archNodes.forEach(function (node) {
-      node.addEventListener('mouseenter', function () { selectNode(node); });
-      node.addEventListener('click', function () { selectNode(node); });
-      node.addEventListener('focus', function () { selectNode(node); });
-      node.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          selectNode(node);
-        }
-      });
-    });
+  /* ── Hero: manual tasks snap into a pipeline ────────────── */
+  var flow = document.getElementById('flow');
+  var flowReplay = document.getElementById('flow-replay');
+  if (flow) {
+    var flowTimers = [];
+    var playFlow = function () {
+      flowTimers.forEach(clearTimeout);
+      flow.classList.remove('messy', 'aligned', 'done');
+      if (reducedMotion) { flow.classList.add('messy', 'aligned', 'done'); return; }
+      flowTimers = [
+        setTimeout(function () { flow.classList.add('messy'); }, 1700),
+        setTimeout(function () { flow.classList.add('aligned'); }, 1750),
+        setTimeout(function () { flow.classList.add('done'); }, 2900)
+      ];
+    };
+    playFlow();
+    if (flowReplay) flowReplay.addEventListener('click', playFlow);
   }
 
   /* ── AI concierge chat (SSE streaming) ──────────────────── */
@@ -171,7 +128,7 @@
       var contentType = response.headers.get('content-type') || '';
       if (!response.ok || contentType.indexOf('text/event-stream') === -1) {
         return response.json().catch(function () { return {}; }).then(function (data) {
-          throw new Error(data.error || 'The concierge is unavailable right now — email Jake instead.');
+          throw new Error(data.error || 'The assistant is unavailable right now. Email Jake at contact@jakebiddlecome.com instead.');
         });
       }
 
@@ -212,7 +169,7 @@
       }
     }).catch(function (err) {
       aiMsg.classList.remove('thinking');
-      aiMsg.textContent = err.message || 'The concierge is unavailable right now — email Jake instead.';
+      aiMsg.textContent = err.message || 'The assistant is unavailable right now. Email Jake at contact@jakebiddlecome.com instead.';
     }).finally(function () {
       chatBusy = false;
     });
@@ -278,13 +235,13 @@
 
       if (!data.name || !data.email || !data.message) {
         cfStatus.className = 'form-status err';
-        cfStatus.textContent = 'name, email, and a short message are required.';
+        cfStatus.textContent = 'Name, email, and a short message are required.';
         return;
       }
 
       cfSubmit.disabled = true;
       cfStatus.className = 'form-status';
-      cfStatus.textContent = 'sending…';
+      cfStatus.textContent = 'Sending…';
 
       fetch('/api/contact', {
         method: 'POST',
@@ -295,7 +252,7 @@
           if (!response.ok) throw new Error(payload.error || 'Something went wrong.');
           contactForm.reset();
           cfStatus.className = 'form-status ok';
-          cfStatus.textContent = '200 OK — received. I’ll reply within one business day.';
+          cfStatus.textContent = 'Thanks, your message is on its way. I’ll reply within one business day.';
         });
       }).catch(function (err) {
         cfStatus.className = 'form-status err';
