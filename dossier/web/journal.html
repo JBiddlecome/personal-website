@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="referrer" content="no-referrer">
+    <title>Field Log</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dossier/styles.css">
+</head>
+<body>
+<div class="topbar">
+    <div class="topbar-inner">
+        <span class="agency">OFFICE OF XENO-ANTHROPOLOGICAL RECORDS · FIELD LOG</span>
+        <span class="topbar-actions"><a href="/dossier" class="topbar-link">SUBJECT FILE</a><button type="button" id="logout">CLOSE FILE</button></span>
+    </div>
+</div>
+<main class="journal">
+    <aside class="sheet log-index">
+        <div class="kicker">ENTRIES ON RECORD</div>
+        <div class="log-stats" id="stats"></div>
+        <svg class="mood-line" id="moodline" viewBox="0 0 300 60" preserveAspectRatio="none" aria-label="Mood over the last 30 entries"></svg>
+        <ol class="log-list" id="list"><li class="muted small">Loading…</li></ol>
+    </aside>
+
+    <section class="sheet log-entry">
+        <div class="sheet-head">
+            <div><div class="kicker" id="entry-kicker">DAILY OBSERVATION</div><h2><input type="date" id="date" aria-label="Entry date"></h2></div>
+            <span class="save-state" id="save-state"></span>
+        </div>
+
+        <div class="log-scales">
+            <div class="scale" data-field="mood"><span class="lbl">Mood</span></div>
+            <div class="scale" data-field="energy"><span class="lbl">Energy</span></div>
+            <label class="inline">Sleep <input type="number" id="sleep" min="0" max="16" step="0.5" placeholder="hrs"></label>
+        </div>
+
+        <label class="field">Movement <input type="text" id="exercise" placeholder="e.g. 3 mi run, lifting, a long walk"></label>
+
+        <label class="field">Today
+            <textarea id="body" rows="10" placeholder="What happened, what you did, what you thought about."></textarea>
+        </label>
+
+        <div class="two-col">
+            <label class="field">One win <input type="text" id="win"></label>
+            <label class="field">One struggle <input type="text" id="struggle"></label>
+        </div>
+
+        <label class="field prompt">
+            <span id="prompt-text">Observer's question</span>
+            <textarea id="prompt-answer" rows="3"></textarea>
+        </label>
+
+        <label class="field">Tags <input type="text" id="tags" placeholder="work, family, reading"></label>
+
+        <div class="log-actions">
+            <button type="button" id="save" class="stamp-btn">FILE ENTRY</button>
+            <span class="muted small">Saves automatically as you type. Ctrl+S to save now.</span>
+        </div>
+    </section>
+</main>
+<script src="/dossier/journal.js"></script>
+</body>
+</html>
