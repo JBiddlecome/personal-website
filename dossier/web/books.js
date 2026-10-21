@@ -39,13 +39,18 @@
     }
     async function save() {
         clearTimeout(saveTimer);
+        saveTimer = null;
         lib.updated_at = new Date().toISOString();
+        const body = JSON.stringify(lib, null, 1);
         try {
-            const res = await fetch(FILE, { method: 'PUT', keepalive: true, headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify(lib, null, 1) });
+            // Browsers reject keepalive bodies over 64 KB, and the library is bigger than that.
+            const res = await fetch(FILE, { method: 'PUT', keepalive: body.length < 60000, headers: { 'Content-Type': 'application/json; charset=utf-8' }, body });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
             state('Saved');
+            return true;
         } catch (err) {
             state(`Not saved: ${err.message}`);
+            return false;
         }
     }
     const state = (t) => { $('d-state').textContent = t; };
@@ -223,9 +228,12 @@
     });
 
     // ── Adding books ────────────────────────────────────────────────────────
-    $('add-btn').addEventListener('click', () => { $('add-form').reset(); $('adder').hidden = false; document.body.classList.add('noscroll'); $('a-title').focus(); });
+    $('add-btn').addEventListener('click', () => { $('add-form').reset(); $('a-state').textContent = ''; $('adder').hidden = false; document.body.classList.add('noscroll'); $('a-title').focus(); });
     $('add-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const btn = $('add-form').querySelector('button[type=submit]');
+        btn.disabled = true;
+        $('a-state').textContent = 'Looking up the cover and shelving…';
         const title = $('a-title').value.trim(), author = $('a-author').value.trim();
         let id = `${title} ${author}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
         if (byId(id)) id += `-${Date.now()}`;
@@ -240,10 +248,17 @@
             if (doc) Object.assign(b, { cover_id: doc.cover_i || null, pages: doc.number_of_pages_median || null, year: doc.first_publish_year || null, ol_key: doc.key });
         } catch (_) { /* shelve it without a cover */ }
         books.push(b);
-        await save();
+        if (!(await save())) {
+            books.pop();
+            $('a-state').textContent = `Not saved: ${$('d-state').textContent.replace(/^Not saved: /, '')}`;
+            btn.disabled = false;
+            return;
+        }
+        btn.disabled = false;
         $('adder').hidden = true;
         render();
         show(b);
+        state(`Saved to ${SHELVES.find(([k]) => k === b.shelf)[1]}`);
     });
 
     $('search').addEventListener('input', applySearch);
