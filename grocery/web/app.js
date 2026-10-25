@@ -76,8 +76,7 @@ function init() {
     document.getElementById('dept-filter').addEventListener('change', applyFilters);
     document.getElementById('back-btn').addEventListener('click', goBack);
     document.querySelectorAll('.th-sortable').forEach(th => th.addEventListener('click', () => toggleSort(th.dataset.sort)));
-    ['products', 'spending', 'receipts'].forEach(t =>
-        document.getElementById(`nav-${t}`).addEventListener('click', () => switchTab(t)));
+    TABS.forEach(t => document.getElementById(`nav-${t}`).addEventListener('click', () => switchTab(t)));
     document.getElementById('logout-btn').addEventListener('click', async () => {
         await fetch('/grocery/api/logout', { method: 'POST' });
         location.reload();
@@ -85,6 +84,7 @@ function init() {
     document.getElementById('receipt-file').addEventListener('change', onReceiptFiles);
     document.getElementById('rv-cancel').addEventListener('click', closeReview);
     document.getElementById('rv-save').addEventListener('click', saveReview);
+    initDeals();
     loadData();
 }
 
@@ -117,12 +117,15 @@ function applyFilters() {
     renderList(list);
 }
 
+const TABS = ['products', 'spending', 'receipts', 'deals'];
+
 function switchTab(tab) {
-    ['products', 'spending', 'receipts'].forEach(t => {
+    TABS.forEach(t => {
         document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
         document.getElementById(`nav-${t}`).classList.toggle('active', t === tab);
     });
     if (tab === 'spending' && !spendChart && allItems.length) initSpending();
+    if (tab === 'deals') loadDeals();
 }
 
 // ── Products list ─────────────────────────────────────────────────────────────
@@ -570,6 +573,230 @@ async function saveReview() {
     } finally {
         btn.disabled = false;
     }
+}
+
+// ── Deals ─────────────────────────────────────────────────────────────────────
+
+let dealsState = null;
+let dealsLoaded = false;
+
+function initDeals() {
+    document.getElementById('dl-check').addEventListener('click', runDealsCheck);
+    document.getElementById('dl-find').addEventListener('click', findStores);
+    document.getElementById('dl-zip').addEventListener('keydown', e => { if (e.key === 'Enter') findStores(); });
+    document.getElementById('dl-terms-save').addEventListener('click', saveTerms);
+    document.getElementById('dl-terms-reset').addEventListener('click', () => {
+        if (dealsState) setTermsBox(dealsState.default_terms);
+    });
+}
+
+function dealsStatus(msg, kind = 'info') {
+    const el = document.getElementById('dl-status');
+    el.textContent = msg;
+    el.className = `deals-status ${kind}`;
+    if (!msg) el.classList.add('hidden');
+}
+
+async function loadDeals(force = false) {
+    if (dealsLoaded && !force) return;
+    try {
+        dealsState = await api('/deals/status');
+        dealsLoaded = true;
+        renderDealsSetup();
+        setTermsBox(dealsState.terms);
+        renderCycle(dealsState.cycle, dealsState.last_daily);
+        if (dealsState.latest) renderDealResults(dealsState.latest.run, dealsState.latest.checks);
+    } catch (err) {
+        dealsStatus(`Could not load deals: ${err.message}`, 'error');
+    }
+}
+
+function renderDealsSetup() {
+    const s = dealsState;
+    const line = document.getElementById('dl-store-line');
+    const zipRow = document.getElementById('dl-zip-row');
+    document.getElementById('dl-locations').innerHTML = '';
+    if (!s.configured) {
+        line.textContent = 'Kroger API keys are not set on the server (KROGER_CLIENT_ID and KROGER_CLIENT_SECRET).';
+        zipRow.classList.add('hidden');
+    } else if (!s.location) {
+        line.textContent = 'Pick the Ralphs you shop at. Prices are store-specific.';
+        zipRow.classList.remove('hidden');
+    } else {
+        line.innerHTML = `Checking <strong>${esc(s.location.name)}</strong>, ${esc(s.location.address)}. <button class="nav-link-btn" id="dl-change">Change</button>`;
+        zipRow.classList.add('hidden');
+        document.getElementById('dl-change').addEventListener('click', () => zipRow.classList.remove('hidden'));
+    }
+    document.getElementById('dl-check').disabled = !(s.configured && s.location);
+}
+
+async function findStores() {
+    const zip = document.getElementById('dl-zip').value.trim();
+    const list = document.getElementById('dl-locations');
+    list.innerHTML = '<li class="muted">Searching…</li>';
+    try {
+        const { locations } = await api(`/deals/locations?zip=${encodeURIComponent(zip)}`);
+        if (!locations.length) { list.innerHTML = '<li class="muted">No Ralphs found near that ZIP.</li>'; return; }
+        list.innerHTML = locations.map((l, i) => `<li><span><strong>${esc(l.name)}</strong><br><span class="muted">${esc(l.address)}</span></span>
+            <button class="nav-link-btn" data-pick="${i}">Use this store</button></li>`).join('');
+        list.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', async () => {
+            try {
+                const { location } = await api('/deals/location', { method: 'PUT', body: JSON.stringify(locations[Number(b.dataset.pick)]) });
+                dealsState.location = location;
+                renderDealsSetup();
+            } catch (err) { dealsStatus(err.message, 'error'); }
+        }));
+    } catch (err) {
+        list.innerHTML = '';
+        dealsStatus(err.message, 'error');
+    }
+}
+
+function setTermsBox(terms) {
+    document.getElementById('dl-terms').value = terms.join('\n');
+    document.getElementById('dl-term-count').textContent = terms.length;
+}
+
+async function saveTerms() {
+    const terms = document.getElementById('dl-terms').value.split('\n').map(t => t.trim()).filter(Boolean);
+    try {
+        const res = await api('/deals/terms', { method: 'PUT', body: JSON.stringify({ terms }) });
+        dealsState.terms = res.terms;
+        setTermsBox(res.terms);
+        dealsStatus(`Saved ${res.terms.length} search terms.`);
+    } catch (err) { dealsStatus(err.message, 'error'); }
+}
+
+async function runDealsCheck() {
+    const btn = document.getElementById('dl-check');
+    btn.disabled = true;
+    dealsStatus(`Checking ${dealsState.terms.length} items at Ralphs…`);
+    try {
+        const { run, checks, failed } = await api('/deals/check', { method: 'POST', body: '{}' });
+        renderDealResults(run, checks);
+        dealsStatus(failed.length ? `Done, but ${failed.length} search(es) failed: ${failed.join('; ')}` : '', failed.length ? 'error' : 'info');
+    } catch (err) {
+        dealsStatus(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// Size string from Kroger ("16 oz", "1.5 lb", "12 ct") → pounds or a count, for per-unit prices.
+function parseSize(size) {
+    const s = String(size || '').toLowerCase();
+    const n = v => (v.includes('/') ? Number(v.split('/')[0]) / Number(v.split('/')[1]) : Number(v));
+    let m = s.match(/([\d.]+(?:\/\d+)?)\s*(lb|lbs|pound|pounds)\b/);
+    if (m) return { lb: n(m[1]) };
+    m = s.match(/([\d.]+(?:\/\d+)?)\s*oz\b/);
+    if (m && !/fl\.?\s*oz/.test(s)) return { lb: n(m[1]) / 16 };
+    m = s.match(/(\d+)\s*(ct|count|pk|pack|rolls?|mega rolls?|double rolls?)\b/);
+    if (m) return { count: Number(m[1]) };
+    return {};
+}
+
+function perUnit(p, value) {
+    if (value == null) return null;
+    if (p.sold_by === 'WEIGHT') return { value, unit: 'lb' };
+    const sz = parseSize(p.size);
+    if (sz.lb) return { value: value / sz.lb, unit: 'lb' };
+    if (sz.count > 1) return { value: value / sz.count, unit: 'ea' };
+    return null;
+}
+
+// Rough "what you usually pay" for a search term, from receipt history: purchases whose
+// item type shares the term's words, median price over the last year. Phase 2 replaces this
+// with explicit links between watch items and receipt item types.
+const stem = w => w.replace(/(es|s)$/, '');
+function usualPrice(term) {
+    const words = term.toLowerCase().split(/\s+/).map(stem).filter(w => w.length > 2);
+    const yearAgo = new Date(); yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+    const matches = allItems.filter(i => {
+        const basic = i.item_basic.toLowerCase().split(/\s+/).map(stem);
+        return parseIso(i.date) >= yearAgo && (words.every(w => basic.includes(w)) || basic.every(w => words.includes(w)));
+    });
+    if (!matches.length) return null;
+    const byUnit = {};
+    for (const i of matches) (byUnit[i.unit === 'each' ? 'each' : i.unit] ??= []).push(i);
+    const [unit, rows] = Object.entries(byUnit).sort((a, b) => b[1].length - a[1].length)[0];
+    const prices = rows.map(i => (unit === 'oz' ? i.unit_price * 16 : unit === 'kg' ? i.unit_price / 2.2046 : i.unit_price)).sort((a, b) => a - b);
+    const mid = Math.floor(prices.length / 2);
+    const median = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
+    return { value: median, unit: unit === 'each' ? 'each' : 'lb', n: rows.length, types: [...new Set(rows.map(i => i.item_basic))] };
+}
+
+function compareToUsual(p, usual) {
+    if (!usual) return null;
+    const now = p.promo ?? p.regular;
+    if (usual.unit === 'lb') {
+        const pu = perUnit(p, now);
+        return pu && pu.unit === 'lb' ? (pu.value - usual.value) / usual.value : null;
+    }
+    if (p.sold_by === 'WEIGHT') return null;
+    return (now - usual.value) / usual.value;
+}
+
+function renderDealResults(run, checks) {
+    const groups = new Map();
+    for (const c of checks) (groups.get(c.term) ?? groups.set(c.term, []).get(c.term)).push(c);
+    let onSale = 0, below = 0;
+    const html = [...groups].map(([term, products]) => {
+        const usual = usualPrice(term);
+        const rows = products.map(p => {
+            const pct = compareToUsual(p, usual);
+            const isBelow = pct !== null && pct <= -0.15;
+            if (p.promo) onSale++;
+            if (isBelow) below++;
+            const off = p.promo ? Math.round((1 - p.promo / p.regular) * 100) : 0;
+            const pu = perUnit(p, p.promo ?? p.regular);
+            const tags = [
+                p.promo ? `<span class="pc-tag pc-tag--save">Sale ${off}% off</span>` : '',
+                isBelow ? `<span class="pc-tag pc-tag--save">${Math.round(-pct * 100)}% below usual</span>` : '',
+                pct !== null && pct > 0.15 ? `<span class="pc-tag pc-tag--over">${Math.round(pct * 100)}% above usual</span>` : '',
+            ].join(' ');
+            return `<tr class="${p.promo ? 'dl-on-sale' : ''}">
+                <td><span class="dl-product">${esc(p.description)}</span><span class="dl-size">${esc(p.size)}${p.sold_by === 'WEIGHT' ? ' · priced per lb' : ''}</span></td>
+                <td class="col-num price-cell">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>${money(p.promo)}` : money(p.regular)}</td>
+                <td class="col-num">${pu ? `${money(pu.value)}/${pu.unit}` : '<span class="muted">—</span>'}</td>
+                <td>${tags}${p.promo_expires ? ` <span class="muted">until ${fmtDate(p.promo_expires)}</span>` : ''}</td>
+            </tr>`;
+        }).join('');
+        const usualLine = usual
+            ? `You usually pay ${money(usual.value)}${usual.unit === 'lb' ? '/lb' : ' each'} <span class="muted">(median of ${usual.n} purchase${usual.n !== 1 ? 's' : ''}: ${esc(usual.types.join(', '))})</span>`
+            : '<span class="muted">No matching purchases in the last year</span>';
+        return `<div class="deal-card dl-group">
+            <div class="deal-card-top"><h3>${esc(term)}</h3><span class="deal-source">${usualLine}</span></div>
+            <div class="table-scroll"><table><tbody>${rows || '<tr><td class="muted">No products found at this store.</td></tr>'}</tbody></table></div>
+        </div>`;
+    }).join('');
+    document.getElementById('dl-results').innerHTML = html;
+    document.getElementById('dl-summary').classList.remove('hidden');
+    document.getElementById('dl-stat-sale').textContent = onSale;
+    document.getElementById('dl-stat-below').textContent = below;
+    const at = new Date(run.finished_at || run.started_at);
+    document.getElementById('dl-stat-checked').textContent = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    document.getElementById('dl-stat-checked-lbl').textContent =
+        `last checked, ${at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} (${run.kind === 'daily' ? 'daily check' : 'manual'})`;
+}
+
+const WEEKDAYS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function renderCycle(cycle, lastDaily) {
+    const note = document.getElementById('dl-cycle-note');
+    const bars = document.getElementById('dl-cycle-bars');
+    const last = lastDaily ? ` Last daily check: ${fmtDate(lastDaily.run_date)}${lastDaily.error ? ` (failed: ${lastDaily.error})` : ''}.` : '';
+    if (cycle.daily_runs < 8 || !cycle.by_weekday.length) {
+        note.textContent = `A background check runs every morning to learn which day new sale prices appear. It needs about two weeks of data; ${cycle.daily_runs} day${cycle.daily_runs !== 1 ? 's' : ''} so far.${last}`;
+        if (!cycle.by_weekday.length) { bars.innerHTML = ''; return; }
+    } else {
+        const top = [...cycle.by_weekday].sort((a, b) => b.changes - a.changes)[0];
+        note.textContent = `Most sale prices change on ${WEEKDAYS[top.dow]}, so that's the best day for the weekly email (${cycle.daily_runs} days of data).${last}`;
+    }
+    const max = Math.max(...cycle.by_weekday.map(d => d.changes), 1);
+    const byDow = Object.fromEntries(cycle.by_weekday.map(d => [d.dow, d.changes]));
+    bars.innerHTML = [1, 2, 3, 4, 5, 6, 7].map(d => `<div class="dl-cycle-row">
+        <span>${WEEKDAYS[d]}</span><div><div class="dl-cycle-bar" style="width:${((byDow[d] || 0) / max) * 100}%"></div></div>
+        <span class="col-num muted">${byDow[d] || 0}</span></div>`).join('');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

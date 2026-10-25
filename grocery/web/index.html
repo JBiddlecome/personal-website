@@ -20,6 +20,7 @@
             <button class="nav-btn active" id="nav-products">Products</button>
             <button class="nav-btn" id="nav-spending">Spending</button>
             <button class="nav-btn" id="nav-receipts">Receipts</button>
+            <button class="nav-btn" id="nav-deals">Deals</button>
             <button class="nav-btn" id="logout-btn" title="Sign out">Sign out</button>
         </nav>
     </div>
@@ -269,6 +270,62 @@
                 <tbody id="receipt-body"></tbody>
             </table>
         </div>
+    </div>
+
+    <!-- ── Deals tab ────────────────────────────────────────────────────────── -->
+    <div id="tab-deals" class="hidden">
+        <div class="deals-header">
+            <div>
+                <h2 class="deals-title">Deals</h2>
+                <p class="deals-subtitle" id="dl-subtitle">Current store prices for things you buy, compared with what you usually pay.</p>
+            </div>
+            <button class="refresh-btn" id="dl-check" disabled>Check prices now</button>
+        </div>
+
+        <div class="deals-status hidden" id="dl-status"></div>
+
+        <div class="chart-wrap" id="dl-setup">
+            <h3 class="section-title">Your store</h3>
+            <p id="dl-store-line" class="result-count"></p>
+            <div class="controls" id="dl-zip-row">
+                <input type="text" id="dl-zip" class="dl-zip" placeholder="ZIP code" inputmode="numeric" maxlength="5" value="91502">
+                <button class="nav-link-btn" id="dl-find">Find Ralphs stores</button>
+            </div>
+            <ul class="dl-locations" id="dl-locations"></ul>
+        </div>
+
+        <div class="deals-summary hidden" id="dl-summary">
+            <div class="summary-stat">
+                <span class="summary-num" id="dl-stat-sale">—</span>
+                <span class="summary-lbl">products on sale</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-num" id="dl-stat-below">—</span>
+                <span class="summary-lbl">below what you usually pay</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-num" id="dl-stat-checked">—</span>
+                <span class="summary-lbl" id="dl-stat-checked-lbl">last checked</span>
+            </div>
+        </div>
+
+        <div id="dl-results"></div>
+
+        <div class="chart-wrap dl-cycle">
+            <h3 class="section-title">When Ralphs changes its sale prices</h3>
+            <p class="result-count" id="dl-cycle-note"></p>
+            <div id="dl-cycle-bars"></div>
+        </div>
+
+        <details class="chart-wrap dl-terms">
+            <summary class="section-title">Search terms (<span id="dl-term-count">0</span>)</summary>
+            <p class="result-count">One per line. These are searched on every check, including the daily one. Phase 2 replaces this with a full watchlist.</p>
+            <textarea id="dl-terms" rows="12" spellcheck="false"></textarea>
+            <div class="review-footer">
+                <button class="nav-link-btn" id="dl-terms-reset">Reset to defaults</button>
+                <button class="refresh-btn" id="dl-terms-save">Save terms</button>
+            </div>
+        </details>
     </div>
 
 </main>
