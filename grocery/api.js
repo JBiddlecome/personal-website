@@ -117,7 +117,34 @@ const ReceiptSchema = z.object({
   total: money.nullable().default(null),
   items: z.array(ItemSchema).min(1).max(500)
 });
-const TermsSchema = z.array(z.string().trim().min(3).max(80)).min(1).max(100);
+// Field rules shared by create and edit; defaults apply only when creating.
+const watchFields = {
+  name: z.string().trim().min(1).max(120),
+  status: z.enum(['watching', 'paused', 'never']),
+  search_term: z.string().trim().min(3).max(80),
+  item_basics: z.array(z.string().trim().min(1).max(120)).max(20),
+  department: z.enum(DEPARTMENTS),
+  basis: z.enum(['lb', 'package', 'unit']),
+  pack_count: z.coerce.number().positive().max(10000).nullable(),
+  target_price: z.coerce.number().positive().max(10000).nullable(),
+  notes: z.string().trim().max(300)
+};
+const WatchSchema = z.object({
+  ...watchFields,
+  status: watchFields.status.default('watching'),
+  item_basics: watchFields.item_basics.default([]),
+  department: watchFields.department.default('Other'),
+  basis: watchFields.basis.default('package'),
+  pack_count: watchFields.pack_count.default(null),
+  target_price: watchFields.target_price.default(null),
+  notes: watchFields.notes.default('')
+});
+const WatchPatchSchema = z.object(watchFields).partial().strict();
+const VerdictSchema = z.object({
+  watch_id: z.coerce.number().int().positive(),
+  product_id: z.string().trim().min(1).max(40),
+  verdict: z.enum(['match', 'reject'])
+});
 const LocationSchema = z.object({
   location_id: z.string().trim().regex(/^[A-Za-z0-9]{1,20}$/),
   name: z.string().trim().max(120).default(''),
@@ -251,13 +278,10 @@ async function route(req, res, pathname) {
 // ── Deals (store price checks; see deals.js) ──────────────────────────────────
 async function routeDeals(req, res, method, sub) {
   if (method === 'GET' && sub === '/status') {
-    const [location, terms, latest, daily, cycle] = await Promise.all([
-      deals.getLocation(), deals.getTerms(), db.latestRun(), db.lastRunOf('daily'), db.promoChangesByWeekday()
+    const [location, view, daily, cycle] = await Promise.all([
+      deals.getLocation(), deals.dealsView(), db.lastRunOf('daily'), db.promoChangesByWeekday()
     ]);
-    sendJson(res, 200, {
-      configured: deals.isConfigured(), store: deals.STORE, location, terms, default_terms: deals.DEFAULT_TERMS,
-      latest, last_daily: daily, cycle
-    });
+    sendJson(res, 200, { configured: deals.isConfigured(), store: deals.STORE, location, ...view, last_daily: daily, cycle });
     return;
   }
 
@@ -276,25 +300,65 @@ async function routeDeals(req, res, method, sub) {
     return;
   }
 
-  if (method === 'PUT' && sub === '/terms') {
-    const parsed = TermsSchema.safeParse((await readBody(req, MAX_JSON)).terms);
+  if (method === 'PUT' && sub === '/settings') {
+    const parsed = z.object({ threshold: z.coerce.number().min(0.01).max(0.9) }).safeParse(await readBody(req, MAX_JSON));
     if (!parsed.success) { validationError(res, parsed.error); return; }
-    const terms = [...new Set(parsed.data.map((t) => t.toLowerCase()))];
-    await db.setSetting('deals_terms', terms);
-    sendJson(res, 200, { terms });
+    await db.setSetting('deals_threshold', parsed.data.threshold);
+    sendJson(res, 200, { threshold: parsed.data.threshold });
     return;
   }
 
   if (method === 'POST' && sub === '/check') {
     const body = await readBody(req, MAX_JSON);
-    let terms = null;
-    if (body.terms !== undefined) {
-      const parsed = TermsSchema.safeParse(body.terms);
-      if (!parsed.success) { validationError(res, parsed.error); return; }
-      terms = parsed.data;
-    }
-    sendJson(res, 200, await deals.runCheck('manual', terms));
+    const ids = z.array(z.coerce.number().int().positive()).max(500).nullable().default(null).safeParse(body.watch_ids ?? null);
+    if (!ids.success) { validationError(res, ids.error); return; }
+    const result = await deals.runCheck('manual', ids.data);
+    sendJson(res, 200, { ...result, ...(await deals.dealsView()) });
     return;
+  }
+
+  if (method === 'PUT' && sub === '/verdict') {
+    const parsed = VerdictSchema.safeParse(await readBody(req, MAX_JSON));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    await db.saveVerdicts(deals.STORE, [{ ...parsed.data, source: 'user', reason: '' }]);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (method === 'POST' && sub === '/watch/seed') {
+    sendJson(res, 200, { created: await deals.seedWatchlist() });
+    return;
+  }
+
+  if (method === 'POST' && sub === '/watch') {
+    const parsed = WatchSchema.safeParse(await readBody(req, MAX_JSON));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    const [created] = await db.createWatch([parsed.data]);
+    if (!created) { sendJson(res, 409, { error: `"${parsed.data.name}" is already on the watchlist.` }); return; }
+    sendJson(res, 201, { watch: created });
+    return;
+  }
+
+  const wm = sub.match(/^\/watch\/(\d+)$/);
+  if (wm) {
+    const id = Number(wm[1]);
+    if (method === 'PUT') {
+      const parsed = WatchPatchSchema.safeParse(await readBody(req, MAX_JSON));
+      if (!parsed.success) { validationError(res, parsed.error); return; }
+      let updated;
+      try { updated = await db.updateWatch(id, parsed.data); } catch (err) {
+        if (err.code === '23505') { sendJson(res, 409, { error: 'Another watch item already has that name.' }); return; }
+        throw err;
+      }
+      if (!updated) { sendJson(res, 404, { error: 'Watch item not found.' }); return; }
+      sendJson(res, 200, { watch: updated });
+      return;
+    }
+    if (method === 'DELETE') {
+      if (!(await db.deleteWatch(id))) { sendJson(res, 404, { error: 'Watch item not found.' }); return; }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
   }
 
   sendJson(res, 404, { error: 'Not found.' });

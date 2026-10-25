@@ -579,15 +579,23 @@ async function saveReview() {
 
 let dealsState = null;
 let dealsLoaded = false;
+let watchFilter = 'watching';
+
+const BASIS_LABEL = { lb: '/lb', package: ' each', unit: '/unit' };
 
 function initDeals() {
-    document.getElementById('dl-check').addEventListener('click', runDealsCheck);
+    document.getElementById('dl-check').addEventListener('click', () => runDealsCheck());
     document.getElementById('dl-find').addEventListener('click', findStores);
     document.getElementById('dl-zip').addEventListener('keydown', e => { if (e.key === 'Enter') findStores(); });
-    document.getElementById('dl-terms-save').addEventListener('click', saveTerms);
-    document.getElementById('dl-terms-reset').addEventListener('click', () => {
-        if (dealsState) setTermsBox(dealsState.default_terms);
-    });
+    document.getElementById('dl-seed-btn').addEventListener('click', seedWatchlist);
+    document.getElementById('dl-add').addEventListener('submit', addWatchItem);
+    document.getElementById('dl-watch-search').addEventListener('input', renderWatchlist);
+    document.getElementById('dl-threshold').addEventListener('change', saveThreshold);
+    document.querySelectorAll('#dl-filters [data-filter]').forEach(b => b.addEventListener('click', () => {
+        watchFilter = b.dataset.filter;
+        document.querySelectorAll('#dl-filters [data-filter]').forEach(x => x.classList.toggle('active', x === b));
+        renderWatchlist();
+    }));
 }
 
 function dealsStatus(msg, kind = 'info') {
@@ -602,13 +610,19 @@ async function loadDeals(force = false) {
     try {
         dealsState = await api('/deals/status');
         dealsLoaded = true;
-        renderDealsSetup();
-        setTermsBox(dealsState.terms);
-        renderCycle(dealsState.cycle, dealsState.last_daily);
-        if (dealsState.latest) renderDealResults(dealsState.latest.run, dealsState.latest.checks);
+        renderDeals();
     } catch (err) {
         dealsStatus(`Could not load deals: ${err.message}`, 'error');
     }
+}
+
+function renderDeals() {
+    renderDealsSetup();
+    renderDealCards();
+    renderWatchlist();
+    renderAllResults();
+    renderCycle(dealsState.cycle, dealsState.last_daily);
+    document.getElementById('dl-threshold').value = Math.round(dealsState.threshold * 100);
 }
 
 function renderDealsSetup() {
@@ -623,11 +637,12 @@ function renderDealsSetup() {
         line.textContent = 'Pick the Ralphs you shop at. Prices are store-specific.';
         zipRow.classList.remove('hidden');
     } else {
-        line.innerHTML = `Checking <strong>${esc(s.location.name)}</strong>, ${esc(s.location.address)}. <button class="nav-link-btn" id="dl-change">Change</button>`;
+        line.innerHTML = `<span>Checking <strong>${esc(s.location.name)}</strong>, ${esc(s.location.address)}</span> <button class="nav-link-btn" id="dl-change">Change store</button>`;
         zipRow.classList.add('hidden');
         document.getElementById('dl-change').addEventListener('click', () => zipRow.classList.remove('hidden'));
     }
-    document.getElementById('dl-check').disabled = !(s.configured && s.location);
+    const watching = s.watch.filter(w => w.status === 'watching').length;
+    document.getElementById('dl-check').disabled = !(s.configured && s.location && watching);
 }
 
 async function findStores() {
@@ -652,131 +667,230 @@ async function findStores() {
     }
 }
 
-function setTermsBox(terms) {
-    document.getElementById('dl-terms').value = terms.join('\n');
-    document.getElementById('dl-term-count').textContent = terms.length;
-}
-
-async function saveTerms() {
-    const terms = document.getElementById('dl-terms').value.split('\n').map(t => t.trim()).filter(Boolean);
-    try {
-        const res = await api('/deals/terms', { method: 'PUT', body: JSON.stringify({ terms }) });
-        dealsState.terms = res.terms;
-        setTermsBox(res.terms);
-        dealsStatus(`Saved ${res.terms.length} search terms.`);
-    } catch (err) { dealsStatus(err.message, 'error'); }
-}
-
-async function runDealsCheck() {
+async function runDealsCheck(watchIds = null) {
     const btn = document.getElementById('dl-check');
     btn.disabled = true;
-    dealsStatus(`Checking ${dealsState.terms.length} items at Ralphs…`);
+    const n = watchIds ? watchIds.length : dealsState.watch.filter(w => w.status === 'watching').length;
+    dealsStatus(`Checking ${n} item${n !== 1 ? 's' : ''} at Ralphs… new products are matched by Claude, so the first check takes a minute or two.`);
     try {
-        const { run, checks, failed } = await api('/deals/check', { method: 'POST', body: '{}' });
-        renderDealResults(run, checks);
-        dealsStatus(failed.length ? `Done, but ${failed.length} search(es) failed: ${failed.join('; ')}` : '', failed.length ? 'error' : 'info');
+        const result = await api('/deals/check', { method: 'POST', body: JSON.stringify(watchIds ? { watch_ids: watchIds } : {}) });
+        const { failed, match_error } = result;
+        Object.assign(dealsState, { watch: result.watch, latest: result.latest, deals: result.deals, threshold: result.threshold });
+        renderDeals();
+        const problems = [...(match_error ? [match_error] : []), ...(failed.length ? [`${failed.length} search(es) failed: ${failed.join('; ')}`] : [])];
+        dealsStatus(problems.join(' '), problems.length ? 'error' : 'info');
     } catch (err) {
         dealsStatus(err.message, 'error');
     } finally {
-        btn.disabled = false;
+        renderDealsSetup();
     }
 }
 
-// Size string from Kroger ("16 oz", "1.5 lb", "12 ct") → pounds or a count, for per-unit prices.
-function parseSize(size) {
-    const s = String(size || '').toLowerCase();
-    const n = v => (v.includes('/') ? Number(v.split('/')[0]) / Number(v.split('/')[1]) : Number(v));
-    let m = s.match(/([\d.]+(?:\/\d+)?)\s*(lb|lbs|pound|pounds)\b/);
-    if (m) return { lb: n(m[1]) };
-    m = s.match(/([\d.]+(?:\/\d+)?)\s*oz\b/);
-    if (m && !/fl\.?\s*oz/.test(s)) return { lb: n(m[1]) / 16 };
-    m = s.match(/(\d+)\s*(ct|count|pk|pack|rolls?|mega rolls?|double rolls?)\b/);
-    if (m) return { count: Number(m[1]) };
-    return {};
-}
+const fmtUnit = (v, basis) => (v == null ? '—' : `${money(v)}${BASIS_LABEL[basis]}`);
 
-function perUnit(p, value) {
-    if (value == null) return null;
-    if (p.sold_by === 'WEIGHT') return { value, unit: 'lb' };
-    const sz = parseSize(p.size);
-    if (sz.lb) return { value: value / sz.lb, unit: 'lb' };
-    if (sz.count > 1) return { value: value / sz.count, unit: 'ea' };
-    return null;
-}
-
-// Rough "what you usually pay" for a search term, from receipt history: purchases whose
-// item type shares the term's words, median price over the last year. Phase 2 replaces this
-// with explicit links between watch items and receipt item types.
-const stem = w => w.replace(/(es|s)$/, '');
-function usualPrice(term) {
-    const words = term.toLowerCase().split(/\s+/).map(stem).filter(w => w.length > 2);
-    const yearAgo = new Date(); yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-    const matches = allItems.filter(i => {
-        const basic = i.item_basic.toLowerCase().split(/\s+/).map(stem);
-        return parseIso(i.date) >= yearAgo && (words.every(w => basic.includes(w)) || basic.every(w => words.includes(w)));
-    });
-    if (!matches.length) return null;
-    const byUnit = {};
-    for (const i of matches) (byUnit[i.unit === 'each' ? 'each' : i.unit] ??= []).push(i);
-    const [unit, rows] = Object.entries(byUnit).sort((a, b) => b[1].length - a[1].length)[0];
-    const prices = rows.map(i => (unit === 'oz' ? i.unit_price * 16 : unit === 'kg' ? i.unit_price / 2.2046 : i.unit_price)).sort((a, b) => a - b);
-    const mid = Math.floor(prices.length / 2);
-    const median = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
-    return { value: median, unit: unit === 'each' ? 'each' : 'lb', n: rows.length, types: [...new Set(rows.map(i => i.item_basic))] };
-}
-
-function compareToUsual(p, usual) {
-    if (!usual) return null;
-    const now = p.promo ?? p.regular;
-    if (usual.unit === 'lb') {
-        const pu = perUnit(p, now);
-        return pu && pu.unit === 'lb' ? (pu.value - usual.value) / usual.value : null;
+function renderDealCards() {
+    const s = dealsState;
+    const box = document.getElementById('dl-deals');
+    const summary = document.getElementById('dl-summary');
+    document.getElementById('dl-stat-watching').textContent = s.watch.filter(w => w.status === 'watching').length;
+    if (!s.latest) {
+        summary.classList.toggle('hidden', !s.watch.length);
+        document.getElementById('dl-stat-deals').textContent = '—';
+        document.getElementById('dl-stat-checked').textContent = '—';
+        box.innerHTML = '<p class="dl-empty">No price check yet. Press <strong>Check prices now</strong>.</p>';
+        return;
     }
-    if (p.sold_by === 'WEIGHT') return null;
-    return (now - usual.value) / usual.value;
-}
-
-function renderDealResults(run, checks) {
-    const groups = new Map();
-    for (const c of checks) (groups.get(c.term) ?? groups.set(c.term, []).get(c.term)).push(c);
-    let onSale = 0, below = 0;
-    const html = [...groups].map(([term, products]) => {
-        const usual = usualPrice(term);
-        const rows = products.map(p => {
-            const pct = compareToUsual(p, usual);
-            const isBelow = pct !== null && pct <= -0.15;
-            if (p.promo) onSale++;
-            if (isBelow) below++;
-            const off = p.promo ? Math.round((1 - p.promo / p.regular) * 100) : 0;
-            const pu = perUnit(p, p.promo ?? p.regular);
-            const tags = [
-                p.promo ? `<span class="pc-tag pc-tag--save">Sale ${off}% off</span>` : '',
-                isBelow ? `<span class="pc-tag pc-tag--save">${Math.round(-pct * 100)}% below usual</span>` : '',
-                pct !== null && pct > 0.15 ? `<span class="pc-tag pc-tag--over">${Math.round(pct * 100)}% above usual</span>` : '',
-            ].join(' ');
-            return `<tr class="${p.promo ? 'dl-on-sale' : ''}">
-                <td><span class="dl-product">${esc(p.description)}</span><span class="dl-size">${esc(p.size)}${p.sold_by === 'WEIGHT' ? ' · priced per lb' : ''}</span></td>
-                <td class="col-num price-cell">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>${money(p.promo)}` : money(p.regular)}</td>
-                <td class="col-num">${pu ? `${money(pu.value)}/${pu.unit}` : '<span class="muted">—</span>'}</td>
-                <td>${tags}${p.promo_expires ? ` <span class="muted">until ${fmtDate(p.promo_expires)}</span>` : ''}</td>
-            </tr>`;
-        }).join('');
-        const usualLine = usual
-            ? `You usually pay ${money(usual.value)}${usual.unit === 'lb' ? '/lb' : ' each'} <span class="muted">(median of ${usual.n} purchase${usual.n !== 1 ? 's' : ''}: ${esc(usual.types.join(', '))})</span>`
-            : '<span class="muted">No matching purchases in the last year</span>';
-        return `<div class="deal-card dl-group">
-            <div class="deal-card-top"><h3>${esc(term)}</h3><span class="deal-source">${usualLine}</span></div>
-            <div class="table-scroll"><table><tbody>${rows || '<tr><td class="muted">No products found at this store.</td></tr>'}</tbody></table></div>
-        </div>`;
-    }).join('');
-    document.getElementById('dl-results').innerHTML = html;
-    document.getElementById('dl-summary').classList.remove('hidden');
-    document.getElementById('dl-stat-sale').textContent = onSale;
-    document.getElementById('dl-stat-below').textContent = below;
+    summary.classList.remove('hidden');
+    const run = s.latest.run;
     const at = new Date(run.finished_at || run.started_at);
+    document.getElementById('dl-stat-deals').textContent = s.deals.length;
+    document.getElementById('dl-stat-deals-lbl').textContent = `deal${s.deals.length !== 1 ? 's' : ''} this check`;
     document.getElementById('dl-stat-checked').textContent = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     document.getElementById('dl-stat-checked-lbl').textContent =
         `last checked, ${at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} (${run.kind === 'daily' ? 'daily check' : 'manual'})`;
+
+    if (!s.deals.length) {
+        box.innerHTML = `<p class="dl-empty">Nothing on your watchlist is ${Math.round(s.threshold * 100)}% or more below your usual price right now.</p>`;
+        return;
+    }
+    box.innerHTML = s.deals.map(d => {
+        const p = d.product;
+        const b = d.baseline;
+        const pct = Math.round(p.deal.pct * 100);
+        const vs = p.deal.kind === 'sale_no_history'
+            ? `${pct}% off Ralphs' regular ${money(p.regular)} <span class="muted">(no purchase history yet)</span>`
+            : p.deal.kind === 'below_target'
+                ? `${pct}% below your alert price of ${fmtUnit(b.target, d.basis)}`
+                : `${pct}% below your usual ${fmtUnit(b.usual, d.basis)} <span class="muted">(lowest you've paid ${fmtUnit(b.lowest, d.basis)})</span>`;
+        return `<div class="deal-card deal-card--highlight">
+            <div class="deal-card-top">
+                <span class="product-link dl-deal-name">${esc(d.name)}<span class="below-badge">${pct}% OFF</span></span>
+                <span class="deal-source">${esc(d.advice)}${p.promo_expires ? ` · sale ends ${fmtDate(p.promo_expires)}` : ''}</span>
+            </div>
+            <p class="deal-text">${esc(p.description)} <span class="dl-size">${esc(p.size)}</span></p>
+            <div class="deal-pricing">
+                <span class="deal-price below-avg">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>` : ''}${money(p.promo ?? p.regular)}</span>
+                ${p.unit_price != null && d.basis !== 'package' ? `<span class="deal-vs">${fmtUnit(p.unit_price, d.basis)}</span>` : ''}
+                <span class="deal-vs">${vs}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderWatchlist() {
+    const s = dealsState;
+    const q = document.getElementById('dl-watch-search').value.trim().toLowerCase();
+    document.getElementById('dl-seed').classList.toggle('hidden', s.watch.length > 0);
+    const list = s.watch.filter(w => (watchFilter === 'all' || w.status === watchFilter)
+        && (!q || w.name.toLowerCase().includes(q) || w.search_term.includes(q)));
+    const counts = ['watching', 'paused', 'never'].map(st => s.watch.filter(w => w.status === st).length);
+    document.getElementById('dl-watch-count').textContent =
+        `${counts[0]} watching · ${counts[1]} paused · ${counts[2]} not interested`;
+    const body = document.getElementById('dl-watch-body');
+    if (!list.length) {
+        body.innerHTML = `<tr><td colspan="7" class="loading-msg">${s.watch.length ? 'No items match.' : 'Nothing here yet.'}</td></tr>`;
+        return;
+    }
+    const opt = (v, cur, label) => `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
+    const deptOptions = d => departments.map(x => opt(x, d, esc(x))).join('');
+    body.innerHTML = list.map(w => {
+        const b = w.baseline;
+        const usual = b.usual != null
+            ? `${fmtUnit(b.usual, w.basis)}<span class="dl-size">${b.purchases} purchase${b.purchases !== 1 ? 's' : ''}</span>`
+            : `<span class="muted">${w.basis === 'unit' && !w.pack_count ? 'set pack size' : 'no history'}</span>`;
+        return `<tr data-id="${w.id}" class="dl-watch-row dl-status-${w.status}">
+            <td><input class="dl-cell" data-f="name" value="${esc(w.name)}" aria-label="Item name"></td>
+            <td><select class="dl-cell" data-f="status" aria-label="Status">${opt('watching', w.status, 'Watching')}${opt('paused', w.status, 'Paused')}${opt('never', w.status, 'Not interested')}</select></td>
+            <td><input class="dl-cell" data-f="search_term" value="${esc(w.search_term)}" aria-label="Search term"></td>
+            <td class="dl-basis-cell"><select class="dl-cell" data-f="basis" aria-label="Compare by">${opt('lb', w.basis, 'per lb')}${opt('package', w.basis, 'per package')}${opt('unit', w.basis, 'per unit')}</select>
+                ${w.basis === 'unit' ? `<input class="dl-cell dl-num" data-f="pack_count" type="number" min="1" step="1" value="${w.pack_count ?? ''}" placeholder="pack" title="Units in the pack you usually buy (e.g. 12 rolls)">` : ''}</td>
+            <td class="col-num">${usual}</td>
+            <td class="col-num"><input class="dl-cell dl-num" data-f="target_price" type="number" min="0.01" step="0.01" value="${w.target_price ?? ''}" placeholder="auto" title="Optional: alert when the price is below this, instead of using your usual price"></td>
+            <td class="dl-row-actions"><button class="nav-link-btn" data-more="${w.id}" title="More settings">⋯</button></td>
+        </tr>
+        <tr class="dl-more hidden" id="dl-more-${w.id}"><td colspan="7">
+            <label>Receipt item types used for "usual price" (comma-separated)
+                <input class="dl-cell" data-f="item_basics" data-id="${w.id}" value="${esc(w.item_basics.join(', '))}" list="item-basic-list"></label>
+            <label>Department <select class="dl-cell" data-f="department" data-id="${w.id}">${deptOptions(w.department)}</select></label>
+            <label>Notes for matching (e.g. "Angel Soft only", "boneless") <input class="dl-cell" data-f="notes" data-id="${w.id}" value="${esc(w.notes)}" maxlength="300"></label>
+            <div class="dl-more-actions">
+                <button class="nav-link-btn" data-check-one="${w.id}"${w.status !== 'watching' || !s.location ? ' disabled' : ''}>Check just this item</button>
+                <button class="nav-link-btn danger" data-delete-watch="${w.id}">Remove from watchlist</button>
+            </div>
+        </td></tr>`;
+    }).join('');
+
+    body.querySelectorAll('.dl-cell').forEach(el => el.addEventListener('change', () => {
+        const id = Number(el.dataset.id || el.closest('tr').dataset.id);
+        const f = el.dataset.f;
+        let v = el.value.trim();
+        if (f === 'item_basics') v = v.split(',').map(x => x.trim()).filter(Boolean);
+        else if (f === 'pack_count' || f === 'target_price') v = v === '' ? null : Number(v);
+        else if (f === 'search_term') v = v.toLowerCase();
+        saveWatch(id, { [f]: v });
+    }));
+    body.querySelectorAll('[data-more]').forEach(b => b.addEventListener('click', () =>
+        document.getElementById(`dl-more-${b.dataset.more}`).classList.toggle('hidden')));
+    body.querySelectorAll('[data-check-one]').forEach(b => b.addEventListener('click', () => runDealsCheck([Number(b.dataset.checkOne)])));
+    body.querySelectorAll('[data-delete-watch]').forEach(b => b.addEventListener('click', () => deleteWatch(Number(b.dataset.deleteWatch))));
+}
+
+// Saves one field, then reloads so baselines and deals reflect the change.
+async function saveWatch(id, patch) {
+    const open = [...document.querySelectorAll('.dl-more:not(.hidden)')].map(r => r.id);
+    try {
+        await api(`/deals/watch/${id}`, { method: 'PUT', body: JSON.stringify(patch) });
+        await loadDeals(true);
+        dealsStatus('');
+    } catch (err) {
+        dealsStatus(err.message, 'error');
+        await loadDeals(true);
+    }
+    open.forEach(rid => document.getElementById(rid)?.classList.remove('hidden'));
+}
+
+async function deleteWatch(id) {
+    const w = dealsState.watch.find(x => x.id === id);
+    if (!confirm(`Remove "${w.name}" from the watchlist? To stop alerts but keep its settings, set it to Paused or Not interested instead.`)) return;
+    try {
+        await api(`/deals/watch/${id}`, { method: 'DELETE' });
+        await loadDeals(true);
+    } catch (err) { dealsStatus(err.message, 'error'); }
+}
+
+async function addWatchItem(e) {
+    e.preventDefault();
+    const name = document.getElementById('dl-add-name').value.trim();
+    if (!name) return;
+    // Link it to a receipt item type of the same name, if there is one, so it gets a usual price.
+    const basic = allProducts.find(p => p.name.toLowerCase() === name.toLowerCase());
+    const body = {
+        name, search_term: name.toLowerCase(), basis: document.getElementById('dl-add-basis').value,
+        item_basics: basic ? [basic.name] : [], department: basic?.dept || 'Other',
+    };
+    try {
+        await api('/deals/watch', { method: 'POST', body: JSON.stringify(body) });
+        document.getElementById('dl-add-name').value = '';
+        watchFilter = 'watching';
+        document.querySelectorAll('#dl-filters [data-filter]').forEach(x => x.classList.toggle('active', x.dataset.filter === 'watching'));
+        await loadDeals(true);
+        dealsStatus(`Added ${name}.${basic ? '' : ' Open ⋯ to link it to receipt items so it gets a usual price.'}`);
+    } catch (err) { dealsStatus(err.message, 'error'); }
+}
+
+async function seedWatchlist() {
+    try {
+        const { created } = await api('/deals/watch/seed', { method: 'POST', body: '{}' });
+        await loadDeals(true);
+        dealsStatus(`Added ${created.length} items. Pause anything you don't want alerts for, then press Check prices now.`);
+    } catch (err) { dealsStatus(err.message, 'error'); }
+}
+
+async function saveThreshold() {
+    const pct = Number(document.getElementById('dl-threshold').value);
+    try {
+        await api('/deals/settings', { method: 'PUT', body: JSON.stringify({ threshold: pct / 100 }) });
+        await loadDeals(true);
+    } catch (err) { dealsStatus(err.message, 'error'); }
+}
+
+function renderAllResults() {
+    const s = dealsState;
+    const box = document.getElementById('dl-results');
+    if (!s.latest || !s.latest.checks.length) { box.innerHTML = '<p class="muted">No results yet.</p>'; return; }
+    const byWatch = new Map(s.watch.map(w => [w.id, w]));
+    const groups = new Map();
+    for (const c of s.latest.checks) (groups.get(c.watch_id) ?? groups.set(c.watch_id, []).get(c.watch_id)).push(c);
+    box.innerHTML = [...groups].map(([wid, products]) => {
+        const w = byWatch.get(wid);
+        if (!w) return '';
+        const rows = products.map(p => {
+            const tag = p.verdict === 'match' ? `<span class="pc-tag pc-tag--save">${p.verdict_source === 'user' ? 'You: match' : 'Match'}</span>`
+                : p.verdict === 'reject' ? `<span class="pc-tag">${p.verdict_source === 'user' ? 'You: not this' : 'Not this'}</span>`
+                : '<span class="pc-tag pc-tag--warn">Unreviewed</span>';
+            return `<tr class="${p.verdict === 'reject' ? 'dl-rejected' : ''}">
+                <td><span class="dl-product">${esc(p.description)}</span><span class="dl-size">${esc(p.size)}${p.sold_by === 'WEIGHT' ? ' · priced per lb' : ''}${p.verdict_reason ? ` · ${esc(p.verdict_reason)}` : ''}</span></td>
+                <td class="col-num price-cell">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>${money(p.promo)}` : money(p.regular)}</td>
+                <td class="col-num">${p.unit_price != null && w.basis !== 'package' ? fmtUnit(p.unit_price, w.basis) : ''}</td>
+                <td>${tag}${p.deal ? ` <span class="pc-tag pc-tag--save">Deal ${Math.round(p.deal.pct * 100)}%</span>` : ''}</td>
+                <td class="dl-row-actions">
+                    <button class="nav-link-btn" data-verdict="match" data-w="${wid}" data-p="${esc(p.product_id)}" title="This is ${esc(w.name)}">✓</button>
+                    <button class="nav-link-btn" data-verdict="reject" data-w="${wid}" data-p="${esc(p.product_id)}" title="Not ${esc(w.name)}">✕</button>
+                </td>
+            </tr>`;
+        }).join('');
+        return `<div class="deal-card dl-group">
+            <div class="deal-card-top"><h3>${esc(w.name)}</h3><span class="deal-source">usual ${fmtUnit(w.baseline.compare_to, w.basis)}</span></div>
+            <div class="table-scroll"><table><tbody>${rows}</tbody></table></div>
+        </div>`;
+    }).join('');
+    box.querySelectorAll('[data-verdict]').forEach(b => b.addEventListener('click', async () => {
+        try {
+            await api('/deals/verdict', { method: 'PUT', body: JSON.stringify({ watch_id: Number(b.dataset.w), product_id: b.dataset.p, verdict: b.dataset.verdict }) });
+            await loadDeals(true);
+            document.querySelector('.dl-all').open = true;
+        } catch (err) { dealsStatus(err.message, 'error'); }
+    }));
 }
 
 const WEEKDAYS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
