@@ -277,7 +277,7 @@
         <div class="deals-header">
             <div>
                 <h2 class="deals-title">Deals</h2>
-                <p class="deals-subtitle" id="dl-subtitle">Current store prices for things you buy, compared with what you usually pay.</p>
+                <p class="deals-subtitle">Ralphs prices on your watchlist, compared with what you usually pay.</p>
             </div>
             <button class="refresh-btn" id="dl-check" disabled>Check prices now</button>
         </div>
@@ -285,9 +285,8 @@
         <div class="deals-status hidden" id="dl-status"></div>
 
         <div class="chart-wrap" id="dl-setup">
-            <h3 class="section-title">Your store</h3>
-            <p id="dl-store-line" class="result-count"></p>
-            <div class="controls" id="dl-zip-row">
+            <p id="dl-store-line" class="dl-store-line"></p>
+            <div class="controls hidden" id="dl-zip-row">
                 <input type="text" id="dl-zip" class="dl-zip" placeholder="ZIP code" inputmode="numeric" maxlength="5" value="91502">
                 <button class="nav-link-btn" id="dl-find">Find Ralphs stores</button>
             </div>
@@ -296,12 +295,12 @@
 
         <div class="deals-summary hidden" id="dl-summary">
             <div class="summary-stat">
-                <span class="summary-num" id="dl-stat-sale">—</span>
-                <span class="summary-lbl">products on sale</span>
+                <span class="summary-num" id="dl-stat-deals">—</span>
+                <span class="summary-lbl" id="dl-stat-deals-lbl">deals</span>
             </div>
             <div class="summary-stat">
-                <span class="summary-num" id="dl-stat-below">—</span>
-                <span class="summary-lbl">below what you usually pay</span>
+                <span class="summary-num" id="dl-stat-watching">—</span>
+                <span class="summary-lbl">items watched</span>
             </div>
             <div class="summary-stat">
                 <span class="summary-num" id="dl-stat-checked">—</span>
@@ -309,7 +308,57 @@
             </div>
         </div>
 
-        <div id="dl-results"></div>
+        <h3 class="deals-section-title">This week's deals</h3>
+        <div id="dl-deals"></div>
+
+        <div class="chart-wrap dl-watch">
+            <div class="dl-watch-head">
+                <h3 class="section-title">Watchlist</h3>
+                <div class="dl-filters" id="dl-filters">
+                    <button class="nav-link-btn active" data-filter="watching">Watching</button>
+                    <button class="nav-link-btn" data-filter="paused">Paused</button>
+                    <button class="nav-link-btn" data-filter="never">Not interested</button>
+                    <button class="nav-link-btn" data-filter="all">All</button>
+                </div>
+                <input type="text" id="dl-watch-search" class="dl-input" placeholder="Search watchlist…" autocomplete="off">
+            </div>
+            <form class="dl-add" id="dl-add">
+                <input type="text" id="dl-add-name" class="dl-input" placeholder="Add an item, e.g. Angel Soft toilet paper" maxlength="120" required>
+                <select id="dl-add-basis" class="dl-input" aria-label="Compare by">
+                    <option value="package">per package</option>
+                    <option value="lb">per lb</option>
+                    <option value="unit">per unit (roll, egg…)</option>
+                </select>
+                <button class="refresh-btn" type="submit">Add</button>
+            </form>
+            <div id="dl-seed" class="dl-seed hidden">
+                <p>Your watchlist is empty. Start it from the items you've bought at least twice in the past year (alcohol and ground beef start paused), plus Angel Soft. You can change anything afterwards.</p>
+                <button class="refresh-btn" id="dl-seed-btn">Build my watchlist</button>
+            </div>
+            <div class="table-scroll">
+                <table class="dl-watch-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Status</th>
+                            <th>Search Ralphs for</th>
+                            <th>Compare</th>
+                            <th class="col-num">You usually pay</th>
+                            <th class="col-num">Alert below</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="dl-watch-body"></tbody>
+                </table>
+            </div>
+            <p class="result-count" id="dl-watch-count"></p>
+        </div>
+
+        <details class="chart-wrap dl-all">
+            <summary class="section-title">Everything from the last check</summary>
+            <p class="result-count">Claude decides which search results really are each item. Use ✓ / ✕ to correct it; your choice sticks for future checks.</p>
+            <div id="dl-results"></div>
+        </details>
 
         <div class="chart-wrap dl-cycle">
             <h3 class="section-title">When Ralphs changes its sale prices</h3>
@@ -317,15 +366,12 @@
             <div id="dl-cycle-bars"></div>
         </div>
 
-        <details class="chart-wrap dl-terms">
-            <summary class="section-title">Search terms (<span id="dl-term-count">0</span>)</summary>
-            <p class="result-count">One per line. These are searched on every check, including the daily one. Phase 2 replaces this with a full watchlist.</p>
-            <textarea id="dl-terms" rows="12" spellcheck="false"></textarea>
-            <div class="review-footer">
-                <button class="nav-link-btn" id="dl-terms-reset">Reset to defaults</button>
-                <button class="refresh-btn" id="dl-terms-save">Save terms</button>
-            </div>
-        </details>
+        <div class="chart-wrap">
+            <h3 class="section-title">Alert setting</h3>
+            <label class="dl-threshold">Count it as a deal when the price is at least
+                <input type="number" id="dl-threshold" class="dl-input" min="1" max="90" step="1"> %
+                below what you usually pay (or below your "alert below" price).</label>
+        </div>
     </div>
 
 </main>

@@ -567,9 +567,48 @@ tbody td { padding: .7rem 1rem; font-size: .93rem; vertical-align: middle; }
 .dl-group .table-scroll { overflow-x: auto; }
 .dl-cycle-row { display: grid; grid-template-columns: 44px 1fr 40px; align-items: center; gap: .6rem; font-size: .85rem; margin-bottom: .35rem; }
 .dl-cycle-bar { height: 12px; background: #2a7a48; border-radius: 3px; min-width: 2px; }
-.dl-terms summary { cursor: pointer; margin-bottom: 0; }
-.dl-terms[open] summary { margin-bottom: .75rem; }
-.dl-terms textarea { width: 100%; padding: .6rem .75rem; border: 1.5px solid #ddd; border-radius: 8px; font: inherit; font-size: .88rem; resize: vertical; }
+.dl-store-line { font-size: .9rem; color: #555; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+#dl-setup { padding: 1rem 1.5rem; }
+#dl-zip-row { margin-top: .75rem; }
+.dl-input { padding: .45rem .65rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: .9rem; background: white; }
+.dl-input:focus, .dl-cell:focus { outline: none; border-color: #2a7a48; box-shadow: 0 0 0 2px rgba(42,122,72,.15); }
+.dl-empty { color: #888; font-size: .9rem; background: white; border-radius: 10px; padding: 1rem 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 1.75rem; }
+#dl-deals { margin-bottom: 1.75rem; }
+.dl-deal-name { font-weight: 700; font-size: 1.05rem; cursor: default; }
+.dl-deal-name:hover { text-decoration: none; }
+.dl-watch-head { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: .9rem; }
+.dl-watch-head .section-title { margin: 0 auto 0 0; }
+.dl-filters { display: flex; gap: .35rem; flex-wrap: wrap; }
+.dl-filters .active { background: #2a7a48; color: white; border-color: #2a7a48; }
+.dl-add { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.dl-add #dl-add-name { flex: 1 1 260px; }
+.dl-seed { background: #edf7f1; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; font-size: .9rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.dl-seed p { flex: 1 1 320px; color: #1a3a28; }
+.dl-watch-table td { padding: .35rem .45rem; font-size: .88rem; }
+.dl-watch-table th { white-space: nowrap; }
+.dl-cell { width: 100%; min-width: 90px; padding: .35rem .45rem; border: 1px solid #e2e2e2; border-radius: 5px; font-size: .85rem; background: white; }
+.dl-watch-table td:first-child .dl-cell { min-width: 170px; font-weight: 500; }
+.dl-watch-table td:nth-child(3) .dl-cell { min-width: 150px; }
+.dl-watch-table .dl-size { display: block; white-space: nowrap; }
+.dl-num { width: 78px; min-width: 64px; text-align: right; }
+.dl-basis-cell { display: flex; gap: .3rem; align-items: center; }
+.dl-basis-cell select { min-width: 105px; }
+.dl-status-paused td, .dl-status-never td { background: #fafafa; }
+.dl-status-paused .dl-cell, .dl-status-never .dl-cell { color: #888; }
+.dl-row-actions { white-space: nowrap; text-align: right; }
+.dl-row-actions .nav-link-btn + .nav-link-btn { margin-left: .25rem; }
+.dl-more td { background: #f8fbf9; padding: .75rem 1rem 1rem !important; }
+.dl-more label { display: block; font-size: .75rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .6rem; }
+.dl-more label .dl-cell { display: block; margin-top: .25rem; text-transform: none; letter-spacing: 0; font-weight: 400; color: #1a1a1a; max-width: 560px; }
+.dl-more-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.nav-link-btn:disabled { opacity: .5; cursor: not-allowed; }
+.dl-rejected td { color: #aaa; }
+.dl-rejected .price-cell { font-weight: 400; }
+.dl-all summary { cursor: pointer; margin-bottom: 0; }
+.dl-all[open] summary { margin-bottom: .75rem; }
+.dl-all .dl-group { box-shadow: none; border: 1px solid #eee; }
+.dl-threshold { font-size: .9rem; color: #555; line-height: 2; }
+.dl-threshold .dl-input { width: 70px; text-align: right; margin: 0 .25rem; }
 @media (max-width: 680px) {
     .dl-group td { padding: .45rem .6rem; }
     .dl-group .deal-card-top { padding: .8rem .75rem .3rem; }

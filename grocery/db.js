@@ -93,6 +93,38 @@ CREATE TABLE IF NOT EXISTS grocery_price_checks (
 );
 CREATE INDEX IF NOT EXISTS grocery_price_checks_run_idx ON grocery_price_checks (run_id);
 CREATE INDEX IF NOT EXISTS grocery_price_checks_product_idx ON grocery_price_checks (product_id);
+
+-- Watchlist: what to look for, and how to judge a good price.
+--   status: watching | paused | never      basis: lb | package | unit (per roll, per egg, ...)
+--   item_basics: receipt item types whose prices form the "usual price" baseline.
+CREATE TABLE IF NOT EXISTS grocery_watch (
+  id           SERIAL PRIMARY KEY,
+  name         TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'watching',
+  search_term  TEXT NOT NULL,
+  item_basics  TEXT[] NOT NULL DEFAULT '{}',
+  department   TEXT NOT NULL DEFAULT 'Other',
+  basis        TEXT NOT NULL DEFAULT 'package',
+  pack_count   NUMERIC(10,2),
+  target_price NUMERIC(10,2),
+  notes        TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS grocery_watch_name_idx ON grocery_watch (lower(name));
+
+-- Whether a store product counts as a given watch item (decided by Claude or overridden by the user).
+CREATE TABLE IF NOT EXISTS grocery_watch_products (
+  watch_id    INTEGER NOT NULL REFERENCES grocery_watch(id) ON DELETE CASCADE,
+  store       TEXT NOT NULL,
+  product_id  TEXT NOT NULL,
+  verdict     TEXT NOT NULL,
+  source      TEXT NOT NULL,
+  reason      TEXT NOT NULL DEFAULT '',
+  decided_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (watch_id, store, product_id)
+);
+
+ALTER TABLE grocery_price_checks ADD COLUMN IF NOT EXISTS watch_id INTEGER;
 `;
 
 let ready = null;
@@ -272,9 +304,9 @@ async function saveRun(run, checks) {
     const runId = rows[0].id;
     for (const c of checks) {
       await client.query(`
-        INSERT INTO grocery_price_checks (run_id, term, rank, product_id, upc, brand, description, size, sold_by, regular, promo, promo_expires)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-        [runId, c.term, c.rank, c.product_id, c.upc, c.brand, c.description, c.size, c.sold_by, c.regular, c.promo, c.promo_expires]);
+        INSERT INTO grocery_price_checks (run_id, watch_id, term, rank, product_id, upc, brand, description, size, sold_by, regular, promo, promo_expires)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [runId, c.watch_id ?? null, c.term, c.rank, c.product_id, c.upc, c.brand, c.description, c.size, c.sold_by, c.regular, c.promo, c.promo_expires]);
     }
     return runRow(rows[0]);
   });
@@ -287,7 +319,7 @@ async function latestRun() {
   return {
     run: runRow(rows[0]),
     checks: checks.rows.map((c) => ({
-      term: c.term, rank: c.rank, product_id: c.product_id, upc: c.upc, brand: c.brand, description: c.description,
+      watch_id: c.watch_id, term: c.term, rank: c.rank, product_id: c.product_id, upc: c.upc, brand: c.brand, description: c.description,
       size: c.size, sold_by: c.sold_by, regular: num(c.regular), promo: num(c.promo),
       promo_expires: c.promo_expires ? iso(c.promo_expires) : null
     }))
@@ -317,8 +349,103 @@ async function promoChangesByWeekday() {
   return { daily_runs: Number(days.rows[0].n), by_weekday: rows.map((r) => ({ dow: r.dow, changes: Number(r.changes) })) };
 }
 
+// ── Watchlist ─────────────────────────────────────────────────────────────────
+
+function watchRow(w) {
+  return {
+    id: w.id, name: w.name, status: w.status, search_term: w.search_term, item_basics: w.item_basics,
+    department: w.department, basis: w.basis, pack_count: num(w.pack_count), target_price: num(w.target_price),
+    notes: w.notes
+  };
+}
+
+const WATCH_FIELDS = ['name', 'status', 'search_term', 'item_basics', 'department', 'basis', 'pack_count', 'target_price', 'notes'];
+
+async function listWatch() {
+  const { rows } = await query('SELECT * FROM grocery_watch ORDER BY lower(name)');
+  return rows.map(watchRow);
+}
+
+async function getWatch(id) {
+  const { rows } = await query('SELECT * FROM grocery_watch WHERE id = $1', [id]);
+  return rows.length ? watchRow(rows[0]) : null;
+}
+
+// Inserts watch items, skipping any whose name already exists. Returns the ones created.
+async function createWatch(items) {
+  return withTransaction(async (client) => {
+    const created = [];
+    for (const w of items) {
+      const { rows } = await client.query(`
+        INSERT INTO grocery_watch (name, status, search_term, item_basics, department, basis, pack_count, target_price, notes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        ON CONFLICT ((lower(name))) DO NOTHING RETURNING *`,
+        [w.name, w.status || 'watching', w.search_term, w.item_basics || [], w.department || 'Other',
+         w.basis || 'package', w.pack_count ?? null, w.target_price ?? null, w.notes || '']);
+      if (rows.length) created.push(watchRow(rows[0]));
+    }
+    return created;
+  });
+}
+
+async function updateWatch(id, patch) {
+  const keys = WATCH_FIELDS.filter((k) => patch[k] !== undefined);
+  if (!keys.length) return getWatch(id);
+  const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+  const { rows } = await query(`UPDATE grocery_watch SET ${sets} WHERE id = $1 RETURNING *`, [id, ...keys.map((k) => patch[k])]);
+  return rows.length ? watchRow(rows[0]) : null;
+}
+
+async function deleteWatch(id) {
+  const { rowCount } = await query('DELETE FROM grocery_watch WHERE id = $1', [id]);
+  return rowCount > 0;
+}
+
+// Map of `${watch_id}|${product_id}` -> { verdict, source, reason } for one store.
+async function listVerdicts(store) {
+  const { rows } = await query('SELECT watch_id, product_id, verdict, source, reason FROM grocery_watch_products WHERE store = $1', [store]);
+  return new Map(rows.map((r) => [`${r.watch_id}|${r.product_id}`, { verdict: r.verdict, source: r.source, reason: r.reason }]));
+}
+
+// Claude's verdicts never overwrite a decision the user made.
+async function saveVerdicts(store, verdicts) {
+  for (const v of verdicts) {
+    await query(`
+      INSERT INTO grocery_watch_products (watch_id, store, product_id, verdict, source, reason)
+      VALUES ($1,$2,$3,$4,$5,$6)
+      ON CONFLICT (watch_id, store, product_id) DO UPDATE
+        SET verdict = EXCLUDED.verdict, source = EXCLUDED.source, reason = EXCLUDED.reason, decided_at = now()
+        WHERE grocery_watch_products.source <> 'user' OR EXCLUDED.source = 'user'`,
+      [v.watch_id, store, v.product_id, v.verdict, v.source, v.reason || '']);
+  }
+}
+
+// Receipt lines from the last year for the given item types: the raw material for baselines.
+async function purchasesFor(itemBasics) {
+  if (!itemBasics.length) return [];
+  const { rows } = await query(`
+    SELECT i.item_basic, i.unit, i.quantity, i.unit_price, r.store, r.purchased_on
+    FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
+    WHERE lower(i.item_basic) = ANY($1) AND r.purchased_on >= CURRENT_DATE - INTERVAL '1 year'`,
+    [itemBasics.map((b) => b.toLowerCase())]);
+  return rows.map((r) => ({ item_basic: r.item_basic, unit: r.unit, quantity: num(r.quantity), unit_price: num(r.unit_price), store: r.store, date: iso(r.purchased_on) }));
+}
+
+// Item types bought at least `minCount` times in the last year, for building a starter watchlist.
+async function frequentItemTypes(minCount) {
+  const { rows } = await query(`
+    SELECT i.item_basic, MODE() WITHIN GROUP (ORDER BY i.department) AS department, COUNT(*) AS n,
+           SUM(CASE WHEN i.unit = 'each' THEN 0 ELSE 1 END) AS weighed
+    FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
+    WHERE r.purchased_on >= CURRENT_DATE - INTERVAL '1 year'
+    GROUP BY i.item_basic HAVING COUNT(*) >= $1 ORDER BY COUNT(*) DESC`, [minCount]);
+  return rows.map((r) => ({ item_basic: r.item_basic, department: r.department, count: Number(r.n), weighed: Number(r.weighed) }));
+}
+
 module.exports = {
   getPool, ensureSchema, withTransaction, listReceipts, getReceipt, listItems,
   classificationContext, findDuplicate, saveReceipt, replaceReceipt, deleteReceipt,
-  getSetting, setSetting, hasRunOn, saveRun, latestRun, lastRunOf, promoChangesByWeekday
+  getSetting, setSetting, hasRunOn, saveRun, latestRun, lastRunOf, promoChangesByWeekday,
+  listWatch, getWatch, createWatch, updateWatch, deleteWatch, listVerdicts, saveVerdicts,
+  purchasesFor, frequentItemTypes
 };
