@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { handleGrocery } = require('./grocery/api');
+const { handleGrocery, startDailyChecks } = require('./grocery/api');
 const { handleDossier } = require('./dossier/api');
 
 // Load .env files for local development (Render supplies real env vars in production).
@@ -635,4 +635,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  startDailyChecks();
 });

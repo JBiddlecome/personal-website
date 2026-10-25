@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { z } = require('zod');
 const db = require('./db');
 const { parseReceipt, DEPARTMENTS } = require('./parse');
+const deals = require('./deals');
 
 // Read lazily: server.js loads .env files after requiring this module.
 const password = () => process.env.GROCERY_PASSWORD || '';
@@ -116,6 +117,12 @@ const ReceiptSchema = z.object({
   total: money.nullable().default(null),
   items: z.array(ItemSchema).min(1).max(500)
 });
+const TermsSchema = z.array(z.string().trim().min(3).max(80)).min(1).max(100);
+const LocationSchema = z.object({
+  location_id: z.string().trim().regex(/^[A-Za-z0-9]{1,20}$/),
+  name: z.string().trim().max(120).default(''),
+  address: z.string().trim().max(300).default('')
+});
 const UploadSchema = z.object({
   files: z.array(z.object({ media_type: z.string(), data: z.string().min(1) })).min(1).max(8)
 });
@@ -193,6 +200,8 @@ async function route(req, res, pathname) {
     return;
   }
 
+  if (apiPath.startsWith('/deals/')) { await routeDeals(req, res, method, apiPath.slice('/deals'.length)); return; }
+
   if (method === 'POST' && apiPath === '/receipts/parse') {
     const parsed = UploadSchema.safeParse(await readBody(req, MAX_UPLOAD));
     if (!parsed.success) { validationError(res, parsed.error); return; }
@@ -239,4 +248,56 @@ async function route(req, res, pathname) {
   sendJson(res, 404, { error: 'Not found.' });
 }
 
-module.exports = { handleGrocery };
+// ── Deals (store price checks; see deals.js) ──────────────────────────────────
+async function routeDeals(req, res, method, sub) {
+  if (method === 'GET' && sub === '/status') {
+    const [location, terms, latest, daily, cycle] = await Promise.all([
+      deals.getLocation(), deals.getTerms(), db.latestRun(), db.lastRunOf('daily'), db.promoChangesByWeekday()
+    ]);
+    sendJson(res, 200, {
+      configured: deals.isConfigured(), store: deals.STORE, location, terms, default_terms: deals.DEFAULT_TERMS,
+      latest, last_daily: daily, cycle
+    });
+    return;
+  }
+
+  if (method === 'GET' && sub === '/locations') {
+    const zip = new URL(req.url, 'http://localhost').searchParams.get('zip') || '';
+    if (!/^\d{5}$/.test(zip)) { sendJson(res, 400, { error: 'Enter a 5-digit ZIP code.' }); return; }
+    sendJson(res, 200, { locations: await deals.findLocations(zip) });
+    return;
+  }
+
+  if (method === 'PUT' && sub === '/location') {
+    const parsed = LocationSchema.safeParse(await readBody(req, MAX_JSON));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    await db.setSetting('deals_location', parsed.data);
+    sendJson(res, 200, { location: parsed.data });
+    return;
+  }
+
+  if (method === 'PUT' && sub === '/terms') {
+    const parsed = TermsSchema.safeParse((await readBody(req, MAX_JSON)).terms);
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    const terms = [...new Set(parsed.data.map((t) => t.toLowerCase()))];
+    await db.setSetting('deals_terms', terms);
+    sendJson(res, 200, { terms });
+    return;
+  }
+
+  if (method === 'POST' && sub === '/check') {
+    const body = await readBody(req, MAX_JSON);
+    let terms = null;
+    if (body.terms !== undefined) {
+      const parsed = TermsSchema.safeParse(body.terms);
+      if (!parsed.success) { validationError(res, parsed.error); return; }
+      terms = parsed.data;
+    }
+    sendJson(res, 200, await deals.runCheck('manual', terms));
+    return;
+  }
+
+  sendJson(res, 404, { error: 'Not found.' });
+}
+
+module.exports = { handleGrocery, startDailyChecks: deals.startDailyChecks };

@@ -549,3 +549,28 @@ tbody td { padding: .7rem 1rem; font-size: .93rem; vertical-align: middle; }
     .header-nav { flex-wrap: wrap; }
     .nav-btn { padding: .4rem .7rem; font-size: .8rem; }
 }
+
+/* ── Deals: store price checks ───────────────────────────────────────────────── */
+.dl-zip { width: 120px; padding: .5rem .7rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: .95rem; }
+.dl-locations { list-style: none; display: flex; flex-direction: column; gap: .4rem; }
+.dl-locations li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .5rem .75rem; border: 1px solid #eee; border-radius: 8px; font-size: .88rem; }
+.dl-locations li:empty { display: none; }
+.dl-group { padding: 0; overflow: hidden; }
+.dl-group .deal-card-top { padding: .9rem 1.25rem .4rem; margin-bottom: 0; }
+.dl-group h3 { font-size: 1rem; font-weight: 700; text-transform: capitalize; }
+.dl-group table { font-size: .88rem; }
+.dl-group td { padding: .5rem 1.25rem; }
+.dl-group tr.dl-on-sale td { background: #fbfefb; }
+.dl-product { display: block; }
+.dl-size { color: #999; font-size: .8rem; }
+.dl-was { color: #aaa; text-decoration: line-through; font-size: .8rem; margin-right: .35rem; }
+.dl-group .table-scroll { overflow-x: auto; }
+.dl-cycle-row { display: grid; grid-template-columns: 44px 1fr 40px; align-items: center; gap: .6rem; font-size: .85rem; margin-bottom: .35rem; }
+.dl-cycle-bar { height: 12px; background: #2a7a48; border-radius: 3px; min-width: 2px; }
+.dl-terms summary { cursor: pointer; margin-bottom: 0; }
+.dl-terms[open] summary { margin-bottom: .75rem; }
+.dl-terms textarea { width: 100%; padding: .6rem .75rem; border: 1.5px solid #ddd; border-radius: 8px; font: inherit; font-size: .88rem; resize: vertical; }
+@media (max-width: 680px) {
+    .dl-group td { padding: .45rem .6rem; }
+    .dl-group .deal-card-top { padding: .8rem .75rem .3rem; }
+}
