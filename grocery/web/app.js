@@ -581,7 +581,7 @@ let dealsState = null;
 let dealsLoaded = false;
 let watchFilter = 'watching';
 
-const BASIS_LABEL = { lb: '/lb', package: ' each', unit: '/unit' };
+const BASIS_LABEL = { lb: '/lb', oz: '/oz', package: ' each', unit: '/unit' };
 
 function initDeals() {
     document.getElementById('dl-check').addEventListener('click', () => runDealsCheck());
@@ -591,6 +591,8 @@ function initDeals() {
     document.getElementById('dl-add').addEventListener('submit', addWatchItem);
     document.getElementById('dl-watch-search').addEventListener('input', renderWatchlist);
     document.getElementById('dl-threshold').addEventListener('change', saveThreshold);
+    document.getElementById('dl-email-form').addEventListener('submit', saveEmailSettings);
+    document.getElementById('dl-email-test').addEventListener('click', sendTestEmail);
     document.querySelectorAll('#dl-filters [data-filter]').forEach(b => b.addEventListener('click', () => {
         watchFilter = b.dataset.filter;
         document.querySelectorAll('#dl-filters [data-filter]').forEach(x => x.classList.toggle('active', x === b));
@@ -622,6 +624,7 @@ function renderDeals() {
     renderWatchlist();
     renderAllResults();
     renderCycle(dealsState.cycle, dealsState.last_daily);
+    renderEmailSettings();
     document.getElementById('dl-threshold').value = Math.round(dealsState.threshold * 100);
 }
 
@@ -686,7 +689,8 @@ async function runDealsCheck(watchIds = null) {
     }
 }
 
-const fmtUnit = (v, basis) => (v == null ? '—' : `${money(v)}${BASIS_LABEL[basis]}`);
+// Per-oz prices are a few cents, so prices under $1 get a third decimal.
+const fmtUnit = (v, basis) => (v == null ? '—' : `${v < 1 ? `$${Number(v).toFixed(3)}` : money(v)}${BASIS_LABEL[basis]}`);
 
 function renderDealCards() {
     const s = dealsState;
@@ -757,15 +761,15 @@ function renderWatchlist() {
         const b = w.baseline;
         const usual = b.usual != null
             ? `${fmtUnit(b.usual, w.basis)}<span class="dl-size">${b.purchases} purchase${b.purchases !== 1 ? 's' : ''}</span>`
-            : `<span class="muted">${w.basis === 'unit' && !w.pack_count ? 'set pack size' : 'no history'}</span>`;
+            : `<span class="muted">${b.lines.length ? 'sizes unknown' : 'no history'}</span>`;
         return `<tr data-id="${w.id}" class="dl-watch-row dl-status-${w.status}">
             <td><input class="dl-cell" data-f="name" value="${esc(w.name)}" aria-label="Item name"></td>
             <td><select class="dl-cell" data-f="status" aria-label="Status">${opt('watching', w.status, 'Watching')}${opt('paused', w.status, 'Paused')}${opt('never', w.status, 'Not interested')}</select></td>
             <td><input class="dl-cell" data-f="search_term" value="${esc(w.search_term)}" aria-label="Search term"></td>
-            <td class="dl-basis-cell"><select class="dl-cell" data-f="basis" aria-label="Compare by">${opt('lb', w.basis, 'per lb')}${opt('package', w.basis, 'per package')}${opt('unit', w.basis, 'per unit')}</select>
-                ${w.basis === 'unit' ? `<input class="dl-cell dl-num" data-f="pack_count" type="number" min="1" step="1" value="${w.pack_count ?? ''}" placeholder="pack" title="Units in the pack you usually buy (e.g. 12 rolls)">` : ''}</td>
+            <td class="dl-basis-cell"><select class="dl-cell" data-f="basis" aria-label="Compare by">${opt('lb', w.basis, 'per lb')}${opt('oz', w.basis, 'per oz')}${opt('package', w.basis, 'per package')}${opt('unit', w.basis, 'per unit')}</select>
+                ${w.basis === 'unit' ? `<input class="dl-cell dl-num" data-f="pack_count" type="number" min="1" step="1" value="${w.pack_count ?? ''}" placeholder="pack" title="Units per pack when a receipt doesn't say (e.g. 12 rolls)">` : ''}</td>
             <td class="col-num">${usual}</td>
-            <td class="col-num"><input class="dl-cell dl-num" data-f="target_price" type="number" min="0.01" step="0.01" value="${w.target_price ?? ''}" placeholder="auto" title="Optional: alert when the price is below this, instead of using your usual price"></td>
+            <td class="col-num"><input class="dl-cell dl-num" data-f="target_price" type="number" min="0.001" step="any" value="${w.target_price ?? ''}" placeholder="auto" title="Optional: alert when the price is below this, instead of using your usual price"></td>
             <td class="dl-row-actions"><button class="nav-link-btn" data-more="${w.id}" title="More settings">⋯</button></td>
         </tr>
         <tr class="dl-more hidden" id="dl-more-${w.id}"><td colspan="7">
@@ -773,6 +777,7 @@ function renderWatchlist() {
                 <input class="dl-cell" data-f="item_basics" data-id="${w.id}" value="${esc(w.item_basics.join(', '))}" list="item-basic-list"></label>
             <label>Department <select class="dl-cell" data-f="department" data-id="${w.id}">${deptOptions(w.department)}</select></label>
             <label>Notes for matching (e.g. "Angel Soft only", "boneless") <input class="dl-cell" data-f="notes" data-id="${w.id}" value="${esc(w.notes)}" maxlength="300"></label>
+            ${purchaseLines(w)}
             <div class="dl-more-actions">
                 <button class="nav-link-btn" data-check-one="${w.id}"${w.status !== 'watching' || !s.location ? ' disabled' : ''}>Check just this item</button>
                 <button class="nav-link-btn danger" data-delete-watch="${w.id}">Remove from watchlist</button>
@@ -789,10 +794,88 @@ function renderWatchlist() {
         else if (f === 'search_term') v = v.toLowerCase();
         saveWatch(id, { [f]: v });
     }));
+    body.querySelectorAll('.dl-line-size').forEach(el => el.addEventListener('change', () => saveItemSize(Number(el.dataset.item), el.value.trim())));
     body.querySelectorAll('[data-more]').forEach(b => b.addEventListener('click', () =>
         document.getElementById(`dl-more-${b.dataset.more}`).classList.toggle('hidden')));
     body.querySelectorAll('[data-check-one]').forEach(b => b.addEventListener('click', () => runDealsCheck([Number(b.dataset.checkOne)])));
     body.querySelectorAll('[data-delete-watch]').forEach(b => b.addEventListener('click', () => deleteWatch(Number(b.dataset.deleteWatch))));
+}
+
+const BASIS_WORD = { lb: 'per lb', oz: 'per oz', package: 'per package', unit: 'per unit' };
+
+// The receipt lines behind "you usually pay", with the size each was read as. Sizes can be
+// corrected here (e.g. a "6-7.5 oz" line that was really a 10 pack) for per-oz and per-unit prices.
+function purchaseLines(w) {
+    const lines = w.baseline.lines;
+    if (!lines.length) return '<p class="dl-lines-empty muted">No purchases of the linked receipt items in the last 12 months.</p>';
+    const needsSize = w.basis !== 'package';
+    const rows = lines.map(l => {
+        const paid = l.unit === 'each' ? money(l.unit_price) : `${money(l.unit_price)}/${l.unit}`;
+        const read = l.size_source === 'weighed' ? 'weighed at the register'
+            : l.size_read ? `${l.size_source === 'you' ? 'your size' : 'from the name'}: ${esc(l.size_read)}` : 'size not found';
+        return `<tr class="${l.basis_price == null ? 'dl-rejected' : ''}">
+            <td>${fmtDate(l.date)}<span class="dl-size">${esc(l.store)}</span></td>
+            <td>${esc(l.name)}</td>
+            <td class="col-num">${paid}</td>
+            ${needsSize ? `<td>${l.size_source === 'weighed' ? '' : `<input class="dl-input dl-line-size" data-item="${l.id}" value="${esc(l.size_text)}" placeholder="e.g. 10 x 7.5 fl oz" maxlength="60" aria-label="Package size">`}<span class="dl-size">${read}</span></td>` : ''}
+            <td class="col-num">${l.basis_price != null ? fmtUnit(l.basis_price, w.basis) : '<span class="muted">not counted</span>'}</td>
+        </tr>`;
+    }).join('');
+    return `<div class="dl-lines">
+        <p class="dl-lines-head">Purchases behind your usual price (${BASIS_WORD[w.basis]}, last 12 months)</p>
+        <div class="table-scroll"><table><tbody>${rows}</tbody></table></div>
+    </div>`;
+}
+
+async function saveItemSize(itemId, size) {
+    const open = [...document.querySelectorAll('.dl-more:not(.hidden)')].map(r => r.id);
+    try {
+        await api('/deals/item-size', { method: 'PUT', body: JSON.stringify({ item_id: itemId, size }) });
+        await loadDeals(true);
+        dealsStatus('');
+    } catch (err) { dealsStatus(err.message, 'error'); }
+    open.forEach(rid => document.getElementById(rid)?.classList.remove('hidden'));
+}
+
+const WEEKDAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+function renderEmailSettings() {
+    const e = dealsState.email;
+    document.getElementById('dl-email-on').checked = e.enabled;
+    document.getElementById('dl-email-to').value = e.to;
+    document.getElementById('dl-email-day').value = String(e.weekday);
+    const day = WEEKDAY_NAMES[e.send_day];
+    const when = e.weekday === 'auto'
+        ? (e.detected_day ? `Sends ${day} mornings, the day Ralphs changes most sale prices.` : `Sends ${day} mornings (when Ralphs' weekly ad starts) until the daily checks have found the real sale-price day.`)
+        : `Sends ${day} mornings.`;
+    const last = e.last ? ` Last sent ${fmtDate(e.last.date)}${e.last.error ? `, but it failed: ${e.last.error}` : ''}.` : '';
+    document.getElementById('dl-email-note').textContent = e.configured
+        ? `${e.enabled ? when : 'Off.'} It lists the deals from that morning's check.${last}`
+        : 'Email is not set up on the server (RESEND_API_KEY is missing).';
+}
+
+async function saveEmailSettings(e) {
+    e.preventDefault();
+    const day = document.getElementById('dl-email-day').value;
+    const body = {
+        enabled: document.getElementById('dl-email-on').checked,
+        to: document.getElementById('dl-email-to').value.trim(),
+        weekday: day === 'auto' ? 'auto' : Number(day),
+    };
+    try {
+        const { email } = await api('/deals/email', { method: 'PUT', body: JSON.stringify(body) });
+        dealsState.email = email;
+        renderEmailSettings();
+        dealsStatus('Email settings saved.');
+    } catch (err) { dealsStatus(err.message, 'error'); }
+}
+
+async function sendTestEmail() {
+    dealsStatus('Sending…');
+    try {
+        const { to, subject } = await api('/deals/email/test', { method: 'POST', body: '{}' });
+        dealsStatus(`Sent "${subject}" to ${to}.`);
+    } catch (err) { dealsStatus(err.message, 'error'); }
 }
 
 // Saves one field, then reloads so baselines and deals reflect the change.

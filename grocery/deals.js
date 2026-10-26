@@ -6,12 +6,14 @@
 // really that item (match.js), and compares the matched prices with the usual price paid on receipts.
 const db = require('./db');
 const { classifyProducts } = require('./match');
+const email = require('./email');
 
 const API = 'https://api.kroger.com/v1';
 const STORE = 'Ralphs';
 const TZ = 'America/Los_Angeles';
 const RESULTS_PER_TERM = 6;
 const DEFAULT_THRESHOLD = 0.15;
+const DEFAULT_EMAIL_DAY = 3; // Wednesday, when Ralphs' weekly ad starts, until the daily checks show otherwise
 
 // Added to a new watchlist when receipts don't already cover them (non-food items included).
 const STARTER_ITEMS = [
@@ -100,32 +102,91 @@ async function searchProducts(term, locationId) {
 
 // ── Prices on a common basis ──────────────────────────────────────────────────
 
-// Kroger size strings ("16 oz", "1.5 lb", "12 ct", "12 mega rolls") → pounds and/or a count.
+// Ounces per unit of size. Weight units also give pounds; fluid ones only ounces.
+const OZ_PER = { 'fl oz': 1, oz: 1, lb: 16, kg: 35.274, g: 0.035274, l: 33.814, ml: 0.033814, gal: 128, qt: 32, pt: 16 };
+const WEIGHT = new Set(['oz', 'lb', 'kg', 'g']);
+const UNIT_ALIASES = [
+  [/^fl\.?\s*oz|^fluid ounces?/, 'fl oz'], [/^(oz|ounces?)$/, 'oz'], [/^(lbs?|pounds?)$/, 'lb'], [/^(kg|kilograms?)$/, 'kg'],
+  [/^(g|grams?)$/, 'g'], [/^(l|lt|ltr|liters?|litres?)$/, 'l'], [/^(ml|milliliters?)$/, 'ml'], [/^(gal|gallons?)$/, 'gal'],
+  [/^(qt|quarts?)$/, 'qt'], [/^(pt|pints?)$/, 'pt']
+];
+const AMOUNT = /(\d+(?:\.\d+)?|\d+\/\d+)\s*(fl\.?\s*oz|fluid ounces?|ounces?|oz|lbs?|pounds?|kilograms?|kg|grams?|g|liters?|litres?|ltr|lt|l|milliliters?|ml|gallons?|gal|quarts?|qt|pints?|pt)\b/;
+const COUNT = /(\d+)\s*-?\s*(?:ct|count|pk|pack|packs|cans?|bottles?|(?:mega |double |family |huge |giant |regular |jumbo )?rolls?|eggs?|bags?|pods?|k-cups?|bars?|pieces?|pcs|x)\b/;
+
+// Package size text → { count, lb, oz } for the whole package. Reads Kroger sizes ("12 ct / 12 fl oz",
+// "2 L", "1.5 lb", "12 mega rolls") and receipt names ("Ginger Ale 10pk 7.5oz", "6-7.5 fl oz").
+// oz is weight or fluid ounces, so drinks and dry goods can both be compared per ounce;
+// lb is weight only. An amount with a count is taken as the size of each item in the pack.
 function parseSize(size) {
-  const s = String(size || '').toLowerCase();
-  const n = (v) => (v.includes('/') ? Number(v.split('/')[0]) / Number(v.split('/')[1]) : Number(v));
+  const s = String(size || '').toLowerCase().replace(/(\d),(\d{3})/g, '$1$2');
+  const num = (v) => (v.includes('/') ? Number(v.split('/')[0]) / Number(v.split('/')[1]) : Number(v));
   const out = {};
-  let m = s.match(/([\d.]+(?:\/\d+)?)\s*(lb|lbs|pound|pounds)\b/);
-  if (m) out.lb = n(m[1]);
-  else if ((m = s.match(/([\d.]+(?:\/\d+)?)\s*oz\b/)) && !/fl\.?\s*oz/.test(s)) out.lb = n(m[1]) / 16;
-  m = s.match(/(\d+)\s*(ct|count|pk|pack|rolls?|mega rolls?|double rolls?|family rolls?|eggs?|bags?|pods?|k-cups?)\b/);
-  if (m) out.count = Number(m[1]);
+  let count = null;
+  let amount = null;
+  const dashed = s.match(/\b(\d{1,2})\s*-\s*(\d+(?:\.\d+)?)\s*(fl\.?\s*oz|oz)\b/); // "6-7.5 fl oz" = 6 × 7.5 oz
+  if (dashed) {
+    count = Number(dashed[1]);
+    amount = { value: Number(dashed[2]), unit: dashed[3].startsWith('fl') ? 'fl oz' : 'oz' };
+  } else {
+    const m = s.match(AMOUNT);
+    if (m) amount = { value: num(m[1]), unit: UNIT_ALIASES.find(([re]) => re.test(m[2]))[1] };
+    const c = s.match(COUNT);
+    if (c) count = Number(c[1]);
+  }
+  if (count) out.count = count;
+  if (amount && amount.value > 0) {
+    const n = count || 1;
+    out.oz = amount.value * OZ_PER[amount.unit] * n;
+    if (WEIGHT.has(amount.unit)) out.lb = out.oz / 16;
+  }
   return out;
+}
+
+// "10 × 7.5 fl oz" style summary of a parsed size, for showing how a size was read.
+function describeSize(parsed) {
+  const parts = [];
+  if (parsed.count) parts.push(`${parsed.count} ct`);
+  if (parsed.oz) parts.push(`${+parsed.oz.toFixed(1)} oz total`);
+  return parts.join(', ');
 }
 
 // A store price expressed on the watch item's basis, or null when the size can't be read.
 function storeUnitPrice(product, watch, value) {
   if (value == null) return null;
+  const size = parseSize(product.size);
   if (watch.basis === 'lb') {
     if (product.sold_by === 'WEIGHT') return value;
-    const { lb } = parseSize(product.size);
-    return lb ? value / lb : null;
+    return size.lb ? value / size.lb : null;
   }
-  if (watch.basis === 'unit') {
-    const { count } = parseSize(product.size);
-    return count ? value / count : null;
+  if (watch.basis === 'oz') {
+    if (product.sold_by === 'WEIGHT') return value / 16;
+    return size.oz ? value / size.oz : null;
   }
+  if (watch.basis === 'unit') return size.count ? value / size.count : null;
   return product.sold_by === 'WEIGHT' ? null : value; // package
+}
+
+// One receipt line's price on the watch item's basis, and the size it was read from.
+// Weighed lines (unit lb/oz/kg) already carry a per-weight price; packaged lines need a size,
+// taken from the user's correction or else read from the item name.
+function purchaseUnitPrice(p, watch) {
+  const sizeText = p.size_text || '';
+  let size = parseSize(sizeText);
+  let source = sizeText ? 'you' : null;
+  if (!sizeText) {
+    size = parseSize(p.name);
+    if (!size.oz && !size.count) size = parseSize(p.raw_name);
+    if (size.oz || size.count) source = 'name';
+  }
+  const perLb = p.unit === 'lb' ? p.unit_price : p.unit === 'oz' ? p.unit_price * 16 : p.unit === 'kg' ? p.unit_price / 2.2046 : null;
+  let value = null;
+  if (watch.basis === 'lb') value = perLb ?? (size.lb ? p.unit_price / size.lb : null);
+  else if (watch.basis === 'oz') value = perLb != null ? perLb / 16 : size.oz ? p.unit_price / size.oz : null;
+  else if (perLb == null) {
+    if (watch.basis === 'package') value = p.unit_price;
+    else { const n = size.count || watch.pack_count; value = n ? p.unit_price / n : null; } // unit
+  }
+  return { value, size: describeSize(size), source: perLb != null ? 'weighed' : source };
 }
 
 const median = (xs) => {
@@ -134,25 +195,28 @@ const median = (xs) => {
   return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
 };
 const round2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
+// Per-ounce prices are a few cents, so unit prices keep four decimals.
+const round4 = (v) => (v == null ? null : Math.round(v * 10000) / 10000);
 
 // What the shopper usually pays, on the watch item's basis, from the last year of receipts.
-// A target price set on the item takes precedence.
+// A target price set on the item takes precedence. `lines` lists each purchase and how it counted.
 function baselineFor(watch, purchases) {
-  let paid = [];
-  if (watch.basis === 'lb') {
-    paid = purchases.filter((p) => p.unit !== 'each')
-      .map((p) => (p.unit === 'oz' ? p.unit_price * 16 : p.unit === 'kg' ? p.unit_price / 2.2046 : p.unit_price));
-  } else {
-    const each = purchases.filter((p) => p.unit === 'each').map((p) => p.unit_price);
-    paid = watch.basis === 'unit' ? (watch.pack_count ? each.map((v) => v / watch.pack_count) : []) : each;
-  }
+  const lines = purchases.map((p) => {
+    const u = purchaseUnitPrice(p, watch);
+    return {
+      id: p.id, date: p.date, store: p.store, name: p.name, unit: p.unit, unit_price: p.unit_price,
+      size_text: p.size_text || '', size_read: u.size, size_source: u.source, basis_price: round4(u.value)
+    };
+  });
+  const paid = lines.map((l) => l.basis_price).filter((v) => v != null);
   const usual = paid.length ? median(paid) : null;
   return {
-    usual: round2(usual),
-    lowest: paid.length ? round2(Math.min(...paid)) : null,
+    usual: round4(usual),
+    lowest: paid.length ? Math.min(...paid) : null,
     purchases: paid.length,
     target: watch.target_price,
-    compare_to: watch.target_price ?? round2(usual)
+    compare_to: watch.target_price ?? round4(usual),
+    lines
   };
 }
 
@@ -180,7 +244,7 @@ function evaluate(watchList, baselines, checks, verdicts, threshold) {
         if (pct >= threshold) deal = { kind: 'sale_no_history', pct: round2(pct) };
       }
     }
-    return { ...c, verdict: v?.verdict || null, verdict_source: v?.source || null, verdict_reason: v?.reason || '', unit_price: round2(unit), deal };
+    return { ...c, verdict: v?.verdict || null, verdict_source: v?.source || null, verdict_reason: v?.reason || '', unit_price: round4(unit), deal };
   });
 
   // One deal per watch item: its best-value matched product.
@@ -283,18 +347,65 @@ async function seedWatchlist() {
   return db.createWatch(items);
 }
 
-// Daily background check, used to learn which weekday Ralphs changes its sale prices
-// (and, from phase 3, to send the weekly email). Runs once per Pacific day after 6am;
+// ── Weekly email ──────────────────────────────────────────────────────────────
+
+const pacificWeekday = (d = new Date()) => // ISO: 1 = Monday … 7 = Sunday
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(d.toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short' })) + 1;
+
+// weekday 'auto' follows the day the daily checks see the most sale-price changes (once there
+// are about two weeks of them), and Wednesday until then.
+async function emailSettings() {
+  const saved = (await db.getSetting('deals_email')) || {};
+  const settings = { enabled: false, to: '', weekday: 'auto', ...saved };
+  const cycle = await db.promoChangesByWeekday();
+  const detected = cycle.daily_runs >= 8 && cycle.by_weekday.length
+    ? [...cycle.by_weekday].sort((a, b) => b.changes - a.changes)[0].dow : null;
+  return {
+    ...settings,
+    send_day: settings.weekday === 'auto' ? detected || DEFAULT_EMAIL_DAY : settings.weekday,
+    detected_day: detected,
+    configured: email.isConfigured(),
+    last: await db.getSetting('deals_email_last')
+  };
+}
+
+async function sendDealsEmail(to) {
+  const message = email.buildDealsEmail(await dealsView(), STORE);
+  await email.sendEmail(to, message);
+  return message.subject;
+}
+
+// Sent once on the chosen weekday, right after that morning's daily check.
+async function maybeSendWeekly(today) {
+  const s = await emailSettings();
+  if (!s.enabled || !s.to || !s.configured || s.send_day !== pacificWeekday() || s.last?.date === today) return;
+  const last = { date: today, at: new Date().toISOString(), to: s.to };
+  try {
+    last.subject = await sendDealsEmail(s.to);
+    console.log(`deals: weekly email sent (${last.subject})`);
+  } catch (err) {
+    last.error = err.message; // recorded so a bad address doesn't retry every half hour
+    console.error('deals: weekly email failed:', err.message);
+  }
+  await db.setSetting('deals_email_last', last);
+}
+
+// Daily background check, used to learn which weekday Ralphs changes its sale prices, and
+// followed by the weekly email on its day. Runs once per Pacific day after 6am;
 // the database record makes it safe across restarts.
 let dailyBusy = false;
 async function dailyTick() {
   if (dailyBusy || !isConfigured() || !process.env.DATABASE_URL || pacificHour() < 6) return;
   dailyBusy = true;
   try {
-    if (!(await getLocation()) || (await db.hasRunOn('daily', pacificDate()))) return;
-    if (!(await db.listWatch()).some((w) => w.status === 'watching')) return;
-    const { run, failed } = await runCheck('daily');
-    console.log(`deals: daily check saved ${run.product_count} prices${failed.length ? `, ${failed.length} item(s) failed` : ''}`);
+    const today = pacificDate();
+    if (!(await getLocation())) return;
+    if (!(await db.hasRunOn('daily', today))) {
+      if (!(await db.listWatch()).some((w) => w.status === 'watching')) return;
+      const { run, failed } = await runCheck('daily');
+      console.log(`deals: daily check saved ${run.product_count} prices${failed.length ? `, ${failed.length} item(s) failed` : ''}`);
+    }
+    await maybeSendWeekly(today);
   } catch (err) {
     console.error('deals: daily check failed:', err.message);
   } finally {
@@ -309,6 +420,6 @@ function startDailyChecks() {
 }
 
 module.exports = {
-  STORE, DEFAULT_THRESHOLD, isConfigured, findLocations, getLocation, getThreshold, runCheck,
-  dealsView, seedWatchlist, startDailyChecks, parseSize, baselineFor, evaluate
+  describeSize, STORE, DEFAULT_THRESHOLD, isConfigured, findLocations, getLocation, getThreshold, runCheck,
+  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, parseSize, baselineFor, evaluate
 };

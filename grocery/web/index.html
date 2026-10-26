@@ -327,6 +327,7 @@
                 <select id="dl-add-basis" class="dl-input" aria-label="Compare by">
                     <option value="package">per package</option>
                     <option value="lb">per lb</option>
+                    <option value="oz">per oz (drinks, mixed sizes)</option>
                     <option value="unit">per unit (roll, egg…)</option>
                 </select>
                 <button class="refresh-btn" type="submit">Add</button>
@@ -364,6 +365,22 @@
             <h3 class="section-title">When Ralphs changes its sale prices</h3>
             <p class="result-count" id="dl-cycle-note"></p>
             <div id="dl-cycle-bars"></div>
+        </div>
+
+        <div class="chart-wrap dl-email">
+            <h3 class="section-title">Weekly email</h3>
+            <p class="result-count" id="dl-email-note"></p>
+            <form id="dl-email-form" class="dl-email-form">
+                <label class="dl-check-label"><input type="checkbox" id="dl-email-on"> Email me this week's deals</label>
+                <input type="email" id="dl-email-to" class="dl-input" placeholder="you@example.com" maxlength="200" aria-label="Send to">
+                <select id="dl-email-day" class="dl-input" aria-label="Day">
+                    <option value="auto">On sale-price day (auto)</option>
+                    <option value="1">Mondays</option><option value="2">Tuesdays</option><option value="3">Wednesdays</option>
+                    <option value="4">Thursdays</option><option value="5">Fridays</option><option value="6">Saturdays</option><option value="7">Sundays</option>
+                </select>
+                <button class="refresh-btn" type="submit">Save</button>
+                <button class="nav-link-btn" type="button" id="dl-email-test">Send a test now</button>
+            </form>
         </div>
 
         <div class="chart-wrap">
