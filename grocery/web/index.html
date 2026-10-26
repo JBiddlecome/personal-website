@@ -101,8 +101,18 @@
             <p class="insight" id="detail-insight"></p>
 
             <div class="chart-wrap">
-                <h3 class="section-title">Price Over Time</h3>
+                <div class="chart-head">
+                    <h3 class="section-title">Price Over Time</h3>
+                    <div class="dl-filters" id="basis-filters">
+                        <button class="nav-link-btn" data-basis="package">Per item</button>
+                        <button class="nav-link-btn" data-basis="oz">Per oz</button>
+                        <button class="nav-link-btn" data-basis="lb">Per lb</button>
+                        <button class="nav-link-btn" data-basis="unit">Per unit</button>
+                    </div>
+                </div>
+                <p class="chart-note" id="chart-note"></p>
                 <canvas id="price-chart"></canvas>
+                <div id="line-editor" class="line-editor hidden"></div>
             </div>
 
             <div class="history-section">
@@ -116,7 +126,9 @@
                                 <th>Product Name</th>
                                 <th>Brand</th>
                                 <th class="col-num">Qty</th>
-                                <th class="col-num">Unit Price</th>
+                                <th>Size</th>
+                                <th class="col-num">Paid</th>
+                                <th class="col-num" id="history-basis-th">Per item</th>
                             </tr>
                         </thead>
                         <tbody id="history-body"></tbody>

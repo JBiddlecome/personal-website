@@ -75,6 +75,7 @@ function init() {
     document.getElementById('search').addEventListener('input', applyFilters);
     document.getElementById('dept-filter').addEventListener('change', applyFilters);
     document.getElementById('back-btn').addEventListener('click', goBack);
+    document.querySelectorAll('#basis-filters [data-basis]').forEach(b => b.addEventListener('click', () => setDetailBasis(b.dataset.basis)));
     document.querySelectorAll('.th-sortable').forEach(th => th.addEventListener('click', () => toggleSort(th.dataset.sort)));
     TABS.forEach(t => document.getElementById(`nav-${t}`).addEventListener('click', () => switchTab(t)));
     document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -161,6 +162,46 @@ function renderList(products) {
 
 // ── Product detail ────────────────────────────────────────────────────────────
 
+// The chart can compare purchases per item, or per oz / lb / unit using each line's package size
+// (from the receipt name, or one you entered). The choice is remembered per product.
+let detailName = null;
+let detailBasis = 'package';
+let editingId = null;
+
+const DETAIL_BASIS_KEY = 'grocery-detail-basis';
+const DETAIL_BASIS_WORD = { package: 'per item', oz: 'per oz', lb: 'per lb', unit: 'per unit' };
+
+function savedBases() {
+    try { return JSON.parse(localStorage.getItem(DETAIL_BASIS_KEY)) || {}; } catch (_) { return {}; }
+}
+
+function rememberBasis(name, basis) {
+    try { localStorage.setItem(DETAIL_BASIS_KEY, JSON.stringify({ ...savedBases(), [name]: basis })); } catch (_) {}
+}
+
+// Per oz when most purchases have a size in ounces; otherwise per item.
+function defaultBasis(p) {
+    const sized = p.purchases.filter(i => perLbOf(i) == null && i.size?.oz).length;
+    const packaged = p.purchases.filter(i => perLbOf(i) == null).length;
+    return packaged && sized * 2 >= packaged ? 'oz' : 'package';
+}
+
+// Weighed lines (unit lb/oz/kg) already carry a per-weight price.
+const perLbOf = i => (i.unit === 'lb' ? i.unit_price : i.unit === 'oz' ? i.unit_price * 16 : i.unit === 'kg' ? i.unit_price / 2.2046 : null);
+
+// One purchase's price on a basis, or null when its size isn't known.
+function basisValue(i, basis) {
+    const perLb = perLbOf(i);
+    const size = i.size || {};
+    if (basis === 'lb') return perLb ?? (size.lb ? i.unit_price / size.lb : null);
+    if (basis === 'oz') return perLb != null ? perLb / 16 : size.oz ? i.unit_price / size.oz : null;
+    if (basis === 'unit') return perLb == null && size.count ? i.unit_price / size.count : null;
+    return i.unit_price;
+}
+
+const fmtBasis = (v, basis) => (basis === 'package' ? money(v) : fmtUnit(v, basis));
+const unitSuffix = i => (i.unit !== 'each' ? '/' + i.unit : '');
+
 function showDetail(name) {
     const p = allProducts.find(x => x.name === name);
     if (!p) return;
@@ -168,31 +209,73 @@ function showDetail(name) {
     document.getElementById('list-view').classList.add('hidden');
     document.getElementById('detail-view').classList.remove('hidden');
     window.scrollTo(0, 0);
+    detailName = name;
+    detailBasis = savedBases()[name] || defaultBasis(p);
+    closeLineEditor();
+    renderDetail();
+}
+
+function setDetailBasis(basis) {
+    detailBasis = basis;
+    rememberBasis(detailName, basis);
+    renderDetail();
+}
+
+function renderDetail() {
+    const p = allProducts.find(x => x.name === detailName);
+    if (!p) { goBack(); return; }
+    const basis = detailBasis;
+    const pts = p.purchases.map(i => ({ i, v: basisValue(i, basis) })).filter(x => x.v != null);
+    const vals = pts.map(x => x.v);
+    const avg = basis === 'package' ? p.avg : vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+
+    document.querySelectorAll('#basis-filters [data-basis]').forEach(b => b.classList.toggle('active', b.dataset.basis === basis));
     document.getElementById('detail-name').textContent = p.name;
     document.getElementById('detail-dept').textContent = p.dept;
     document.getElementById('detail-count').textContent = fmtQty(p.count);
-    document.getElementById('detail-avg').textContent = money(p.avg);
-    document.getElementById('detail-range').textContent = `${money(p.min)} – ${money(p.max)}`;
-    document.getElementById('detail-last').textContent = money(p.last);
-    document.getElementById('detail-insight').textContent = productInsight(p);
-    renderChart(p);
-    document.getElementById('history-body').innerHTML = [...p.purchases].reverse().map(i => `<tr>
-        <td>${fmtDate(i.date)}</td>
-        <td>${esc(i.store)}</td>
-        <td>${esc(i.name)}</td>
-        <td>${esc(i.brand) || '<span class="muted">—</span>'}</td>
-        <td class="col-num">${fmtQty(i.quantity)}${i.unit !== 'each' ? ' ' + i.unit : ''}</td>
-        <td class="col-num price-cell">${money(i.unit_price)}${i.unit !== 'each' ? '/' + i.unit : ''}${i.savings > 0 ? ` <span class="saved-tag">−${money(i.savings)}</span>` : ''}</td>
-    </tr>`).join('');
+    document.getElementById('detail-avg').textContent = avg != null ? fmtBasis(avg, basis) : '—';
+    document.getElementById('detail-range').textContent = vals.length ? `${fmtBasis(Math.min(...vals), basis)} – ${fmtBasis(Math.max(...vals), basis)}` : '—';
+    document.getElementById('detail-last').textContent = pts.length ? fmtBasis(pts.at(-1).v, basis) : '—';
+    document.getElementById('detail-insight').textContent = productInsight(pts, basis);
+
+    const missing = p.purchases.length - pts.length;
+    const sized = p.purchases.filter(i => i.size?.source).length;
+    document.getElementById('chart-note').textContent = [
+        'Click a point to see its receipt line and set its package size.',
+        missing ? `${missing} purchase${missing !== 1 ? 's have' : ' has'} no size yet, so ${missing !== 1 ? "they aren't" : "it isn't"} on this chart. Click ${missing !== 1 ? 'them' : 'it'} in Purchase History to add one.`
+            : basis === 'package' && sized < p.purchases.length ? `Sizes known for ${sized} of ${p.purchases.length} purchases.` : '',
+    ].filter(Boolean).join(' ');
+
+    renderChart(pts, avg, basis);
+    document.getElementById('history-basis-th').textContent = DETAIL_BASIS_WORD[basis].replace(/^./, c => c.toUpperCase());
+    const body = document.getElementById('history-body');
+    body.innerHTML = [...p.purchases].reverse().map(i => {
+        const v = basisValue(i, basis);
+        const size = perLbOf(i) != null ? '<span class="muted">weighed</span>'
+            : i.size?.read ? `${esc(i.size.read)}<span class="dl-size">${i.size.source === 'you' ? 'your size' : 'from name'}</span>`
+            : '<span class="size-missing">add size</span>';
+        return `<tr class="history-row${i.id === editingId ? ' selected' : ''}" data-id="${i.id}" title="See this receipt line and set its size">
+            <td>${fmtDate(i.date)}</td>
+            <td>${esc(i.store)}</td>
+            <td>${esc(i.name)}</td>
+            <td>${esc(i.brand) || '<span class="muted">—</span>'}</td>
+            <td class="col-num">${fmtQty(i.quantity)}${i.unit !== 'each' ? ' ' + i.unit : ''}</td>
+            <td>${size}</td>
+            <td class="col-num">${money(i.unit_price)}${unitSuffix(i)}${i.savings > 0 ? ` <span class="saved-tag">−${money(i.savings)}</span>` : ''}</td>
+            <td class="col-num price-cell">${v != null ? fmtBasis(v, basis) : '<span class="muted">—</span>'}</td>
+        </tr>`;
+    }).join('');
+    body.querySelectorAll('.history-row').forEach(tr => tr.addEventListener('click', () => openLineEditor(Number(tr.dataset.id))));
+    if (editingId) renderLineEditor();
 }
 
 // One plain-language takeaway per product: cheapest brand/store, or whether the price is drifting.
-function productInsight(p) {
-    if (p.purchases.length < 2) return '';
+function productInsight(pts, basis) {
+    if (pts.length < 2) return '';
     const byBrand = {};
-    for (const i of p.purchases) {
+    for (const { i, v } of pts) {
         const key = `${i.brand || 'Unbranded'} at ${i.store}`;
-        (byBrand[key] ??= []).push(i.unit_price);
+        (byBrand[key] ??= []).push(v);
     }
     const options = Object.entries(byBrand)
         .map(([k, v]) => ({ k, avg: v.reduce((s, x) => s + x, 0) / v.length, n: v.length }))
@@ -200,68 +283,217 @@ function productInsight(p) {
     const parts = [];
     if (options.length > 1) {
         const best = options[0], worst = options.at(-1);
-        parts.push(`Cheapest option you've bought: ${best.k} (avg ${money(best.avg)}), vs ${worst.k} (avg ${money(worst.avg)}).`);
+        parts.push(`Cheapest option you've bought: ${best.k} (avg ${fmtBasis(best.avg, basis)}), vs ${worst.k} (avg ${fmtBasis(worst.avg, basis)}).`);
     }
     const yearAgo = new Date(); yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-    const older = p.purchases.filter(i => parseIso(i.date) < yearAgo);
+    const older = pts.filter(x => parseIso(x.i.date) < yearAgo);
     if (older.length) {
-        const oldAvg = older.reduce((s, i) => s + i.unit_price, 0) / older.length;
-        const pct = (p.last - oldAvg) / oldAvg;
+        const oldAvg = older.reduce((s, x) => s + x.v, 0) / older.length;
+        const pct = (pts.at(-1).v - oldAvg) / oldAvg;
         if (Math.abs(pct) >= 0.05) parts.push(`Your last price is ${Math.abs(pct * 100).toFixed(0)}% ${pct > 0 ? 'higher' : 'lower'} than a year ago.`);
     }
     return parts.join(' ');
 }
 
 function goBack() {
+    closeLineEditor();
     document.getElementById('detail-view').classList.add('hidden');
     document.getElementById('list-view').classList.remove('hidden');
 }
 
 const PALETTE = ['#2a7a48', '#f0a500', '#3b82c4', '#c4573b', '#8a5cc4', '#4bb3a6'];
 
-function renderChart(p) {
+function renderChart(pts, avg, basis) {
     if (currentChart) currentChart.destroy();
-    const stores = [...new Set(p.purchases.map(i => i.store))];
+    const stores = [...new Set(pts.map(x => x.i.store))];
+    const at = x => parseIso(x.i.date).getTime();
+    const isEditing = ctx => ctx.raw?.item?.id === editingId;
     currentChart = new Chart(document.getElementById('price-chart').getContext('2d'), {
         type: 'scatter',
         data: {
             datasets: [
                 ...stores.map((s, idx) => ({
                     label: s,
-                    data: p.purchases.filter(i => i.store === s).map(i => ({ x: parseIso(i.date).getTime(), y: i.unit_price, item: i })),
+                    data: pts.filter(x => x.i.store === s).map(x => ({ x: at(x), y: x.v, item: x.i })),
                     backgroundColor: PALETTE[idx % PALETTE.length],
-                    pointRadius: 5, pointHoverRadius: 7,
+                    pointRadius: ctx => (isEditing(ctx) ? 8 : 5), pointHoverRadius: 8,
+                    borderColor: '#1a1a1a', borderWidth: ctx => (isEditing(ctx) ? 2 : 0),
                 })),
                 {
                     label: 'Trend', type: 'line',
-                    data: p.purchases.map(i => ({ x: parseIso(i.date).getTime(), y: i.unit_price })),
-                    borderColor: 'rgba(42,122,72,0.35)', borderWidth: 1.5, pointRadius: 0, tension: 0.2,
+                    data: pts.map(x => ({ x: at(x), y: x.v })),
+                    borderColor: 'rgba(42,122,72,0.35)', borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0, tension: 0.2,
                 },
-                {
+                ...(avg != null && pts.length ? [{
                     label: 'Your Average', type: 'line',
-                    data: [p.purchases[0], p.purchases.at(-1)].map(i => ({ x: parseIso(i.date).getTime(), y: p.avg })),
-                    borderColor: '#f0a500', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0,
-                },
+                    data: [pts[0], pts.at(-1)].map(x => ({ x: at(x), y: avg })),
+                    borderColor: '#f0a500', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0,
+                }] : []),
             ],
         },
         options: {
             responsive: true,
+            onClick: (e, els) => {
+                const item = els.map(el => currentChart.data.datasets[el.datasetIndex].data[el.index].item).find(Boolean);
+                // Deferred: opening the editor rebuilds this chart, which can't happen inside its own event.
+                if (item) setTimeout(() => openLineEditor(item.id));
+            },
+            onHover: (e, els) => {
+                e.native.target.style.cursor = els.some(el => currentChart.data.datasets[el.datasetIndex].data[el.index].item) ? 'pointer' : 'default';
+            },
             plugins: {
                 tooltip: {
                     callbacks: {
                         label: ctx => {
                             const it = ctx.raw.item;
-                            return it ? ` ${money(it.unit_price)} — ${it.name} (${it.store}, ${fmtDate(it.date)})` : ` ${money(ctx.parsed.y)}`;
+                            if (!it) return ` ${fmtBasis(ctx.parsed.y, basis)}`;
+                            const size = it.size?.read ? `, ${it.size.read}` : '';
+                            return ` ${fmtBasis(ctx.parsed.y, basis)} — ${it.name} (${it.store}, ${fmtDate(it.date)}${size})`;
                         },
                     },
                 },
             },
             scales: {
                 x: { type: 'linear', ticks: { callback: v => new Date(v).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), maxTicksLimit: 10 }, grid: { display: false } },
-                y: { ticks: { callback: v => `$${Number(v).toFixed(2)}` }, grid: { color: '#f0f0f0' } },
+                y: { ticks: { callback: v => (basis === 'oz' ? `$${Number(v).toFixed(3)}` : `$${Number(v).toFixed(2)}`) }, grid: { color: '#f0f0f0' } },
             },
         },
     });
+}
+
+// ── Receipt line editor (package size) ────────────────────────────────────────
+
+// Units offered in the size form; the saved text ("6 x 12 fl oz", "1.75 L") is read by the server's parseSize.
+const SIZE_UNITS = ['fl oz', 'oz', 'lb', 'g', 'kg', 'ml', 'L', 'gal', 'qt', 'pt'];
+const OZ_PER_UNIT = { 'fl oz': 1, oz: 1, lb: 16, g: 0.035274, kg: 35.274, ml: 0.033814, l: 33.814, gal: 128, qt: 32, pt: 16 };
+
+// Splits a saved size back into the form's count / amount / unit, when it's in the form's format.
+function splitSize(text) {
+    const t = String(text || '').trim();
+    const unit = u => SIZE_UNITS.find(x => x.toLowerCase() === u.toLowerCase());
+    let m = t.match(/^(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*(.+)$/i);
+    if (m && unit(m[3])) return { count: Number(m[1]), amount: m[2], unit: unit(m[3]) };
+    m = t.match(/^(\d+(?:\.\d+)?)\s*(.+)$/);
+    if (m && unit(m[2])) return { count: 1, amount: m[1], unit: unit(m[2]) };
+    m = t.match(/^(\d+)\s*ct$/i);
+    if (m) return { count: Number(m[1]), amount: '', unit: 'fl oz' };
+    return null;
+}
+
+function joinSize(count, amount, unit) {
+    if (amount) return count > 1 ? `${count} x ${amount} ${unit}` : `${amount} ${unit}`;
+    return count > 1 ? `${count} ct` : '';
+}
+
+function openLineEditor(id) {
+    editingId = id;
+    renderDetail();
+    document.getElementById('line-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeLineEditor() {
+    editingId = null;
+    const box = document.getElementById('line-editor');
+    box.classList.add('hidden');
+    box.innerHTML = '';
+}
+
+function renderLineEditor() {
+    const p = allProducts.find(x => x.name === detailName);
+    const i = p?.purchases.find(x => x.id === editingId);
+    const box = document.getElementById('line-editor');
+    if (!i) { closeLineEditor(); return; }
+    const r = allReceipts.find(x => x.id === i.receipt_id);
+    const weighed = perLbOf(i) != null;
+    const others = p.purchases.filter(x => x.id !== i.id && !x.size?.source && perLbOf(x) == null);
+    const form = splitSize(i.size_text) || { count: 1, amount: '', unit: 'fl oz' };
+    const current = i.size?.source === 'you' ? `Your size: <strong>${esc(i.size_text)}</strong> (${esc(i.size.read)})`
+        : i.size?.source === 'name' ? `Read from the receipt name: <strong>${esc(i.size.read)}</strong>. Enter a size to override it.`
+        : 'No size yet.';
+
+    box.classList.remove('hidden');
+    box.innerHTML = `
+        <div class="le-head">
+            <h4>${esc(i.name)}</h4>
+            <button class="nav-link-btn" id="le-close" title="Close">✕</button>
+        </div>
+        <dl class="le-facts">
+            <div><dt>Bought</dt><dd>${fmtDate(i.date)} at ${esc(i.store)}</dd></div>
+            <div><dt>On the receipt</dt><dd>${esc(i.raw_name) || '<span class="muted">—</span>'}</dd></div>
+            <div><dt>Brand</dt><dd>${esc(i.brand) || '<span class="muted">—</span>'}</dd></div>
+            <div><dt>Quantity</dt><dd>${fmtQty(i.quantity)} ${i.unit === 'each' ? '' : esc(i.unit)}</dd></div>
+            <div><dt>Paid</dt><dd>${money(i.unit_price)}${unitSuffix(i)}${i.quantity !== 1 ? ` · line total ${money(i.line_total)}` : ''}${i.savings > 0 ? ` <span class="saved-tag">−${money(i.savings)} saved</span>` : ''}</dd></div>
+            ${r ? `<div><dt>Receipt</dt><dd>${money(r.total ?? r.items_total)} total, ${r.item_count} items</dd></div>` : ''}
+        </dl>
+        ${weighed ? '<p class="le-note">Weighed at the register, so it already has a per-lb price and needs no size.</p>' : `
+        <form id="le-form" class="le-form">
+            <p class="le-label">Package size <span class="muted">(one item as bought: a 6 pack of 12 oz cans is 6 × 12 fl oz; a fifth is 1 × 750 ml)</span></p>
+            <div class="le-row">
+                <label>Count <input id="le-count" class="dl-input le-num" type="number" min="1" step="1" value="${form.count}"></label>
+                <span class="le-x">×</span>
+                <label>Size <input id="le-amount" class="dl-input le-num" type="number" min="0" step="any" value="${esc(form.amount)}" placeholder="e.g. 1.75"></label>
+                <select id="le-unit" class="dl-input" aria-label="Size unit">${SIZE_UNITS.map(u => `<option${u === form.unit ? ' selected' : ''}>${u}</option>`).join('')}</select>
+            </div>
+            <p class="le-preview" id="le-preview"></p>
+            <p class="le-current">${current}</p>
+            <div class="le-actions">
+                <button type="submit" class="refresh-btn">Save size</button>
+                ${others.length ? `<button type="button" class="nav-link-btn" id="le-save-all">Save for this and ${others.length} other purchase${others.length !== 1 ? 's' : ''} with no size</button>` : ''}
+                ${i.size_text ? '<button type="button" class="nav-link-btn danger" id="le-clear">Clear my size</button>' : ''}
+            </div>
+            <p class="deals-status hidden" id="le-status"></p>
+        </form>`}`;
+
+    document.getElementById('le-close').addEventListener('click', () => { closeLineEditor(); renderDetail(); });
+    if (weighed) return;
+    const read = () => {
+        const count = Math.max(1, Math.round(Number(document.getElementById('le-count').value) || 1));
+        const amount = document.getElementById('le-amount').value.trim();
+        return { count, amount: Number(amount) > 0 ? String(Number(amount)) : '', unit: document.getElementById('le-unit').value };
+    };
+    const preview = () => {
+        const { count, amount, unit } = read();
+        const oz = amount ? Number(amount) * OZ_PER_UNIT[unit.toLowerCase()] * count : null;
+        const parts = [];
+        if (oz) parts.push(`${+oz.toFixed(1)} oz total → ${fmtUnit(i.unit_price / oz, 'oz')}`);
+        if (count > 1) parts.push(fmtUnit(i.unit_price / count, 'unit'));
+        document.getElementById('le-preview').textContent = parts.length ? `Saves as "${joinSize(count, amount, unit)}": ${parts.join(' · ')}` : 'Enter a size, a count, or both.';
+    };
+    ['le-count', 'le-amount', 'le-unit'].forEach(id => document.getElementById(id).addEventListener('input', preview));
+    preview();
+    const saveFor = ids => {
+        const { count, amount, unit } = read();
+        const text = joinSize(count, amount, unit);
+        if (text) { saveLineSize(ids, text); return; }
+        const status = document.getElementById('le-status');
+        status.textContent = 'Enter a size, a count, or both.';
+        status.className = 'deals-status error';
+    };
+    document.getElementById('le-form').addEventListener('submit', e => { e.preventDefault(); saveFor([i.id]); });
+    document.getElementById('le-save-all')?.addEventListener('click', () => saveFor([i.id, ...others.map(x => x.id)]));
+    document.getElementById('le-clear')?.addEventListener('click', () => saveLineSize([i.id], ''));
+}
+
+// Saves a size ('' clears it) and reloads the items so the chart, stats and list use it.
+async function saveLineSize(ids, size) {
+    const status = document.getElementById('le-status');
+    try {
+        await api('/deals/item-size', { method: 'PUT', body: JSON.stringify({ item_ids: ids, size }) });
+        const { items } = await api('/items');
+        allItems = items;
+        refreshAll();
+        dealsLoaded = false;   // baselines on the Deals tab use these sizes too
+        if (!savedBases()[detailName]) detailBasis = defaultBasis(allProducts.find(x => x.name === detailName));
+        renderDetail();
+        const s = document.getElementById('le-status');
+        if (s) {
+            s.textContent = size ? `Saved "${size}"${ids.length > 1 ? ` for ${ids.length} purchases` : ''}.` : 'Cleared.';
+            s.className = 'deals-status info';
+        }
+    } catch (err) {
+        status.textContent = err.message;
+        status.className = 'deals-status error';
+    }
 }
 
 // ── Spending ──────────────────────────────────────────────────────────────────
