@@ -309,6 +309,14 @@ async function routeDeals(req, res, method, sub) {
     return;
   }
 
+  // Text of the Ralphs digital coupon page, posted by /grocery/coupons.html for the bookmark button.
+  if (method === 'POST' && sub === '/coupons/import') {
+    const parsed = z.object({ text: z.string().min(20).max(1.5e6) }).safeParse(await readBody(req, 2e6));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    sendJson(res, 200, { import: await deals.importCoupons(parsed.data.text) });
+    return;
+  }
+
   // Corrects the package size of one receipt line (e.g. "10 x 7.5 fl oz"); empty clears it.
   if (method === 'PUT' && sub === '/item-size') {
     const parsed = z.object({ item_id: z.number().int().positive(), size: z.string().trim().max(60) }).strict()
