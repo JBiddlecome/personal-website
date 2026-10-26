@@ -46,10 +46,25 @@
                     <span class="summary-lbl">saved with sales &amp; coupons</span>
                 </div>
             </div>
+            <div class="size-panel" id="size-panel">
+                <div class="size-panel-text">
+                    <strong>Package sizes</strong>
+                    <span id="size-summary" class="muted">Loading…</span>
+                    <span id="size-progress" class="size-progress hidden"></span>
+                </div>
+                <div class="size-panel-actions">
+                    <button class="refresh-btn" id="size-review-btn">Review new items with AI</button>
+                    <button class="nav-link-btn" id="size-review-all-btn" title="Re-estimate every size except the ones you entered or confirmed">Re-review everything</button>
+                </div>
+            </div>
             <div class="controls">
                 <input type="text" id="search" placeholder="Search products..." autocomplete="off">
                 <select id="dept-filter">
                     <option value="">All Departments</option>
+                </select>
+                <select id="size-filter" aria-label="Size filter">
+                    <option value="">All products</option>
+                    <option value="attention">Needs a size or a check</option>
                 </select>
             </div>
             <p id="result-count" class="result-count"></p>
@@ -61,12 +76,13 @@
                             <th>Product</th>
                             <th>Department</th>
                             <th class="col-num th-sortable" data-sort="count">Purchases<span class="sort-indicator"></span></th>
-                            <th class="col-num th-sortable" data-sort="avg">Avg Price<span class="sort-indicator"></span></th>
+                            <th class="col-num th-sortable" data-sort="avg" title="Per 100 g, per 100 ml, or per unit">Avg Price<span class="sort-indicator"></span></th>
                             <th class="col-num th-sortable" data-sort="last">Last Paid<span class="sort-indicator"></span></th>
+                            <th>Sizes</th>
                         </tr>
                     </thead>
                     <tbody id="product-body">
-                        <tr><td colspan="6" class="loading-msg">Loading data…</td></tr>
+                        <tr><td colspan="7" class="loading-msg">Loading data…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -104,10 +120,8 @@
                 <div class="chart-head">
                     <h3 class="section-title">Price Over Time</h3>
                     <div class="dl-filters" id="basis-filters">
+                        <button class="nav-link-btn" data-basis="std" id="basis-std-btn">Per 100 g</button>
                         <button class="nav-link-btn" data-basis="package">Per item</button>
-                        <button class="nav-link-btn" data-basis="oz">Per oz</button>
-                        <button class="nav-link-btn" data-basis="lb">Per lb</button>
-                        <button class="nav-link-btn" data-basis="unit">Per unit</button>
                     </div>
                 </div>
                 <p class="chart-note" id="chart-note"></p>
@@ -351,12 +365,6 @@
             </div>
             <form class="dl-add" id="dl-add">
                 <input type="text" id="dl-add-name" class="dl-input" placeholder="Add an item, e.g. Angel Soft toilet paper" maxlength="120" required>
-                <select id="dl-add-basis" class="dl-input" aria-label="Compare by">
-                    <option value="package">per package</option>
-                    <option value="lb">per lb</option>
-                    <option value="oz">per oz (drinks, mixed sizes)</option>
-                    <option value="unit">per unit (roll, egg…)</option>
-                </select>
                 <button class="refresh-btn" type="submit">Add</button>
             </form>
             <div id="dl-seed" class="dl-seed hidden">
@@ -370,7 +378,6 @@
                             <th>Item</th>
                             <th>Status</th>
                             <th>Search Ralphs for</th>
-                            <th>Compare</th>
                             <th class="col-num">You usually pay</th>
                             <th class="col-num">Alert below</th>
                             <th></th>

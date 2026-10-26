@@ -1,6 +1,7 @@
 // Postgres storage for the grocery tracker. DATABASE_URL comes from the Railway
 // Postgres service (reference variable ${{Postgres.DATABASE_URL}} on this service).
 const { Pool, types } = require('pg');
+const { parseSize } = require('./units');
 
 // Return DATE columns as 'YYYY-MM-DD' strings instead of local-midnight Date objects,
 // which can shift a day depending on the server's timezone.
@@ -154,15 +155,41 @@ CREATE TABLE IF NOT EXISTS grocery_coupon_products (
   PRIMARY KEY (coupon_id, product_id)
 );
 
--- A package size the user corrected for a receipt line (e.g. "10 x 7.5 fl oz"), for price-per-oz baselines.
+-- Legacy: a package size the user typed for a receipt line (e.g. "10 x 7.5 fl oz"); now read into the columns below.
 ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_text TEXT NOT NULL DEFAULT '';
+
+-- One package's size, for prices per 100 g / 100 ml / counted unit (see units.js):
+--   pack_count items of size_amount size_unit each ("6 x 12 fl oz"), or pack_count count_units ("12 rolls").
+--   size_source: receipt (printed) | estimate (Claude's best guess) | you | none (no size could be found)
+--   size_confidence: Claude's confidence for estimates (high | medium | low); low ones are flagged for review.
+--   size_reviewed_at: when the size review last looked at the line; NULL lines are reviewed next.
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS pack_count NUMERIC(10,3);
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_amount NUMERIC(12,4);
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_unit TEXT NOT NULL DEFAULT '';
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS count_unit TEXT NOT NULL DEFAULT '';
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_source TEXT NOT NULL DEFAULT '';
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_confidence TEXT NOT NULL DEFAULT '';
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_reviewed_at TIMESTAMPTZ;
 `;
+
+// Sizes typed before the structured columns existed become "you" sizes.
+async function migrateTypedSizes(p) {
+  const { rows } = await p.query(`SELECT id, size_text FROM grocery_items WHERE size_text <> '' AND size_source = ''`);
+  for (const r of rows) {
+    const s = parseSize(r.size_text);
+    if (!s.amount && !s.pack_count) continue;
+    await p.query(`UPDATE grocery_items SET pack_count = $2, size_amount = $3, size_unit = $4, count_unit = $5,
+      size_source = 'you', size_note = '', size_reviewed_at = now() WHERE id = $1`,
+    [r.id, s.pack_count ?? null, s.amount ?? null, s.unit || '', s.count_unit || '']);
+  }
+}
 
 let ready = null;
 function ensureSchema() {
   const p = getPool();
   if (!p) return Promise.reject(new Error('DATABASE_URL is not configured.'));
-  if (!ready) ready = p.query(SCHEMA).catch((err) => { ready = null; throw err; });
+  if (!ready) ready = p.query(SCHEMA).then(() => migrateTypedSizes(p)).catch((err) => { ready = null; throw err; });
   return ready;
 }
 
@@ -199,11 +226,22 @@ function receiptRow(r) {
   };
 }
 
+// The size columns of grocery_items, carried along wherever a line is read or re-saved.
+const SIZE_COLS = ['pack_count', 'size_amount', 'size_unit', 'count_unit', 'size_source', 'size_confidence', 'size_note', 'size_reviewed_at'];
+
+function sizeFields(i) {
+  return {
+    pack_count: num(i.pack_count), size_amount: num(i.size_amount), size_unit: i.size_unit, count_unit: i.count_unit,
+    size_source: i.size_source, size_confidence: i.size_confidence, size_note: i.size_note, size_reviewed_at: i.size_reviewed_at
+  };
+}
+
 function itemRow(i) {
   return {
     id: i.id, receipt_id: i.receipt_id, line_no: i.line_no, raw_name: i.raw_name, name: i.name,
     brand: i.brand, item_basic: i.item_basic, department: i.department, quantity: num(i.quantity),
-    unit: i.unit, unit_price: num(i.unit_price), line_total: num(i.line_total), savings: num(i.savings)
+    unit: i.unit, unit_price: num(i.unit_price), line_total: num(i.line_total), savings: num(i.savings),
+    ...sizeFields(i)
   };
 }
 
@@ -226,14 +264,14 @@ async function getReceipt(id) {
 async function listItems() {
   const { rows } = await query(`
     SELECT i.id, i.receipt_id, r.store, r.purchased_on, i.raw_name, i.name, i.brand, i.item_basic, i.department,
-           i.quantity, i.unit, i.unit_price, i.line_total, i.savings, i.size_text
+           i.quantity, i.unit, i.unit_price, i.line_total, i.savings, ${SIZE_COLS.map((c) => `i.${c}`).join(', ')}
     FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
     ORDER BY r.purchased_on, i.receipt_id, i.line_no`);
   return rows.map((i) => ({
     id: i.id, receipt_id: i.receipt_id, store: i.store, date: iso(i.purchased_on), raw_name: i.raw_name, name: i.name,
     brand: i.brand, item_basic: i.item_basic, department: i.department, quantity: num(i.quantity),
     unit: i.unit, unit_price: num(i.unit_price), line_total: num(i.line_total), savings: num(i.savings),
-    size_text: i.size_text
+    ...sizeFields(i)
   }));
 }
 
@@ -258,17 +296,23 @@ async function findDuplicate(store, date, total, excludeId = null) {
   return rows[0]?.id ?? null;
 }
 
-// sizes: corrected package sizes by item name, carried over when a receipt is edited.
+// sizes: package sizes of the receipt's previous lines by name and price, carried over when it is edited.
+// New lines have no size yet; the size review fills them in.
+const sizeKey = (it) => `${it.name}|${Number(it.unit_price).toFixed(2)}`;
+
 async function insertItems(client, receiptId, items, sizes = new Map()) {
   let lineNo = 0;
   for (const it of items) {
     lineNo += 1;
+    const s = sizes.get(sizeKey(it)) || {};
     await client.query(`
       INSERT INTO grocery_items (receipt_id, line_no, raw_name, name, brand, item_basic, department,
-                                 quantity, unit, unit_price, line_total, savings, size_text)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                                 quantity, unit, unit_price, line_total, savings, ${SIZE_COLS.join(', ')})
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
       [receiptId, lineNo, it.raw_name || '', it.name, it.brand || '', it.item_basic, it.department,
-       it.quantity, it.unit, it.unit_price, it.line_total, it.savings || 0, sizes.get(it.name) || '']);
+       it.quantity, it.unit, it.unit_price, it.line_total, it.savings || 0,
+       s.pack_count ?? null, s.size_amount ?? null, s.size_unit || '', s.count_unit || '', s.size_source || '',
+       s.size_confidence || '', s.size_note || '', s.size_reviewed_at ?? null]);
   }
 }
 
@@ -290,9 +334,9 @@ async function replaceReceipt(id, r) {
       WHERE id = $1`,
       [id, r.store, r.store_address || '', r.date, r.subtotal, r.savings || 0, r.tax || 0, r.fees || 0, r.total]);
     if (!rowCount) return false;
-    const { rows: sized } = await client.query(`SELECT name, size_text FROM grocery_items WHERE receipt_id = $1 AND size_text <> ''`, [id]);
+    const { rows: sized } = await client.query(`SELECT name, unit_price, ${SIZE_COLS.join(', ')} FROM grocery_items WHERE receipt_id = $1`, [id]);
     await client.query('DELETE FROM grocery_items WHERE receipt_id = $1', [id]);
-    await insertItems(client, id, r.items, new Map(sized.map((x) => [x.name, x.size_text])));
+    await insertItems(client, id, r.items, new Map(sized.map((x) => [sizeKey(x), x])));
     return true;
   });
 }
@@ -458,21 +502,89 @@ async function saveVerdicts(store, verdicts) {
 async function purchasesFor(itemBasics) {
   if (!itemBasics.length) return [];
   const { rows } = await query(`
-    SELECT i.id, i.item_basic, i.name, i.raw_name, i.size_text, i.unit, i.quantity, i.unit_price, r.store, r.purchased_on
+    SELECT i.id, i.item_basic, i.name, i.raw_name, i.unit, i.quantity, i.unit_price, r.store, r.purchased_on,
+           ${SIZE_COLS.map((c) => `i.${c}`).join(', ')}
     FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
     WHERE lower(i.item_basic) = ANY($1) AND r.purchased_on >= CURRENT_DATE - INTERVAL '1 year'
     ORDER BY r.purchased_on DESC, i.id`,
     [itemBasics.map((b) => b.toLowerCase())]);
   return rows.map((r) => ({
-    id: r.id, item_basic: r.item_basic, name: r.name, raw_name: r.raw_name, size_text: r.size_text,
-    unit: r.unit, quantity: num(r.quantity), unit_price: num(r.unit_price), store: r.store, date: iso(r.purchased_on)
+    id: r.id, item_basic: r.item_basic, name: r.name, raw_name: r.raw_name,
+    unit: r.unit, quantity: num(r.quantity), unit_price: num(r.unit_price), store: r.store, date: iso(r.purchased_on),
+    ...sizeFields(r)
   }));
 }
 
-// Returns how many receipt lines were updated.
-async function setItemSize(ids, sizeText) {
-  const { rowCount } = await query('UPDATE grocery_items SET size_text = $2 WHERE id = ANY($1)', [ids, sizeText]);
+// ── Package sizes ─────────────────────────────────────────────────────────────
+
+// Sets the size of receipt lines. size: { pack_count, size_amount, size_unit, count_unit, size_source,
+// size_confidence, size_note }. Returns how many lines were updated.
+async function setItemSizes(ids, size) {
+  const { rowCount } = await query(`
+    UPDATE grocery_items SET pack_count = $2, size_amount = $3, size_unit = $4, count_unit = $5, size_source = $6,
+      size_confidence = $7, size_note = $8, size_reviewed_at = now(), size_text = ''
+    WHERE id = ANY($1)`,
+  [ids, size.pack_count ?? null, size.size_amount ?? null, size.size_unit || '', size.count_unit || '',
+    size.size_source, size.size_confidence || '', size.size_note || '']);
   return rowCount;
+}
+
+// Marks lines' current sizes as checked by the user (an estimate becomes "you").
+async function confirmItemSizes(ids) {
+  const { rowCount } = await query(`
+    UPDATE grocery_items SET size_source = 'you', size_confidence = '', size_reviewed_at = now()
+    WHERE id = ANY($1) AND size_source IN ('estimate', 'receipt', 'you')`, [ids]);
+  return rowCount;
+}
+
+// Clears sizes so the next size review looks at the lines again. With no ids, every line
+// except sizes the user entered or confirmed.
+async function resetItemSizes(ids = null) {
+  const { rowCount } = await query(`
+    UPDATE grocery_items SET pack_count = NULL, size_amount = NULL, size_unit = '', count_unit = '', size_source = '',
+      size_confidence = '', size_note = '', size_reviewed_at = NULL, size_text = ''
+    WHERE ${ids ? 'id = ANY($1)' : `size_source <> 'you'`}`, ids ? [ids] : []);
+  return rowCount;
+}
+
+// Lines the size review hasn't looked at (weighed lines need no size), with their receipt's store and date.
+async function linesToReview() {
+  const { rows } = await query(`
+    SELECT i.id, i.raw_name, i.name, i.brand, i.item_basic, i.department, i.unit_price, r.store, r.purchased_on
+    FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
+    WHERE i.size_reviewed_at IS NULL AND i.unit = 'each' AND i.size_source <> 'you'
+    ORDER BY i.item_basic, r.purchased_on`);
+  return rows.map((r) => ({ ...r, unit_price: num(r.unit_price), date: iso(r.purchased_on) }));
+}
+
+// Sizes the user entered or confirmed, or that were printed on a receipt, for these item types:
+// reference points for the review. The user's own come first.
+async function knownSizes(itemBasics) {
+  if (!itemBasics.length) return [];
+  const { rows } = await query(`
+    SELECT * FROM (
+      SELECT DISTINCT ON (i.item_basic, i.raw_name, i.unit_price) i.item_basic, i.raw_name, i.name, i.unit_price, r.store,
+        i.pack_count, i.size_amount, i.size_unit, i.count_unit, i.size_source
+      FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
+      WHERE i.item_basic = ANY($1) AND i.size_source IN ('you', 'receipt')
+      ORDER BY i.item_basic, i.raw_name, i.unit_price, (i.size_source = 'you') DESC
+    ) k ORDER BY (size_source = 'you') DESC, item_basic`, [itemBasics]);
+  return rows.map((r) => ({ ...r, unit_price: num(r.unit_price), pack_count: num(r.pack_count), size_amount: num(r.size_amount) }));
+}
+
+// How many packaged lines have a size, need a look, or have none / are waiting for the review.
+async function sizeCoverage() {
+  const { rows } = await query(`
+    SELECT
+      COUNT(*) FILTER (WHERE unit <> 'each') AS weighed,
+      COUNT(*) FILTER (WHERE unit = 'each' AND size_source IN ('receipt', 'you')) AS known,
+      COUNT(*) FILTER (WHERE unit = 'each' AND size_source = 'estimate' AND size_confidence <> 'low') AS estimated,
+      COUNT(*) FILTER (WHERE unit = 'each' AND size_source = 'estimate' AND size_confidence = 'low') AS review,
+      COUNT(*) FILTER (WHERE unit = 'each' AND size_source = 'none') AS missing,
+      COUNT(*) FILTER (WHERE unit = 'each' AND size_reviewed_at IS NULL AND size_source <> 'you') AS pending,
+      COUNT(*) AS total
+    FROM grocery_items`);
+  return Object.fromEntries(Object.entries(rows[0]).map(([k, v]) => [k, Number(v)]));
 }
 
 // Item types bought at least `minCount` times in the last year, for building a starter watchlist.
@@ -544,5 +656,5 @@ module.exports = {
   classificationContext, findDuplicate, saveReceipt, replaceReceipt, deleteReceipt,
   getSetting, setSetting, hasRunOn, saveRun, latestRun, lastRunOf, promoChangesByWeekday,
   listWatch, getWatch, createWatch, updateWatch, deleteWatch, listVerdicts, saveVerdicts,
-  purchasesFor, setItemSize, frequentItemTypes, upsertCoupons, activeCoupons, listCouponProducts, saveCouponProducts
+  purchasesFor, setItemSizes, confirmItemSizes, resetItemSizes, linesToReview, knownSizes, sizeCoverage, frequentItemTypes, upsertCoupons, activeCoupons, listCouponProducts, saveCouponProducts
 };

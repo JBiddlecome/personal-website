@@ -2,27 +2,28 @@
 // The sender is GROCERY_EMAIL_FROM, else CONTACT_FROM; Resend's default onboarding@resend.dev
 // sender can only deliver to the address that owns the Resend account.
 const SITE_URL = process.env.GROCERY_SITE_URL || 'https://jakebiddlecome.com/grocery';
-const BASIS_LABEL = { lb: '/lb', oz: '/oz', package: ' each', unit: '/unit' };
 
 const isConfigured = () => Boolean(process.env.RESEND_API_KEY);
 const fromAddress = () => process.env.GROCERY_EMAIL_FROM || process.env.CONTACT_FROM || 'onboarding@resend.dev';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const money = (v) => `$${Number(v || 0).toFixed(Math.abs(v) < 1 && v !== 0 ? 3 : 2)}`;
-const unit = (v, basis) => (v == null ? '—' : `${money(v)}${BASIS_LABEL[basis] || ''}`);
+// Standard prices: per 100 g, per 100 ml, or per counted unit (see units.js).
+const per = (measure, countUnit) => (measure === 'g' ? '/100 g' : measure === 'ml' ? '/100 ml' : `/${countUnit || 'item'}`);
+const unit = (v, d) => (v == null ? '—' : `${money(v)}${per(d.measure, d.count_unit)}`);
 const fmtDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 function dealLine(d) {
   const p = d.product;
   const pct = Math.round(p.deal.pct * 100);
   const now = Number(p.coupon?.final ?? p.promo ?? p.regular).toFixed(2);
-  const per = p.unit_price != null && d.basis !== 'package' ? ` (${unit(p.unit_price, d.basis)})` : '';
+  const std = p.unit_price != null ? ` (${unit(p.unit_price, d)})` : '';
   const vs = p.deal.kind === 'sale_no_history' ? `${pct}% off the regular $${p.regular.toFixed(2)}`
-    : p.deal.kind === 'below_target' ? `${pct}% below your alert price of ${unit(d.baseline.target, d.basis)}`
-      : `${pct}% below your usual ${unit(d.baseline.usual, d.basis)}`;
+    : p.deal.kind === 'below_target' ? `${pct}% below your alert price of ${unit(d.baseline.target, d)}`
+      : `${pct}% below your usual ${unit(d.baseline.usual, d)}${p.deal.sale ? '' : ' (regular price, bigger or cheaper size)'}`;
   const ends = p.coupon ? `, with digital coupon "${p.coupon.offer}"${p.coupon.expires ? ` (until ${fmtDate(p.coupon.expires)})` : ''}`
     : p.promo_expires ? `, sale ends ${fmtDate(p.promo_expires)}` : '';
-  return { pct, now, per, vs, ends, advice: d.advice, name: d.name, product: `${p.description}${p.size ? ` (${p.size})` : ''}` };
+  return { pct, now, per: std, vs, ends, advice: d.advice, name: d.name, product: `${p.description}${p.size ? ` (${p.size})` : ''}` };
 }
 
 // view: deals.dealsView() output. Returns { subject, html, text }.

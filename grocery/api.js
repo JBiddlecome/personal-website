@@ -8,6 +8,8 @@ const { z } = require('zod');
 const db = require('./db');
 const { parseReceipt, DEPARTMENTS } = require('./parse');
 const deals = require('./deals');
+const sizes = require('./sizes');
+const units = require('./units');
 
 // Read lazily: server.js loads .env files after requiring this module.
 const password = () => process.env.GROCERY_PASSWORD || '';
@@ -154,11 +156,15 @@ const UploadSchema = z.object({
   files: z.array(z.object({ media_type: z.string(), data: z.string().min(1) })).min(1).max(8)
 });
 
-// A receipt line's package size as the dashboard needs it: whole-package count / oz / lb, and where it came from.
-function sizeOf(item) {
-  const { size, source } = deals.readItemSize(item);
-  return { count: size.count ?? null, oz: size.oz ?? null, lb: size.lb ?? null, source, read: deals.describeSize(size) };
-}
+// A package size typed by the user: { pack_count, amount, unit } for weight/volume, or { pack_count, count_unit } for counts.
+const SizeSchema = z.object({
+  item_ids: z.array(z.number().int().positive()).min(1).max(1000),
+  action: z.enum(['set', 'confirm', 'clear']).default('set'),
+  pack_count: z.coerce.number().positive().max(10000).nullable().default(null),
+  amount: z.coerce.number().positive().max(100000).nullable().default(null),
+  unit: z.enum(units.SIZE_UNITS).nullable().default(null),
+  count_unit: z.string().trim().max(30).default('')
+}).strict();
 
 function validationError(res, err) {
   const first = err.issues?.[0];
@@ -227,9 +233,41 @@ async function route(req, res, pathname) {
 
   if (method === 'GET' && apiPath === '/session') { sendJson(res, 200, { ok: true }); return; }
   if (method === 'GET' && apiPath === '/items') {
-    const items = (await db.listItems()).map((i) => ({ ...i, size: sizeOf(i) }));
-    sendJson(res, 200, { items });
+    const items = (await db.listItems()).map((i) => ({ ...i, std: units.lineStandard(i) }));
+    sendJson(res, 200, { items, sizes: { coverage: await db.sizeCoverage(), review: await sizes.lastReview() } });
     return;
+  }
+
+  // Package sizes: set (pack count × amount unit, or a count), confirm Claude's estimate, or clear
+  // (the next size review estimates it again).
+  if (method === 'PUT' && apiPath === '/items/size') {
+    const parsed = SizeSchema.safeParse(await readBody(req, MAX_JSON));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    const b = parsed.data;
+    let updated;
+    if (b.action === 'confirm') updated = await db.confirmItemSizes(b.item_ids);
+    else if (b.action === 'clear') updated = await db.resetItemSizes(b.item_ids);
+    else {
+      if (!b.pack_count && !(b.amount && b.unit)) { sendJson(res, 400, { error: 'Enter a size (amount and unit), a count, or both.' }); return; }
+      updated = await db.setItemSizes(b.item_ids, {
+        pack_count: b.pack_count ?? 1, size_amount: b.amount && b.unit ? b.amount : null, size_unit: b.amount && b.unit ? b.unit : '',
+        count_unit: b.count_unit, size_source: 'you'
+      });
+    }
+    if (!updated) { sendJson(res, 404, { error: 'Receipt item not found.' }); return; }
+    sendJson(res, 200, { updated });
+    return;
+  }
+
+  // The size review (sizes.js): GET for progress, POST to start ({ all: true } re-estimates every
+  // size except the ones you entered or confirmed).
+  if (apiPath === '/sizes/review') {
+    if (method === 'GET') { sendJson(res, 200, { review: await sizes.lastReview(), coverage: await db.sizeCoverage() }); return; }
+    if (method === 'POST') {
+      const body = await readBody(req, MAX_JSON);
+      sendJson(res, 202, { review: await sizes.startReview({ all: body.all === true }) });
+      return;
+    }
   }
   if (method === 'GET' && apiPath === '/receipts') { sendJson(res, 200, { receipts: await db.listReceipts() }); return; }
   if (method === 'GET' && apiPath === '/vocab') {
@@ -256,6 +294,7 @@ async function route(req, res, pathname) {
     const dup = await db.findDuplicate(parsed.data.store, parsed.data.date, parsed.data.total);
     if (dup && !body.allow_duplicate) { sendJson(res, 409, { error: 'This receipt looks like one already saved.', duplicate_of: dup }); return; }
     const id = await db.saveReceipt(parsed.data, body.source === 'web' ? 'web' : 'app');
+    sizes.reviewNewLines();
     sendJson(res, 201, { receipt: await db.getReceipt(id) });
     return;
   }
@@ -273,6 +312,7 @@ async function route(req, res, pathname) {
       const parsed = ReceiptSchema.safeParse(await readBody(req, MAX_JSON));
       if (!parsed.success) { validationError(res, parsed.error); return; }
       if (!(await db.replaceReceipt(id, parsed.data))) { sendJson(res, 404, { error: 'Receipt not found.' }); return; }
+      sizes.reviewNewLines();
       sendJson(res, 200, { receipt: await db.getReceipt(id) });
       return;
     }
@@ -324,25 +364,6 @@ async function routeDeals(req, res, method, sub) {
     const parsed = z.object({ text: z.string().min(20).max(1.5e6) }).safeParse(await readBody(req, 2e6));
     if (!parsed.success) { validationError(res, parsed.error); return; }
     sendJson(res, 200, { import: await deals.importCoupons(parsed.data.text) });
-    return;
-  }
-
-  // Corrects the package size of receipt lines (e.g. "10 x 7.5 fl oz"); empty clears it.
-  // Takes one item_id, or item_ids to give several purchases the same size.
-  if (method === 'PUT' && sub === '/item-size') {
-    const id = z.number().int().positive();
-    const parsed = z.object({ item_id: id.optional(), item_ids: z.array(id).min(1).max(1000).optional(), size: z.string().trim().max(60) })
-      .strict().refine((b) => b.item_id || b.item_ids, 'item_id or item_ids is required')
-      .safeParse(await readBody(req, MAX_JSON));
-    if (!parsed.success) { validationError(res, parsed.error); return; }
-    const read = deals.parseSize(parsed.data.size);
-    if (parsed.data.size && !read.oz && !read.count) {
-      sendJson(res, 400, { error: `Couldn't read "${parsed.data.size}". Try "10 x 7.5 fl oz", "2 L", "1.5 lb" or "12 rolls".` });
-      return;
-    }
-    const updated = await db.setItemSize(parsed.data.item_ids || [parsed.data.item_id], parsed.data.size);
-    if (!updated) { sendJson(res, 404, { error: 'Receipt item not found.' }); return; }
-    sendJson(res, 200, { size: parsed.data.size, read: deals.describeSize(read), updated });
     return;
   }
 
