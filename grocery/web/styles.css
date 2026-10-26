@@ -90,7 +90,7 @@ main {
 }
 #search:focus { border-color: #2a7a48; box-shadow: 0 0 0 3px rgba(42,122,72,.12); }
 
-#dept-filter {
+#dept-filter, #size-filter {
     padding: .6rem .9rem;
     border: 1px solid #d4d4d4;
     border-radius: 7px;
@@ -99,7 +99,7 @@ main {
     outline: none;
     cursor: pointer;
 }
-#dept-filter:focus { border-color: #2a7a48; }
+#dept-filter:focus, #size-filter:focus { border-color: #2a7a48; }
 
 .result-count { font-size: .82rem; color: #888; margin-bottom: .75rem; }
 
@@ -656,3 +656,20 @@ tbody td { padding: .7rem 1rem; font-size: .93rem; vertical-align: middle; }
 .dl-coupon-linked ul { list-style: none; padding: 0; margin: .5rem 0 0; font-size: .85rem; }
 .dl-coupon-linked li { padding: .4rem 0; border-bottom: 1px solid #eee; }
 .dl-coupon-tag { display: block; margin-top: .25rem; font-size: .8rem; color: #2e7d32; font-weight: 600; }
+
+/* Package sizes: coverage panel, source badges, line editor extras */
+.size-panel { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; background: white; border-radius: 10px; padding: 1rem 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 1.25rem; }
+.size-panel-text { display: flex; flex-direction: column; gap: .35rem; font-size: .88rem; flex: 1 1 320px; }
+.size-panel-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.size-progress { font-size: .85rem; color: #1565a6; }
+.size-progress.error { color: #b71c1c; }
+.src-badge { display: inline-block; padding: .05rem .45rem; border-radius: 10px; font-size: .72rem; font-weight: 600; white-space: nowrap; vertical-align: middle; }
+.src-ok { background: #edf7f1; color: #2a7a48; }
+.src-ai { background: #e8f0fb; color: #2a5ea8; }
+.src-warn { background: #fff3e0; color: #a35a00; }
+.size-ok { color: #2a7a48; font-weight: 600; }
+.le-wide { grid-column: 1 / -1; }
+.le-note-inline { display: block; color: #777; font-size: .8rem; margin-top: .15rem; }
+.le-word { width: 120px; }
+.dl-line-row { cursor: pointer; }
+.dl-line-row:hover { background: #f8fdf9; }

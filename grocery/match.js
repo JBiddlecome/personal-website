@@ -246,4 +246,4 @@ async function classifyCouponProducts(entries) {
   return { decisions, error };
 }
 
-module.exports = { classifyProducts, extractCoupons, classifyCouponProducts };
+module.exports = { classifyProducts, extractCoupons, classifyCouponProducts, structured, logError, chunks };

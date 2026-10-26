@@ -5,6 +5,7 @@
 // A check searches every "watching" item on the watchlist, has Claude sort out which results are
 // really that item (match.js), and compares the matched prices with the usual price paid on receipts.
 const db = require('./db');
+const units = require('./units');
 const { classifyProducts, extractCoupons, classifyCouponProducts } = require('./match');
 const email = require('./email');
 
@@ -17,7 +18,7 @@ const DEFAULT_EMAIL_DAY = 3; // Wednesday, when Ralphs' weekly ad starts, until 
 
 // Added to a new watchlist when receipts don't already cover them (non-food items included).
 const STARTER_ITEMS = [
-  { name: 'Angel Soft toilet paper', search_term: 'angel soft toilet paper', department: 'Paper Goods', basis: 'unit', notes: 'Angel Soft only' }
+  { name: 'Angel Soft toilet paper', search_term: 'angel soft toilet paper', department: 'Paper Goods', notes: 'Angel Soft only' }
 ];
 
 // Departments worth buying in bulk on sale; anything else is fresh food to "buy for this week".
@@ -100,95 +101,20 @@ async function searchProducts(term, locationId) {
   return (data.data || []).map((p, i) => toProduct(p, term, i + 1)).filter((p) => p.regular !== null);
 }
 
-// ── Prices on a common basis ──────────────────────────────────────────────────
+// ── Prices on a standard measure ──────────────────────────────────────────────
+// Every price is compared per 100 g, per 100 ml or per counted unit (see units.js). A watch item's
+// measure is the one most of its receipt lines use.
 
-// Ounces per unit of size. Weight units also give pounds; fluid ones only ounces.
-const OZ_PER = { 'fl oz': 1, oz: 1, lb: 16, kg: 35.274, g: 0.035274, l: 33.814, ml: 0.033814, gal: 128, qt: 32, pt: 16 };
-const WEIGHT = new Set(['oz', 'lb', 'kg', 'g']);
-const UNIT_ALIASES = [
-  [/^fl\.?\s*oz|^fluid ounces?/, 'fl oz'], [/^(oz|ounces?)$/, 'oz'], [/^(lbs?|pounds?)$/, 'lb'], [/^(kg|kilograms?)$/, 'kg'],
-  [/^(g|grams?)$/, 'g'], [/^(l|lt|ltr|liters?|litres?)$/, 'l'], [/^(ml|milliliters?)$/, 'ml'], [/^(gal|gallons?)$/, 'gal'],
-  [/^(qt|quarts?)$/, 'qt'], [/^(pt|pints?)$/, 'pt']
-];
-const AMOUNT = /(\d+(?:\.\d+)?|\d+\/\d+)\s*(fl\.?\s*oz|fluid ounces?|ounces?|oz|lbs?|pounds?|kilograms?|kg|grams?|g|liters?|litres?|ltr|lt|l|milliliters?|ml|gallons?|gal|quarts?|qt|pints?|pt)\b/;
-const COUNT = /(\d+)\s*-?\s*(?:ct|count|pk|pack|packs|cans?|bottles?|(?:mega |double |family |huge |giant |regular |jumbo )?rolls?|eggs?|bags?|pods?|k-cups?|bars?|pieces?|pcs|x)\b/;
-
-// Package size text → { count, lb, oz } for the whole package. Reads Kroger sizes ("12 ct / 12 fl oz",
-// "2 L", "1.5 lb", "12 mega rolls") and receipt names ("Ginger Ale 10pk 7.5oz", "6-7.5 fl oz").
-// oz is weight or fluid ounces, so drinks and dry goods can both be compared per ounce;
-// lb is weight only. An amount with a count is taken as the size of each item in the pack.
-function parseSize(size) {
-  const s = String(size || '').toLowerCase().replace(/(\d),(\d{3})/g, '$1$2');
-  const num = (v) => (v.includes('/') ? Number(v.split('/')[0]) / Number(v.split('/')[1]) : Number(v));
-  const out = {};
-  let count = null;
-  let amount = null;
-  const dashed = s.match(/\b(\d{1,2})\s*-\s*(\d+(?:\.\d+)?)\s*(fl\.?\s*oz|oz)\b/); // "6-7.5 fl oz" = 6 × 7.5 oz
-  if (dashed) {
-    count = Number(dashed[1]);
-    amount = { value: Number(dashed[2]), unit: dashed[3].startsWith('fl') ? 'fl oz' : 'oz' };
-  } else {
-    const m = s.match(AMOUNT);
-    if (m) amount = { value: num(m[1]), unit: UNIT_ALIASES.find(([re]) => re.test(m[2]))[1] };
-    const c = s.match(COUNT);
-    if (c) count = Number(c[1]);
-  }
-  if (count) out.count = count;
-  if (amount && amount.value > 0) {
-    const n = count || 1;
-    out.oz = amount.value * OZ_PER[amount.unit] * n;
-    if (WEIGHT.has(amount.unit)) out.lb = out.oz / 16;
-  }
-  return out;
-}
-
-// "10 × 7.5 fl oz" style summary of a parsed size, for showing how a size was read.
-function describeSize(parsed) {
-  const parts = [];
-  if (parsed.count) parts.push(`${parsed.count} ct`);
-  if (parsed.oz) parts.push(`${+parsed.oz.toFixed(1)} oz total`);
-  return parts.join(', ');
-}
-
-// A store price expressed on the watch item's basis, or null when the size can't be read.
-function storeUnitPrice(product, watch, value) {
-  if (value == null) return null;
-  const size = parseSize(product.size);
-  if (watch.basis === 'lb') {
-    if (product.sold_by === 'WEIGHT') return value;
-    return size.lb ? value / size.lb : null;
-  }
-  if (watch.basis === 'oz') {
-    if (product.sold_by === 'WEIGHT') return value / 16;
-    return size.oz ? value / size.oz : null;
-  }
-  if (watch.basis === 'unit') return size.count ? value / size.count : null;
-  return product.sold_by === 'WEIGHT' ? null : value; // package
-}
-
-// A receipt line's package size: the user's correction, or else read from the item name.
-// source: 'you' | 'name' | null (no size found).
-function readItemSize(p) {
-  const sizeText = p.size_text || '';
-  if (sizeText) return { size: parseSize(sizeText), source: 'you' };
-  let size = parseSize(p.name);
-  if (!size.oz && !size.count) size = parseSize(p.raw_name);
-  return { size, source: size.oz || size.count ? 'name' : null };
-}
-
-// One receipt line's price on the watch item's basis, and the size it was read from.
-// Weighed lines (unit lb/oz/kg) already carry a per-weight price; packaged lines need a size.
-function purchaseUnitPrice(p, watch) {
-  const { size, source } = readItemSize(p);
-  const perLb = p.unit === 'lb' ? p.unit_price : p.unit === 'oz' ? p.unit_price * 16 : p.unit === 'kg' ? p.unit_price / 2.2046 : null;
-  let value = null;
-  if (watch.basis === 'lb') value = perLb ?? (size.lb ? p.unit_price / size.lb : null);
-  else if (watch.basis === 'oz') value = perLb != null ? perLb / 16 : size.oz ? p.unit_price / size.oz : null;
-  else if (perLb == null) {
-    if (watch.basis === 'package') value = p.unit_price;
-    else { const n = size.count || watch.pack_count; value = n ? p.unit_price / n : null; } // unit
-  }
-  return { value, size: describeSize(size), source: perLb != null ? 'weighed' : source };
+// A store product's price per gram, ml or counted unit in `measure`, or null when its size can't be
+// read that way. A bare "oz" counts as fluid ounces when the item is compared by volume.
+function storeUnitPrice(product, measure, value) {
+  if (value == null || !measure) return null;
+  if (product.sold_by === 'WEIGHT') return measure === 'g' ? value / units.WEIGHED.lb : null;
+  const size = units.parseSize(product.size);
+  if (measure === 'count') return size.pack_count ? value / size.pack_count : null;
+  if (!size.amount) return null;
+  const std = units.toStandard(size, measure);
+  return std?.measure === measure ? value / std.qty : null;
 }
 
 const median = (xs) => {
@@ -197,25 +123,34 @@ const median = (xs) => {
   return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
 };
 const round2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
-// Per-ounce prices are a few cents, so unit prices keep four decimals.
 const round4 = (v) => (v == null ? null : Math.round(v * 10000) / 10000);
 
-// What the shopper usually pays, on the watch item's basis, from the last year of receipts.
-// A target price set on the item takes precedence. `lines` lists each purchase and how it counted.
+// What the shopper usually pays per 100 g / 100 ml / counted unit, from the last year of receipts.
+// A target price set on the item (in the same units) takes precedence. `lines` lists each purchase
+// and how it counted: lines without a size, or measured differently, are left out.
 function baselineFor(watch, purchases) {
-  const lines = purchases.map((p) => {
-    const u = purchaseUnitPrice(p, watch);
+  const stds = purchases.map((p) => units.lineStandard(p));
+  const measure = units.dominantMeasure(stds);
+  const countUnit = measure === 'count' ? units.dominantCountUnit(stds) : '';
+  const lines = purchases.map((p, i) => {
+    const s = stds[i];
+    const counted = s.per != null && s.measure === measure;
     return {
-      id: p.id, date: p.date, store: p.store, name: p.name, unit: p.unit, unit_price: p.unit_price,
-      size_text: p.size_text || '', size_read: u.size, size_source: u.source, basis_price: round4(u.value)
+      id: p.id, date: p.date, store: p.store, name: p.name, item_basic: p.item_basic, unit: p.unit, unit_price: p.unit_price,
+      size_label: s.label, size_source: s.source, size_status: s.status, size_note: s.note, measure: s.measure,
+      price: counted ? round4(units.displayPrice(s.per, measure)) : null,
+      why: counted ? '' : s.per == null ? 'no size' : `measured in ${s.measure === 'count' ? 'units' : s.measure}`
     };
   });
-  const paid = lines.map((l) => l.basis_price).filter((v) => v != null);
+  const paid = lines.map((l) => l.price).filter((v) => v != null);
   const usual = paid.length ? median(paid) : null;
   return {
+    measure, count_unit: countUnit,
     usual: round4(usual),
     lowest: paid.length ? Math.min(...paid) : null,
     purchases: paid.length,
+    missing: lines.filter((l) => l.size_status === 'missing').length,
+    review: lines.filter((l) => l.size_status === 'review').length,
     target: watch.target_price,
     compare_to: watch.target_price ?? round4(usual),
     lines
@@ -254,29 +189,36 @@ function applyCoupons(checks, coupons, decisions) {
 
 const stockAdvice = (dept) => (STOCK_UP.has(dept) ? 'stock up' : FREEZE.has(dept) ? 'stock up and freeze' : 'buy for this week');
 
-// Annotates a run's checks with verdicts and unit prices, and picks out the deals:
-// matched products at least `threshold` below the comparison price (usual or target), or,
-// for items with no price history, on sale by at least `threshold` off the store's regular price.
+// Annotates a run's checks with verdicts and standard prices (per 100 g / 100 ml / counted unit),
+// and picks out the deals: matched products at least `threshold` below the comparison price (usual
+// or target) on the item's standard measure, or, for items with no sized purchase history, on sale
+// by at least `threshold` off the store's regular price. deal.sale says whether the price is a sale
+// or coupon (rather than just a cheaper size).
 function evaluate(watchList, baselines, checks, verdicts, threshold) {
   const byId = new Map(watchList.map((w) => [w.id, w]));
   const annotated = checks.map((c) => {
     const watch = byId.get(c.watch_id);
     const v = watch ? verdicts.get(`${watch.id}|${c.product_id}`) : null;
     const now = c.coupon?.final ?? c.promo ?? c.regular;
-    const unit = watch ? storeUnitPrice(c, watch, now) : null;
     const base = watch ? baselines.get(watch.id) : null;
+    const per = base?.measure ? storeUnitPrice(c, base.measure, now) : null;
+    const unit = units.displayPrice(per, base?.measure);
+    const sale = Boolean(c.coupon || c.promo);
     let deal = null;
     // Paused or not-interested items never produce deals, even from a check made before the change.
     if (watch?.status === 'watching' && v?.verdict === 'match') {
       if (base?.compare_to && unit != null) {
         const pct = (base.compare_to - unit) / base.compare_to;
-        if (pct >= threshold) deal = { kind: base.target != null ? 'below_target' : 'below_usual', pct: round2(pct) };
+        if (pct >= threshold) deal = { kind: base.target != null ? 'below_target' : 'below_usual', pct: round2(pct), sale };
       } else if (!base?.compare_to && now < c.regular) {
         const pct = (c.regular - now) / c.regular;
-        if (pct >= threshold) deal = { kind: 'sale_no_history', pct: round2(pct) };
+        if (pct >= threshold) deal = { kind: 'sale_no_history', pct: round2(pct), sale: true };
       }
     }
-    return { ...c, verdict: v?.verdict || null, verdict_source: v?.source || null, verdict_reason: v?.reason || '', unit_price: round4(unit), deal };
+    return {
+      ...c, verdict: v?.verdict || null, verdict_source: v?.source || null, verdict_reason: v?.reason || '', unit_price: round4(unit),
+      size_unreadable: Boolean(base?.measure && per == null), deal
+    };
   });
 
   // One deal per watch item: its best-value matched product.
@@ -288,7 +230,8 @@ function evaluate(watchList, baselines, checks, verdicts, threshold) {
   }
   const deals = [...best.values()].map((c) => {
     const watch = byId.get(c.watch_id);
-    return { watch_id: watch.id, name: watch.name, department: watch.department, basis: watch.basis, advice: stockAdvice(watch.department), baseline: baselines.get(watch.id), product: c };
+    const base = baselines.get(watch.id);
+    return { watch_id: watch.id, name: watch.name, department: watch.department, measure: base.measure, count_unit: base.count_unit, advice: stockAdvice(watch.department), baseline: base, product: c };
   }).sort((a, b) => b.product.deal.pct - a.product.deal.pct);
   return { checks: annotated, deals };
 }
@@ -416,8 +359,7 @@ async function seedWatchlist() {
     status: t.department === 'Alcohol' || /ground beef/i.test(t.item_basic) ? 'paused' : 'watching',
     search_term: t.item_basic.toLowerCase(),
     item_basics: [t.item_basic],
-    department: t.department,
-    basis: t.weighed * 2 > t.count ? 'lb' : 'package'
+    department: t.department
   }));
   const covered = new Set(items.map((i) => i.name.toLowerCase()));
   for (const s of STARTER_ITEMS) if (!covered.has(s.name.toLowerCase())) items.push(s);
@@ -497,6 +439,7 @@ function startDailyChecks() {
 }
 
 module.exports = {
-  describeSize, STORE, DEFAULT_THRESHOLD, isConfigured, findLocations, getLocation, getThreshold, runCheck,
-  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, importCoupons, couponPrice, applyCoupons, parseSize, readItemSize, baselineFor, evaluate
+  STORE, DEFAULT_THRESHOLD, isConfigured, findLocations, getLocation, getThreshold, runCheck,
+  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, importCoupons, couponPrice, applyCoupons,
+  storeUnitPrice, baselineFor, evaluate
 };
