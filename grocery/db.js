@@ -225,14 +225,15 @@ async function getReceipt(id) {
 // Every line item joined with its receipt's store/date: the dataset the dashboards chart.
 async function listItems() {
   const { rows } = await query(`
-    SELECT i.id, i.receipt_id, r.store, r.purchased_on, i.name, i.brand, i.item_basic, i.department,
-           i.quantity, i.unit, i.unit_price, i.line_total, i.savings
+    SELECT i.id, i.receipt_id, r.store, r.purchased_on, i.raw_name, i.name, i.brand, i.item_basic, i.department,
+           i.quantity, i.unit, i.unit_price, i.line_total, i.savings, i.size_text
     FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
     ORDER BY r.purchased_on, i.receipt_id, i.line_no`);
   return rows.map((i) => ({
-    id: i.id, receipt_id: i.receipt_id, store: i.store, date: iso(i.purchased_on), name: i.name,
+    id: i.id, receipt_id: i.receipt_id, store: i.store, date: iso(i.purchased_on), raw_name: i.raw_name, name: i.name,
     brand: i.brand, item_basic: i.item_basic, department: i.department, quantity: num(i.quantity),
-    unit: i.unit, unit_price: num(i.unit_price), line_total: num(i.line_total), savings: num(i.savings)
+    unit: i.unit, unit_price: num(i.unit_price), line_total: num(i.line_total), savings: num(i.savings),
+    size_text: i.size_text
   }));
 }
 
@@ -468,9 +469,10 @@ async function purchasesFor(itemBasics) {
   }));
 }
 
-async function setItemSize(id, sizeText) {
-  const { rowCount } = await query('UPDATE grocery_items SET size_text = $2 WHERE id = $1', [id, sizeText]);
-  return rowCount > 0;
+// Returns how many receipt lines were updated.
+async function setItemSize(ids, sizeText) {
+  const { rowCount } = await query('UPDATE grocery_items SET size_text = $2 WHERE id = ANY($1)', [ids, sizeText]);
+  return rowCount;
 }
 
 // Item types bought at least `minCount` times in the last year, for building a starter watchlist.

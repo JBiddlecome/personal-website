@@ -210,6 +210,31 @@ tbody td { padding: .7rem 1rem; font-size: .93rem; vertical-align: middle; }
 .chart-wrap { background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 1.75rem; }
 .section-title { font-size: .95rem; font-weight: 600; color: #444; margin-bottom: 1rem; }
 .history-section { }
+.chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.chart-head .section-title { margin-bottom: .5rem; }
+.chart-note { font-size: .82rem; color: #888; margin: 0 0 .75rem; }
+.history-row { cursor: pointer; }
+.history-row.selected { background: #edf7f1; }
+.size-missing { color: #b26a00; font-size: .85rem; }
+
+/* Receipt line editor under the price chart */
+.line-editor { margin-top: 1.25rem; padding: 1.1rem 1.25rem; border: 1.5px solid #cfe6d8; border-radius: 10px; background: #f8fdf9; }
+.le-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.le-head h4 { font-size: 1rem; font-weight: 600; }
+.le-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .6rem 1.25rem; margin: 0 0 1rem; }
+.le-facts dt { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #999; }
+.le-facts dd { margin: .1rem 0 0; font-size: .9rem; overflow-wrap: anywhere; }
+.le-note { font-size: .88rem; color: #555; }
+.le-label { font-size: .88rem; font-weight: 600; margin: 0 0 .5rem; }
+.le-label .muted { font-weight: 400; }
+.le-row { display: flex; align-items: flex-end; gap: .5rem; flex-wrap: wrap; }
+.le-row label { display: flex; flex-direction: column; gap: .2rem; font-size: .75rem; color: #777; }
+.le-num { width: 90px; }
+.le-x { padding-bottom: .5rem; color: #888; }
+.le-preview { font-size: .88rem; color: #2a7a48; margin: .6rem 0 .25rem; }
+.le-current { font-size: .82rem; color: #777; margin: 0 0 .75rem; }
+.le-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.le-form .deals-status { margin-top: .75rem; }
 
 /* ── Deals tab ───────────────────────────────────────────────────────────────── */
 

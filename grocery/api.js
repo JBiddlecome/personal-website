@@ -154,6 +154,12 @@ const UploadSchema = z.object({
   files: z.array(z.object({ media_type: z.string(), data: z.string().min(1) })).min(1).max(8)
 });
 
+// A receipt line's package size as the dashboard needs it: whole-package count / oz / lb, and where it came from.
+function sizeOf(item) {
+  const { size, source } = deals.readItemSize(item);
+  return { count: size.count ?? null, oz: size.oz ?? null, lb: size.lb ?? null, source, read: deals.describeSize(size) };
+}
+
 function validationError(res, err) {
   const first = err.issues?.[0];
   sendJson(res, 400, { error: first ? `${first.path.join('.') || 'body'}: ${first.message}` : 'Invalid request.' });
@@ -220,7 +226,11 @@ async function route(req, res, pathname) {
   if (!isAuthed(req)) { sendJson(res, 401, { error: 'Login required.' }); return; }
 
   if (method === 'GET' && apiPath === '/session') { sendJson(res, 200, { ok: true }); return; }
-  if (method === 'GET' && apiPath === '/items') { sendJson(res, 200, { items: await db.listItems() }); return; }
+  if (method === 'GET' && apiPath === '/items') {
+    const items = (await db.listItems()).map((i) => ({ ...i, size: sizeOf(i) }));
+    sendJson(res, 200, { items });
+    return;
+  }
   if (method === 'GET' && apiPath === '/receipts') { sendJson(res, 200, { receipts: await db.listReceipts() }); return; }
   if (method === 'GET' && apiPath === '/vocab') {
     const ctx = await db.classificationContext();
@@ -317,9 +327,12 @@ async function routeDeals(req, res, method, sub) {
     return;
   }
 
-  // Corrects the package size of one receipt line (e.g. "10 x 7.5 fl oz"); empty clears it.
+  // Corrects the package size of receipt lines (e.g. "10 x 7.5 fl oz"); empty clears it.
+  // Takes one item_id, or item_ids to give several purchases the same size.
   if (method === 'PUT' && sub === '/item-size') {
-    const parsed = z.object({ item_id: z.number().int().positive(), size: z.string().trim().max(60) }).strict()
+    const id = z.number().int().positive();
+    const parsed = z.object({ item_id: id.optional(), item_ids: z.array(id).min(1).max(1000).optional(), size: z.string().trim().max(60) })
+      .strict().refine((b) => b.item_id || b.item_ids, 'item_id or item_ids is required')
       .safeParse(await readBody(req, MAX_JSON));
     if (!parsed.success) { validationError(res, parsed.error); return; }
     const read = deals.parseSize(parsed.data.size);
@@ -327,8 +340,9 @@ async function routeDeals(req, res, method, sub) {
       sendJson(res, 400, { error: `Couldn't read "${parsed.data.size}". Try "10 x 7.5 fl oz", "2 L", "1.5 lb" or "12 rolls".` });
       return;
     }
-    if (!(await db.setItemSize(parsed.data.item_id, parsed.data.size))) { sendJson(res, 404, { error: 'Receipt item not found.' }); return; }
-    sendJson(res, 200, { size: parsed.data.size, read: deals.describeSize(read) });
+    const updated = await db.setItemSize(parsed.data.item_ids || [parsed.data.item_id], parsed.data.size);
+    if (!updated) { sendJson(res, 404, { error: 'Receipt item not found.' }); return; }
+    sendJson(res, 200, { size: parsed.data.size, read: deals.describeSize(read), updated });
     return;
   }
 

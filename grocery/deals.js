@@ -166,18 +166,20 @@ function storeUnitPrice(product, watch, value) {
   return product.sold_by === 'WEIGHT' ? null : value; // package
 }
 
-// One receipt line's price on the watch item's basis, and the size it was read from.
-// Weighed lines (unit lb/oz/kg) already carry a per-weight price; packaged lines need a size,
-// taken from the user's correction or else read from the item name.
-function purchaseUnitPrice(p, watch) {
+// A receipt line's package size: the user's correction, or else read from the item name.
+// source: 'you' | 'name' | null (no size found).
+function readItemSize(p) {
   const sizeText = p.size_text || '';
-  let size = parseSize(sizeText);
-  let source = sizeText ? 'you' : null;
-  if (!sizeText) {
-    size = parseSize(p.name);
-    if (!size.oz && !size.count) size = parseSize(p.raw_name);
-    if (size.oz || size.count) source = 'name';
-  }
+  if (sizeText) return { size: parseSize(sizeText), source: 'you' };
+  let size = parseSize(p.name);
+  if (!size.oz && !size.count) size = parseSize(p.raw_name);
+  return { size, source: size.oz || size.count ? 'name' : null };
+}
+
+// One receipt line's price on the watch item's basis, and the size it was read from.
+// Weighed lines (unit lb/oz/kg) already carry a per-weight price; packaged lines need a size.
+function purchaseUnitPrice(p, watch) {
+  const { size, source } = readItemSize(p);
   const perLb = p.unit === 'lb' ? p.unit_price : p.unit === 'oz' ? p.unit_price * 16 : p.unit === 'kg' ? p.unit_price / 2.2046 : null;
   let value = null;
   if (watch.basis === 'lb') value = perLb ?? (size.lb ? p.unit_price / size.lb : null);
@@ -496,5 +498,5 @@ function startDailyChecks() {
 
 module.exports = {
   describeSize, STORE, DEFAULT_THRESHOLD, isConfigured, findLocations, getLocation, getThreshold, runCheck,
-  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, importCoupons, couponPrice, applyCoupons, parseSize, baselineFor, evaluate
+  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, importCoupons, couponPrice, applyCoupons, parseSize, readItemSize, baselineFor, evaluate
 };
