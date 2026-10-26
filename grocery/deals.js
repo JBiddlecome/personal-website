@@ -5,7 +5,7 @@
 // A check searches every "watching" item on the watchlist, has Claude sort out which results are
 // really that item (match.js), and compares the matched prices with the usual price paid on receipts.
 const db = require('./db');
-const { classifyProducts } = require('./match');
+const { classifyProducts, extractCoupons, classifyCouponProducts } = require('./match');
 const email = require('./email');
 
 const API = 'https://api.kroger.com/v1';
@@ -220,6 +220,36 @@ function baselineFor(watch, purchases) {
   };
 }
 
+// ── Digital coupons ───────────────────────────────────────────────────────────
+
+// The price after a coupon, per item (or per lb for products sold by weight), or null when the
+// coupon doesn't lower it. Dollars-off coupons on weighed products are skipped as ambiguous.
+function couponPrice(coupon, product, base) {
+  let final = null;
+  if (coupon.kind === 'price') final = Math.min(base, coupon.amount);
+  else if (coupon.kind === 'percent' && coupon.amount < 100) final = base * (1 - coupon.amount / 100);
+  else if (coupon.kind === 'off' && product.sold_by !== 'WEIGHT') final = base - coupon.amount / coupon.min_qty;
+  return final != null && final > 0 && final < base ? round2(final) : null;
+}
+
+// Adds the best applicable coupon to each check: one linked to its watch item, usable in store,
+// and judged to cover that product. `decisions` is from db.listCouponProducts.
+function applyCoupons(checks, coupons, decisions) {
+  const usable = coupons.filter((c) => c.in_store && c.kind !== 'other' && c.amount != null);
+  return checks.map((c) => {
+    const base = c.promo ?? c.regular;
+    let best = null;
+    for (const cp of usable) {
+      if (!cp.watch_ids.includes(c.watch_id) || !decisions.get(`${cp.id}|${c.product_id}`)?.applies) continue;
+      const final = couponPrice(cp, c, base);
+      if (final != null && (!best || final < best.final)) {
+        best = { id: cp.id, offer: cp.offer, final, min_qty: cp.min_qty, expires: cp.expires };
+      }
+    }
+    return { ...c, coupon: best };
+  });
+}
+
 const stockAdvice = (dept) => (STOCK_UP.has(dept) ? 'stock up' : FREEZE.has(dept) ? 'stock up and freeze' : 'buy for this week');
 
 // Annotates a run's checks with verdicts and unit prices, and picks out the deals:
@@ -230,7 +260,7 @@ function evaluate(watchList, baselines, checks, verdicts, threshold) {
   const annotated = checks.map((c) => {
     const watch = byId.get(c.watch_id);
     const v = watch ? verdicts.get(`${watch.id}|${c.product_id}`) : null;
-    const now = c.promo ?? c.regular;
+    const now = c.coupon?.final ?? c.promo ?? c.regular;
     const unit = watch ? storeUnitPrice(c, watch, now) : null;
     const base = watch ? baselines.get(watch.id) : null;
     let deal = null;
@@ -239,8 +269,8 @@ function evaluate(watchList, baselines, checks, verdicts, threshold) {
       if (base?.compare_to && unit != null) {
         const pct = (base.compare_to - unit) / base.compare_to;
         if (pct >= threshold) deal = { kind: base.target != null ? 'below_target' : 'below_usual', pct: round2(pct) };
-      } else if (!base?.compare_to && c.promo) {
-        const pct = (c.regular - c.promo) / c.regular;
+      } else if (!base?.compare_to && now < c.regular) {
+        const pct = (c.regular - now) / c.regular;
         if (pct >= threshold) deal = { kind: 'sale_no_history', pct: round2(pct) };
       }
     }
@@ -312,12 +342,50 @@ async function runCheck(kind, watchIds = null) {
   }));
   const { verdicts, error: matchError } = await classifyProducts(undecided);
   await db.saveVerdicts(STORE, verdicts);
+  const couponError = await matchCoupons(checks);
 
   const run = await db.saveRun({
     kind, store: STORE, location_id: location.location_id, run_date: pacificDate(started),
     started_at: started, term_count: list.length
   }, checks);
-  return { run, failed, match_error: matchError };
+  return { run, failed, match_error: [matchError, couponError].filter(Boolean).join(' ') || null };
+}
+
+// Asks Claude which matched products each linked coupon covers, for pairs not decided before.
+async function matchCoupons(checks) {
+  const coupons = (await db.activeCoupons(STORE, pacificDate())).filter((c) => c.in_store && c.kind !== 'other' && c.watch_ids.length);
+  if (!coupons.length) return null;
+  const [verdicts, known] = await Promise.all([db.listVerdicts(STORE), db.listCouponProducts(coupons.map((c) => c.id))]);
+  const matched = checks.filter((c) => verdicts.get(`${c.watch_id}|${c.product_id}`)?.verdict === 'match');
+  const entries = coupons.map((coupon) => {
+    const seen = new Set();
+    const products = matched.filter((c) => coupon.watch_ids.includes(c.watch_id) && !known.has(`${coupon.id}|${c.product_id}`)
+      && !seen.has(c.product_id) && seen.add(c.product_id));
+    return { coupon, products };
+  });
+  const { decisions, error } = await classifyCouponProducts(entries);
+  await db.saveCouponProducts(decisions);
+  return error;
+}
+
+// Reads the text of the Ralphs digital coupon page (sent by the bookmark button), stores the
+// coupons, and checks them against the latest prices so deals reflect them right away.
+async function importCoupons(text) {
+  const today = pacificDate();
+  const watchList = (await db.listWatch()).filter((w) => w.status !== 'never');
+  const { coupons, error } = await extractCoupons(text, watchList, today);
+  if (!coupons.length) {
+    throw Object.assign(new Error(error || 'No coupons were found in that page. Open the Ralphs digital coupons page, let the coupons load, then press the bookmark.'), { status: 400 });
+  }
+  const added = await db.upsertCoupons(STORE, coupons, today);
+  const latest = await db.latestRun();
+  const matchError = latest ? await matchCoupons(latest.checks.filter((c) => c.watch_id != null)) : null;
+  const summary = {
+    at: new Date().toISOString(), found: coupons.length, added,
+    linked: coupons.filter((c) => c.watch_ids.length).length, error: [error, matchError].filter(Boolean).join(' ') || null
+  };
+  await db.setSetting('coupons_last_import', summary);
+  return summary;
 }
 
 // Everything the Deals tab shows: watchlist with baselines, and the latest run evaluated.
@@ -325,9 +393,16 @@ async function dealsView() {
   const [watchList, latest, threshold] = await Promise.all([db.listWatch(), db.latestRun(), getThreshold()]);
   const baselines = await baselinesFor(watchList);
   const watch = watchList.map((w) => ({ ...w, baseline: baselines.get(w.id) }));
-  if (!latest) return { watch, threshold, latest: null, deals: [] };
-  const { checks, deals } = evaluate(watchList, baselines, latest.checks.filter((c) => c.watch_id != null), await db.listVerdicts(STORE), threshold);
-  return { watch, threshold, latest: { run: latest.run, checks }, deals };
+  const active = await db.activeCoupons(STORE, pacificDate());
+  const coupons = {
+    last_import: await db.getSetting('coupons_last_import'),
+    active: active.length,
+    linked: active.filter((c) => c.watch_ids.length)
+  };
+  if (!latest) return { watch, threshold, coupons, latest: null, deals: [] };
+  const withCoupons = applyCoupons(latest.checks.filter((c) => c.watch_id != null), active, await db.listCouponProducts(active.map((c) => c.id)));
+  const { checks, deals } = evaluate(watchList, baselines, withCoupons, await db.listVerdicts(STORE), threshold);
+  return { watch, threshold, coupons, latest: { run: latest.run, checks }, deals };
 }
 
 // Starter watchlist: item types bought at least twice in the last year, plus STARTER_ITEMS.
@@ -421,5 +496,5 @@ function startDailyChecks() {
 
 module.exports = {
   describeSize, STORE, DEFAULT_THRESHOLD, isConfigured, findLocations, getLocation, getThreshold, runCheck,
-  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, parseSize, baselineFor, evaluate
+  dealsView, seedWatchlist, startDailyChecks, emailSettings, sendDealsEmail, importCoupons, couponPrice, applyCoupons, parseSize, baselineFor, evaluate
 };

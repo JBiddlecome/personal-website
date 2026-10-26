@@ -4,3 +4,4 @@ contact-submissions.log
 .env
 data/
 scripts/.lausd-cache/
+grocery/grocery_list.xlsx

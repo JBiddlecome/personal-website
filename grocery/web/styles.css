@@ -623,3 +623,11 @@ tbody td { padding: .7rem 1rem; font-size: .93rem; vertical-align: middle; }
 .dl-email-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .dl-email-form #dl-email-to { flex: 1 1 220px; max-width: 320px; }
 .dl-check-label { display: flex; align-items: center; gap: .4rem; font-size: .9rem; color: #333; width: 100%; }
+
+.dl-coupon-how summary, .dl-coupon-linked summary { cursor: pointer; font-size: .9rem; color: #2e7d32; font-weight: 600; }
+.dl-coupon-how ol { font-size: .9rem; line-height: 1.7; padding-left: 1.25rem; }
+.dl-coupon-how p { font-size: .8rem; }
+.dl-bookmarklet { display: inline-block; cursor: grab; margin: .25rem 0; text-decoration: none; }
+.dl-coupon-linked ul { list-style: none; padding: 0; margin: .5rem 0 0; font-size: .85rem; }
+.dl-coupon-linked li { padding: .4rem 0; border-bottom: 1px solid #eee; }
+.dl-coupon-tag { display: block; margin-top: .25rem; font-size: .8rem; color: #2e7d32; font-weight: 600; }

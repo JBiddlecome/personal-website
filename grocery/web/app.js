@@ -593,6 +593,9 @@ function initDeals() {
     document.getElementById('dl-threshold').addEventListener('change', saveThreshold);
     document.getElementById('dl-email-form').addEventListener('submit', saveEmailSettings);
     document.getElementById('dl-email-test').addEventListener('click', sendTestEmail);
+    const mark = document.getElementById('dl-bookmarklet');
+    mark.href = couponBookmarklet();
+    mark.addEventListener('click', e => { e.preventDefault(); dealsStatus('Drag the button onto your bookmarks bar, then press it on the Ralphs coupon page.'); });
     document.querySelectorAll('#dl-filters [data-filter]').forEach(b => b.addEventListener('click', () => {
         watchFilter = b.dataset.filter;
         document.querySelectorAll('#dl-filters [data-filter]').forEach(x => x.classList.toggle('active', x === b));
@@ -625,6 +628,7 @@ function renderDeals() {
     renderAllResults();
     renderCycle(dealsState.cycle, dealsState.last_daily);
     renderEmailSettings();
+    renderCoupons();
     document.getElementById('dl-threshold').value = Math.round(dealsState.threshold * 100);
 }
 
@@ -729,11 +733,11 @@ function renderDealCards() {
         return `<div class="deal-card deal-card--highlight">
             <div class="deal-card-top">
                 <span class="product-link dl-deal-name">${esc(d.name)}<span class="below-badge">${pct}% OFF</span></span>
-                <span class="deal-source">${esc(d.advice)}${p.promo_expires ? ` · sale ends ${fmtDate(p.promo_expires)}` : ''}</span>
+                <span class="deal-source">${esc(d.advice)}${p.coupon ? (p.coupon.expires ? ` · coupon until ${fmtDate(p.coupon.expires)}` : '') : p.promo_expires ? ` · sale ends ${fmtDate(p.promo_expires)}` : ''}</span>
             </div>
-            <p class="deal-text">${esc(p.description)} <span class="dl-size">${esc(p.size)}</span></p>
+            <p class="deal-text">${esc(p.description)} <span class="dl-size">${esc(p.size)}</span>${p.coupon ? `<span class="dl-coupon-tag">Digital coupon: ${esc(p.coupon.offer)}${p.coupon.min_qty > 1 ? ` (price is per item when you buy ${p.coupon.min_qty})` : ''}</span>` : ''}</p>
             <div class="deal-pricing">
-                <span class="deal-price below-avg">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>` : ''}${money(p.promo ?? p.regular)}</span>
+                <span class="deal-price below-avg">${p.coupon || p.promo ? `<span class="dl-was">${money(p.regular)}</span>` : ''}${money(p.coupon?.final ?? p.promo ?? p.regular)}</span>
                 ${p.unit_price != null && d.basis !== 'package' ? `<span class="deal-vs">${fmtUnit(p.unit_price, d.basis)}</span>` : ''}
                 <span class="deal-vs">${vs}</span>
             </div>
@@ -878,6 +882,34 @@ async function sendTestEmail() {
     } catch (err) { dealsStatus(err.message, 'error'); }
 }
 
+// A bookmarklet for the Ralphs coupon page: it opens /grocery/coupons.html and posts it the
+// page's text (repeating until that tab says it has it). It reads nothing but the visible text.
+function couponBookmarklet() {
+    const origin = location.origin;
+    const code = `(()=>{if(!/(^|\\.)ralphs\\.com$/.test(location.hostname)){alert('Open the Ralphs digital coupons page first.');return}`
+        + `const t=document.body.innerText;const w=window.open('${origin}/grocery/coupons.html','grocery-coupons');`
+        + `if(!w){alert('Allow pop-ups for ralphs.com, then press the bookmark again.');return}`
+        + `let n=0;const iv=setInterval(()=>{w.postMessage({type:'ralphs-coupons',text:t},'${origin}');if(++n>120)clearInterval(iv)},500);`
+        + `addEventListener('message',e=>{if(e.origin==='${origin}'&&e.data==='ralphs-coupons-received')clearInterval(iv)})})()`;
+    return `javascript:${encodeURIComponent(code)}`;
+}
+
+function renderCoupons() {
+    const c = dealsState.coupons;
+    const note = document.getElementById('dl-coupon-note');
+    const last = c.last_import;
+    note.textContent = last
+        ? `${c.active} coupons active, last imported ${new Date(last.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}; ${c.linked.length} may apply to watched items. Deals and the weekly email include them.${last.error ? ` Last import note: ${last.error}` : ''}`
+        : 'Ralphs only shows digital coupons to signed-in shoppers, so they come from a bookmark button you press on the coupon page. Until then, prices are shelf and sale prices only.';
+    document.querySelector('.dl-coupon-how').open = !last;
+    const byId = new Map(dealsState.watch.map(w => [w.id, w.name]));
+    document.getElementById('dl-coupon-list').innerHTML = c.linked.length ? `<details class="dl-coupon-linked">
+        <summary>Coupons that may apply to your watchlist (${c.linked.length})</summary>
+        <ul>${c.linked.map(x => `<li><strong>${esc(x.offer)}</strong>${x.expires ? ` <span class="muted">until ${fmtDate(x.expires)}</span>` : ''}${x.in_store ? '' : ' <span class="muted">(pickup/delivery only, not counted)</span>'}
+            <span class="dl-size">${x.watch_ids.map(id => esc(byId.get(id) || '')).filter(Boolean).join(', ')}</span></li>`).join('')}</ul>
+    </details>` : '';
+}
+
 // Saves one field, then reloads so baselines and deals reflect the change.
 async function saveWatch(id, patch) {
     const open = [...document.querySelectorAll('.dl-more:not(.hidden)')].map(r => r.id);
@@ -953,7 +985,7 @@ function renderAllResults() {
                 : '<span class="pc-tag pc-tag--warn">Unreviewed</span>';
             return `<tr class="${p.verdict === 'reject' ? 'dl-rejected' : ''}">
                 <td><span class="dl-product">${esc(p.description)}</span><span class="dl-size">${esc(p.size)}${p.sold_by === 'WEIGHT' ? ' · priced per lb' : ''}${p.verdict_reason ? ` · ${esc(p.verdict_reason)}` : ''}</span></td>
-                <td class="col-num price-cell">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>${money(p.promo)}` : money(p.regular)}</td>
+                <td class="col-num price-cell">${p.promo ? `<span class="dl-was">${money(p.regular)}</span>${money(p.promo)}` : money(p.regular)}${p.coupon ? `<span class="dl-size" title="${esc(p.coupon.offer)}">${money(p.coupon.final)} with coupon</span>` : ''}</td>
                 <td class="col-num">${p.unit_price != null && w.basis !== 'package' ? fmtUnit(p.unit_price, w.basis) : ''}</td>
                 <td>${tag}${p.deal ? ` <span class="pc-tag pc-tag--save">Deal ${Math.round(p.deal.pct * 100)}%</span>` : ''}</td>
                 <td class="dl-row-actions">

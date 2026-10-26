@@ -126,6 +126,34 @@ CREATE TABLE IF NOT EXISTS grocery_watch_products (
 
 ALTER TABLE grocery_price_checks ADD COLUMN IF NOT EXISTS watch_id INTEGER;
 
+-- Digital coupons, imported weekly from the store's coupon page (see deals.importCoupons).
+--   kind: price (coupon sets the price) | off (amount off, per min_qty items) | percent | other (points, spend-X offers)
+--   watch_ids: watchlist items the coupon might apply to; grocery_coupon_products decides per product.
+CREATE TABLE IF NOT EXISTS grocery_coupons (
+  id          SERIAL PRIMARY KEY,
+  store       TEXT NOT NULL,
+  coupon_key  TEXT NOT NULL,
+  offer       TEXT NOT NULL,
+  brand       TEXT NOT NULL DEFAULT '',
+  product     TEXT NOT NULL DEFAULT '',
+  kind        TEXT NOT NULL,
+  amount      NUMERIC(10,2),
+  min_qty     INTEGER NOT NULL DEFAULT 1,
+  expires     DATE,
+  in_store    BOOLEAN NOT NULL DEFAULT true,
+  watch_ids   INTEGER[] NOT NULL DEFAULT '{}',
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (store, coupon_key)
+);
+
+CREATE TABLE IF NOT EXISTS grocery_coupon_products (
+  coupon_id  INTEGER NOT NULL REFERENCES grocery_coupons(id) ON DELETE CASCADE,
+  product_id TEXT NOT NULL,
+  applies    BOOLEAN NOT NULL,
+  reason     TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (coupon_id, product_id)
+);
+
 -- A package size the user corrected for a receipt line (e.g. "10 x 7.5 fl oz"), for price-per-oz baselines.
 ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_text TEXT NOT NULL DEFAULT '';
 `;
@@ -456,10 +484,63 @@ async function frequentItemTypes(minCount) {
   return rows.map((r) => ({ item_basic: r.item_basic, department: r.department, count: Number(r.n), weighed: Number(r.weighed) }));
 }
 
+// ── Coupons ───────────────────────────────────────────────────────────────────
+
+function couponRow(c) {
+  return {
+    id: c.id, offer: c.offer, brand: c.brand, product: c.product, kind: c.kind, amount: num(c.amount),
+    min_qty: c.min_qty, expires: c.expires ? iso(c.expires) : null, in_store: c.in_store, watch_ids: c.watch_ids
+  };
+}
+
+// Adds or refreshes coupons (keyed by offer text + expiry, so the same coupon keeps its id and
+// product decisions across imports) and drops ones that expired before `today`.
+async function upsertCoupons(store, coupons, today) {
+  return withTransaction(async (client) => {
+    let added = 0;
+    for (const c of coupons) {
+      const { rows } = await client.query(`
+        INSERT INTO grocery_coupons (store, coupon_key, offer, brand, product, kind, amount, min_qty, expires, in_store, watch_ids)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        ON CONFLICT (store, coupon_key) DO UPDATE SET brand = EXCLUDED.brand, product = EXCLUDED.product, kind = EXCLUDED.kind,
+          amount = EXCLUDED.amount, min_qty = EXCLUDED.min_qty, in_store = EXCLUDED.in_store, watch_ids = EXCLUDED.watch_ids, imported_at = now()
+        RETURNING (xmax = 0) AS inserted`,
+        [store, c.coupon_key, c.offer, c.brand, c.product, c.kind, c.amount, c.min_qty, c.expires, c.in_store, c.watch_ids]);
+      if (rows[0].inserted) added += 1;
+    }
+    await client.query('DELETE FROM grocery_coupons WHERE store = $1 AND expires < $2', [store, today]);
+    return added;
+  });
+}
+
+async function activeCoupons(store, today) {
+  const { rows } = await query(`SELECT * FROM grocery_coupons WHERE store = $1 AND (expires IS NULL OR expires >= $2) ORDER BY id`, [store, today]);
+  return rows.map(couponRow);
+}
+
+// Map of `${coupon_id}|${product_id}` → { applies, reason }.
+async function listCouponProducts(couponIds) {
+  if (!couponIds.length) return new Map();
+  const { rows } = await query('SELECT * FROM grocery_coupon_products WHERE coupon_id = ANY($1)', [couponIds]);
+  return new Map(rows.map((r) => [`${r.coupon_id}|${r.product_id}`, { applies: r.applies, reason: r.reason }]));
+}
+
+async function saveCouponProducts(decisions) {
+  if (!decisions.length) return;
+  await withTransaction(async (client) => {
+    for (const d of decisions) {
+      await client.query(`
+        INSERT INTO grocery_coupon_products (coupon_id, product_id, applies, reason) VALUES ($1,$2,$3,$4)
+        ON CONFLICT (coupon_id, product_id) DO UPDATE SET applies = EXCLUDED.applies, reason = EXCLUDED.reason`,
+        [d.coupon_id, d.product_id, d.applies, d.reason]);
+    }
+  });
+}
+
 module.exports = {
   getPool, ensureSchema, withTransaction, listReceipts, getReceipt, listItems,
   classificationContext, findDuplicate, saveReceipt, replaceReceipt, deleteReceipt,
   getSetting, setSetting, hasRunOn, saveRun, latestRun, lastRunOf, promoChangesByWeekday,
   listWatch, getWatch, createWatch, updateWatch, deleteWatch, listVerdicts, saveVerdicts,
-  purchasesFor, setItemSize, frequentItemTypes
+  purchasesFor, setItemSize, frequentItemTypes, upsertCoupons, activeCoupons, listCouponProducts, saveCouponProducts
 };

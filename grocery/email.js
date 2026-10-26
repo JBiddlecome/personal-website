@@ -15,12 +15,13 @@ const fmtDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US',
 function dealLine(d) {
   const p = d.product;
   const pct = Math.round(p.deal.pct * 100);
-  const now = Number(p.promo ?? p.regular).toFixed(2);
+  const now = Number(p.coupon?.final ?? p.promo ?? p.regular).toFixed(2);
   const per = p.unit_price != null && d.basis !== 'package' ? ` (${unit(p.unit_price, d.basis)})` : '';
   const vs = p.deal.kind === 'sale_no_history' ? `${pct}% off the regular $${p.regular.toFixed(2)}`
     : p.deal.kind === 'below_target' ? `${pct}% below your alert price of ${unit(d.baseline.target, d.basis)}`
       : `${pct}% below your usual ${unit(d.baseline.usual, d.basis)}`;
-  const ends = p.promo_expires ? `, sale ends ${fmtDate(p.promo_expires)}` : '';
+  const ends = p.coupon ? `, with digital coupon "${p.coupon.offer}"${p.coupon.expires ? ` (until ${fmtDate(p.coupon.expires)})` : ''}`
+    : p.promo_expires ? `, sale ends ${fmtDate(p.promo_expires)}` : '';
   return { pct, now, per, vs, ends, advice: d.advice, name: d.name, product: `${p.description}${p.size ? ` (${p.size})` : ''}` };
 }
 
@@ -34,7 +35,7 @@ function buildDealsEmail(view, storeName) {
   const checked = view.latest ? new Date(view.latest.run.finished_at || view.latest.run.started_at)
     .toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';
   const watching = view.watch.filter((w) => w.status === 'watching').length;
-  const footer = `Checked ${checked} · ${watching} items watched · deals are ${Math.round(view.threshold * 100)}% or more below what you usually pay. Prices don't include digital coupons.`;
+  const footer = `Checked ${checked} · ${watching} items watched · deals are ${Math.round(view.threshold * 100)}% or more below what you usually pay. ${view.coupons.last_import ? `Digital coupons last imported ${new Date(view.coupons.last_import.at).toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' })}.` : "Digital coupons aren't included yet: import them with the bookmark button on the Deals tab."}`;
 
   const text = [
     subject, '',

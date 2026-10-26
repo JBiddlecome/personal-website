@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Import Coupons · Grocery Tracker</title>
+    <link rel="stylesheet" href="/grocery/styles.css">
+</head>
+<body>
+<header>
+    <div class="header-inner">
+        <div>
+            <h1>Grocery Tracker</h1>
+            <p class="subtitle">Import Ralphs digital coupons</p>
+        </div>
+    </div>
+</header>
+<main>
+    <div class="chart-wrap dl-import">
+        <h3 class="section-title">Digital coupons</h3>
+        <p class="deals-status info" id="ci-status">Waiting for the coupon page… Press the “Send Ralphs coupons” bookmark on the Ralphs digital coupons page.</p>
+        <p><a class="nav-link-btn" href="/grocery">Back to the Deals tab</a></p>
+    </div>
+</main>
+<script>
+// Opened by the "Send Ralphs coupons" bookmark, which posts the coupon page's text here.
+// Only messages from ralphs.com are accepted, and only the first one.
+(function () {
+    const status = document.getElementById('ci-status');
+    const show = (msg, kind) => { status.textContent = msg; status.className = `deals-status ${kind}`; };
+    let received = false;
+
+    window.addEventListener('message', async (e) => {
+        if (e.origin !== 'https://www.ralphs.com' || !e.data || e.data.type !== 'ralphs-coupons') return;
+        e.source.postMessage('ralphs-coupons-received', e.origin);
+        if (received) return;
+        received = true;
+        const text = String(e.data.text || '');
+        const shown = text.match(/(\d+)\s+Coupons\b/);
+        show('Reading coupons with Claude… this takes about a minute.', 'info');
+        try {
+            const res = await fetch('/grocery/api/deals/coupons/import', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text })
+            });
+            if (res.status === 401) { show('You are signed out. Open /grocery in this browser, sign in, then press the bookmark again.', 'error'); return; }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { show(data.error || `Import failed (${res.status}).`, 'error'); return; }
+            const r = data.import;
+            const total = shown ? ` Ralphs listed ${shown[1]}; if that's many more, scroll the coupon page until all of them have loaded and press the bookmark again (re-importing is safe).` : '';
+            show(`Imported ${r.found} coupons (${r.added} new). ${r.linked} may apply to items you watch.${total}${r.error ? ` Note: ${r.error}` : ''}`, r.error ? 'error' : 'info');
+        } catch (err) {
+            show(`Import failed: ${err.message}`, 'error');
+        }
+    });
+})();
+</script>
+</body>
+</html>
