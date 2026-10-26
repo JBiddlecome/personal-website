@@ -95,7 +95,7 @@ CREATE INDEX IF NOT EXISTS grocery_price_checks_run_idx ON grocery_price_checks 
 CREATE INDEX IF NOT EXISTS grocery_price_checks_product_idx ON grocery_price_checks (product_id);
 
 -- Watchlist: what to look for, and how to judge a good price.
---   status: watching | paused | never      basis: lb | package | unit (per roll, per egg, ...)
+--   status: watching | paused | never      basis: lb | oz | package | unit (per roll, per egg, ...)
 --   item_basics: receipt item types whose prices form the "usual price" baseline.
 CREATE TABLE IF NOT EXISTS grocery_watch (
   id           SERIAL PRIMARY KEY,
@@ -125,6 +125,9 @@ CREATE TABLE IF NOT EXISTS grocery_watch_products (
 );
 
 ALTER TABLE grocery_price_checks ADD COLUMN IF NOT EXISTS watch_id INTEGER;
+
+-- A package size the user corrected for a receipt line (e.g. "10 x 7.5 fl oz"), for price-per-oz baselines.
+ALTER TABLE grocery_items ADD COLUMN IF NOT EXISTS size_text TEXT NOT NULL DEFAULT '';
 `;
 
 let ready = null;
@@ -226,16 +229,17 @@ async function findDuplicate(store, date, total, excludeId = null) {
   return rows[0]?.id ?? null;
 }
 
-async function insertItems(client, receiptId, items) {
+// sizes: corrected package sizes by item name, carried over when a receipt is edited.
+async function insertItems(client, receiptId, items, sizes = new Map()) {
   let lineNo = 0;
   for (const it of items) {
     lineNo += 1;
     await client.query(`
       INSERT INTO grocery_items (receipt_id, line_no, raw_name, name, brand, item_basic, department,
-                                 quantity, unit, unit_price, line_total, savings)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+                                 quantity, unit, unit_price, line_total, savings, size_text)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [receiptId, lineNo, it.raw_name || '', it.name, it.brand || '', it.item_basic, it.department,
-       it.quantity, it.unit, it.unit_price, it.line_total, it.savings || 0]);
+       it.quantity, it.unit, it.unit_price, it.line_total, it.savings || 0, sizes.get(it.name) || '']);
   }
 }
 
@@ -257,8 +261,9 @@ async function replaceReceipt(id, r) {
       WHERE id = $1`,
       [id, r.store, r.store_address || '', r.date, r.subtotal, r.savings || 0, r.tax || 0, r.fees || 0, r.total]);
     if (!rowCount) return false;
+    const { rows: sized } = await client.query(`SELECT name, size_text FROM grocery_items WHERE receipt_id = $1 AND size_text <> ''`, [id]);
     await client.query('DELETE FROM grocery_items WHERE receipt_id = $1', [id]);
-    await insertItems(client, id, r.items);
+    await insertItems(client, id, r.items, new Map(sized.map((x) => [x.name, x.size_text])));
     return true;
   });
 }
@@ -424,11 +429,20 @@ async function saveVerdicts(store, verdicts) {
 async function purchasesFor(itemBasics) {
   if (!itemBasics.length) return [];
   const { rows } = await query(`
-    SELECT i.item_basic, i.unit, i.quantity, i.unit_price, r.store, r.purchased_on
+    SELECT i.id, i.item_basic, i.name, i.raw_name, i.size_text, i.unit, i.quantity, i.unit_price, r.store, r.purchased_on
     FROM grocery_items i JOIN grocery_receipts r ON r.id = i.receipt_id
-    WHERE lower(i.item_basic) = ANY($1) AND r.purchased_on >= CURRENT_DATE - INTERVAL '1 year'`,
+    WHERE lower(i.item_basic) = ANY($1) AND r.purchased_on >= CURRENT_DATE - INTERVAL '1 year'
+    ORDER BY r.purchased_on DESC, i.id`,
     [itemBasics.map((b) => b.toLowerCase())]);
-  return rows.map((r) => ({ item_basic: r.item_basic, unit: r.unit, quantity: num(r.quantity), unit_price: num(r.unit_price), store: r.store, date: iso(r.purchased_on) }));
+  return rows.map((r) => ({
+    id: r.id, item_basic: r.item_basic, name: r.name, raw_name: r.raw_name, size_text: r.size_text,
+    unit: r.unit, quantity: num(r.quantity), unit_price: num(r.unit_price), store: r.store, date: iso(r.purchased_on)
+  }));
+}
+
+async function setItemSize(id, sizeText) {
+  const { rowCount } = await query('UPDATE grocery_items SET size_text = $2 WHERE id = $1', [id, sizeText]);
+  return rowCount > 0;
 }
 
 // Item types bought at least `minCount` times in the last year, for building a starter watchlist.
@@ -447,5 +461,5 @@ module.exports = {
   classificationContext, findDuplicate, saveReceipt, replaceReceipt, deleteReceipt,
   getSetting, setSetting, hasRunOn, saveRun, latestRun, lastRunOf, promoChangesByWeekday,
   listWatch, getWatch, createWatch, updateWatch, deleteWatch, listVerdicts, saveVerdicts,
-  purchasesFor, frequentItemTypes
+  purchasesFor, setItemSize, frequentItemTypes
 };

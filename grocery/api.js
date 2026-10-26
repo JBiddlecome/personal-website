@@ -124,7 +124,7 @@ const watchFields = {
   search_term: z.string().trim().min(3).max(80),
   item_basics: z.array(z.string().trim().min(1).max(120)).max(20),
   department: z.enum(DEPARTMENTS),
-  basis: z.enum(['lb', 'package', 'unit']),
+  basis: z.enum(['lb', 'oz', 'package', 'unit']),
   pack_count: z.coerce.number().positive().max(10000).nullable(),
   target_price: z.coerce.number().positive().max(10000).nullable(),
   notes: z.string().trim().max(300)
@@ -194,7 +194,8 @@ function handleGrocery(req, res, pathname) {
   route(req, res, pathname).catch((err) => {
     const status = err.status || 500;
     if (status >= 500) console.error('grocery error:', err);
-    if (!res.headersSent) sendJson(res, status, { error: status >= 500 ? 'Something went wrong on the server.' : err.message });
+    // Errors raised with a status (Kroger, Resend, validation) carry a message meant for the user.
+    if (!res.headersSent) sendJson(res, status, { error: err.status ? err.message : 'Something went wrong on the server.' });
   });
   return true;
 }
@@ -281,7 +282,45 @@ async function routeDeals(req, res, method, sub) {
     const [location, view, daily, cycle] = await Promise.all([
       deals.getLocation(), deals.dealsView(), db.lastRunOf('daily'), db.promoChangesByWeekday()
     ]);
-    sendJson(res, 200, { configured: deals.isConfigured(), store: deals.STORE, location, ...view, last_daily: daily, cycle });
+    sendJson(res, 200, {
+      configured: deals.isConfigured(), store: deals.STORE, location, ...view, last_daily: daily, cycle,
+      email: await deals.emailSettings()
+    });
+    return;
+  }
+
+  if (method === 'PUT' && sub === '/email') {
+    const parsed = z.object({
+      enabled: z.boolean(),
+      to: z.union([z.literal(''), z.string().trim().email().max(200)]),
+      weekday: z.union([z.literal('auto'), z.number().int().min(1).max(7)])
+    }).strict().safeParse(await readBody(req, MAX_JSON));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    if (parsed.data.enabled && !parsed.data.to) { sendJson(res, 400, { error: 'Enter the address to send the weekly email to.' }); return; }
+    await db.setSetting('deals_email', parsed.data);
+    sendJson(res, 200, { email: await deals.emailSettings() });
+    return;
+  }
+
+  if (method === 'POST' && sub === '/email/test') {
+    const { to } = await deals.emailSettings();
+    if (!to) { sendJson(res, 400, { error: 'Save an email address first.' }); return; }
+    sendJson(res, 200, { subject: await deals.sendDealsEmail(to), to });
+    return;
+  }
+
+  // Corrects the package size of one receipt line (e.g. "10 x 7.5 fl oz"); empty clears it.
+  if (method === 'PUT' && sub === '/item-size') {
+    const parsed = z.object({ item_id: z.number().int().positive(), size: z.string().trim().max(60) }).strict()
+      .safeParse(await readBody(req, MAX_JSON));
+    if (!parsed.success) { validationError(res, parsed.error); return; }
+    const read = deals.parseSize(parsed.data.size);
+    if (parsed.data.size && !read.oz && !read.count) {
+      sendJson(res, 400, { error: `Couldn't read "${parsed.data.size}". Try "10 x 7.5 fl oz", "2 L", "1.5 lb" or "12 rolls".` });
+      return;
+    }
+    if (!(await db.setItemSize(parsed.data.item_id, parsed.data.size))) { sendJson(res, 404, { error: 'Receipt item not found.' }); return; }
+    sendJson(res, 200, { size: parsed.data.size, read: deals.describeSize(read) });
     return;
   }
 

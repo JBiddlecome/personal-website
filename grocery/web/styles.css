@@ -613,3 +613,13 @@ tbody td { padding: .7rem 1rem; font-size: .93rem; vertical-align: middle; }
     .dl-group td { padding: .45rem .6rem; }
     .dl-group .deal-card-top { padding: .8rem .75rem .3rem; }
 }
+
+.dl-lines { margin: .25rem 0 .9rem; }
+.dl-lines-head { font-size: .75rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 .35rem; }
+.dl-lines table { font-size: .85rem; }
+.dl-lines td { padding: .35rem .5rem; vertical-align: top; }
+.dl-lines .dl-line-size { width: 150px; padding: .25rem .4rem; font-size: .85rem; }
+.dl-lines-empty { font-size: .85rem; margin: 0 0 .75rem; }
+.dl-email-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.dl-email-form #dl-email-to { flex: 1 1 220px; max-width: 320px; }
+.dl-check-label { display: flex; align-items: center; gap: .4rem; font-size: .9rem; color: #333; width: 100%; }
