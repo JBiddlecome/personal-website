@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>How Storybook Works</title>
+<link rel="stylesheet" href="/storybook/styles.css">
+<style>
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 0.88rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+
+  .flow { display: flex; flex-direction: column; align-items: stretch; }
+  .arrow { align-self: center; width: 2px; height: 30px; background: var(--muted); position: relative; margin: 2px 0 8px; }
+  .arrow::after { content: ""; position: absolute; left: -5px; bottom: -8px; border: 6px solid transparent; border-top: 8px solid var(--muted); }
+  .arrow-label { align-self: center; font: 0.78rem/1 system-ui, sans-serif; color: var(--muted); margin: -2px 0 6px; text-align: center; }
+
+  .node { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--muted); border-radius: var(--radius); padding: 16px 18px; }
+  .node.claude { border-left-color: var(--accent); }
+  .node.gemini { border-left-color: var(--blue); }
+  .node.code { border-left-color: var(--ok); }
+  .node.you { border: 2px dashed var(--warn); background: #fffaf0; }
+  .node-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .node-head h3 { margin: 0; font-size: 1.15rem; }
+  .step-no { color: var(--muted); font-weight: normal; margin-right: 4px; }
+  .chip { font: bold 0.75rem/1 system-ui, sans-serif; padding: 6px 10px; border-radius: 999px; white-space: nowrap; }
+  .chip.claude { background: var(--accent-soft); color: var(--accent-dark); }
+  .chip.haiku { background: var(--purple-soft); color: var(--purple); }
+  .chip.gemini { background: var(--blue-soft); color: var(--blue); }
+  .chip.code { background: var(--ok-soft); color: var(--ok); }
+  .chip.you { background: var(--warn-soft); color: var(--warn); }
+  .node p.does { margin: 0 0 10px; }
+  .io { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.9rem; }
+  .io div { background: var(--paper); border-radius: 8px; padding: 8px 10px; }
+  .io b { display: block; font: bold 0.72rem/1.4 system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .stops { margin: 10px 0 0; font-size: 0.86rem; color: var(--warn); }
+  .stops::before { content: "Stops for you if: "; font-weight: bold; }
+  .loop-note { margin: 10px 0 0; font-size: 0.86rem; color: var(--muted); }
+  .loop-note::before { content: "⟲ "; }
+
+  .parallel { border: 2px solid var(--blue); border-radius: var(--radius); padding: 14px; background: #f5f9fc; }
+  .parallel > .label { font: bold 0.8rem/1 system-ui, sans-serif; color: var(--blue); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .lane { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 0.85rem; text-align: center; }
+  .lane strong { display: block; margin-bottom: 6px; }
+  .lane .mini { border-radius: 8px; padding: 6px; margin: 4px 0; }
+  .lane .mini.g { background: var(--blue-soft); color: var(--blue); }
+  .lane .mini.h { background: var(--purple-soft); color: var(--purple); }
+  .lane .cyc { color: var(--muted); font-size: 0.78rem; }
+  .parallel .node { margin-top: 12px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: bold 0.75rem/1.4 system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  td.num { text-align: right; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  @media (max-width: 700px) {
+    .io { grid-template-columns: 1fr; }
+    .lanes { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="inner">
+    <h1><a href="/storybook">Storybook</a></h1>
+    <nav><a href="/storybook">Make a book</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>How the agents make a book</h2>
+    <p>Seven roles hand work to each other in a fixed order, run by an <strong>orchestrator</strong> (plain code) that
+      saves a checkpoint after every step, tracks the cost of each agent, and <strong>stops whenever you need to approve or decide something</strong>.
+      Every handoff is a schema: a fixed shape the next step can rely on.</p>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--accent)"></i>Claude agent (judgment)</span>
+      <span><i class="swatch" style="background:var(--blue)"></i>Gemini image model (drawing)</span>
+      <span><i class="swatch" style="background:var(--ok)"></i>Plain code (rules, no AI)</span>
+      <span><i class="swatch" style="background:var(--warn)"></i>You decide</span>
+      <span><i class="swatch" style="background:#f5f9fc; border:2px solid var(--blue)"></i>Runs in parallel</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <!-- 1 -->
+    <div class="node you">
+      <div class="node-head"><h3><span class="step-no">1</span>Your request</h3><span class="chip you">You</span></div>
+      <p class="does">You fill in the form. The server checks it against the request schema before anything is spent.</p>
+      <div class="io">
+        <div><b>In</b>Subject, reader age, story type, style, number of pages</div>
+        <div><b>Out</b><code>BookRequest</code>, the one source of truth every agent receives</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 2 -->
+    <div class="node claude">
+      <div class="node-head"><h3><span class="step-no">2</span>Researcher</h3><span class="chip claude">Claude Opus 5.5 + web search</span></div>
+      <p class="does">The one true looping agent. It decides what to search for, reads the results, and saves facts
+        one at a time with a tool our code runs. Our code rejects near-duplicate facts and tells it to find a different one.</p>
+      <div class="io">
+        <div><b>In</b>Subject, reader age, any direction you've given</div>
+        <div><b>Out</b>8–12 kid-friendly facts, each with its source link</div>
+      </div>
+      <p class="loop-note">Loop: search → save_fact → read result → repeat, up to 15 turns</p>
+      <p class="stops">it calls <code>ask_for_direction</code> (subject unclear or unsuitable), or finds fewer than 5 reliable facts</p>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 3 -->
+    <div class="node claude">
+      <div class="node-head"><h3><span class="step-no">3</span>Outliner</h3><span class="chip claude">Claude Opus 5.5</span></div>
+      <p class="does">Plans the book page by page and builds the plot around two or three of the real facts.
+        Writes a precise look for each character, which later keeps the pictures consistent.</p>
+      <div class="io">
+        <div><b>In</b>Request, research, your direction or change notes</div>
+        <div><b>Out</b>Outline: title, one-line story, theme, setting, characters + appearance, what happens and what to picture on each page</div>
+      </div>
+      <p class="stops">it fills in its <code>needs_direction</code> field (the request can't become a good book as given)</p>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 4 -->
+    <div class="node you">
+      <div class="node-head"><h3><span class="step-no">4</span>Approve the outline</h3><span class="chip you">You · always</span></div>
+      <p class="does">The cheapest moment to change course: nothing has been written or drawn yet.</p>
+      <div class="io">
+        <div><b>You can</b>Approve · ask the Outliner for changes (back to step 3) · cancel</div>
+        <div><b>Out</b>An approved outline</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 5 -->
+    <div class="node claude">
+      <div class="node-head"><h3><span class="step-no">5</span>Writer ⇄ Editor</h3><span class="chip claude">Claude Opus 5.5 (both)</span></div>
+      <p class="does">The Writer drafts the words for every page. A separate Editor, which never sees the Writer's instructions,
+        checks a 7-point list (age fit, read-aloud rhythm, story, accuracy against the research, consistency, safety, your direction)
+        and tags each issue <em>must fix</em> or <em>nice to have</em>. <strong>Code</strong>, not the model, approves the draft when there are no must-fix issues.</p>
+      <div class="io">
+        <div><b>In</b>Request, approved outline, research, your notes</div>
+        <div><b>Out</b>Page-by-page text + the Editor's last review</div>
+      </div>
+      <p class="loop-note">Loop: draft → review → revise with notes, up to 3 rounds</p>
+      <p class="stops">the Writer and Editor still disagree after 3 rounds</p>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 6 -->
+    <div class="node you">
+      <div class="node-head"><h3><span class="step-no">6</span>Approve the text</h3><span class="chip you">You · always</span></div>
+      <p class="does">You see the text and the Editor's notes. Edit any page yourself, or send it back.</p>
+      <div class="io">
+        <div><b>You can</b>Edit pages and approve · ask the Writer for changes (back to step 5) · cancel</div>
+        <div><b>Out</b>The final text, locked before any money is spent on pictures</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 7 -->
+    <div class="node claude">
+      <div class="node-head"><h3><span class="step-no">7</span>Art Director</h3><span class="chip claude">Claude Opus 5.5</span></div>
+      <p class="does">Chooses one art style for the whole book and writes a scene for each picture: who's in it, what they're doing,
+        framing, mood, and room left for the words. Never asks for lettering.</p>
+      <div class="io">
+        <div><b>In</b>Request, outline (character looks), final text</div>
+        <div><b>Out</b>Art plan: style paragraph, character-sheet scene, cover scene, one scene per page</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 8 -->
+    <div class="node gemini">
+      <div class="node-head"><h3><span class="step-no">8</span>Illustrator: character sheet</h3><span class="chip gemini">Gemini 3.1 Flash Lite Image</span></div>
+      <p class="does">Draws every character side by side. Runs alone, first, because every other picture copies from it.
+        The Illustrator is plain code calling Gemini: it makes no decisions, so it isn't an agent.</p>
+      <div class="io">
+        <div><b>In</b>Style + character descriptions (added by code, identically every time)</div>
+        <div><b>Out</b>The reference picture used for every page</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 9 -->
+    <div class="parallel">
+      <div class="label"><span>9 · Draw ⇄ review, 4 pictures at a time</span><span>cover + every page</span></div>
+      <div class="lanes">
+        <div class="lane"><strong>Cover</strong><div class="mini g">Illustrator draws</div><div class="mini h">Art Reviewer checks</div><div class="cyc">⟲ up to 2 redraws</div></div>
+        <div class="lane"><strong>Page 1</strong><div class="mini g">Illustrator draws</div><div class="mini h">Art Reviewer checks</div><div class="cyc">⟲ up to 2 redraws</div></div>
+        <div class="lane"><strong>Page 2</strong><div class="mini g">Illustrator draws</div><div class="mini h">Art Reviewer checks</div><div class="cyc">⟲ up to 2 redraws</div></div>
+        <div class="lane"><strong>Page 3 …</strong><div class="mini g">Illustrator draws</div><div class="mini h">Art Reviewer checks</div><div class="cyc">⟲ up to 2 redraws</div></div>
+      </div>
+      <div class="node gemini">
+        <div class="node-head"><h3>Illustrator</h3><span class="chip gemini">Gemini 3.1 Flash Lite Image</span></div>
+        <p class="does">Draws the scene with the character sheet attached as a reference image. On a redraw, the reviewer's fixes are added to the prompt.</p>
+        <div class="io"><div><b>In</b>Scene, style, cast, character sheet, corrections</div><div><b>Out</b>One 4:3 picture</div></div>
+      </div>
+      <div class="node claude" style="border-left-color: var(--purple)">
+        <div class="node-head"><h3>Art Reviewer</h3><span class="chip haiku">Claude Haiku 5.5 · vision</span></div>
+        <p class="does">Looks at each new picture next to the character sheet, with the whole story for context (so a hat that's
+          lost in the story isn't flagged as a mistake). Checks characters, scene, no lettering, nothing scary. Small counts and poses are
+          only "nice to have". Uses the cheapest Claude model because it runs about 20 times per book.</p>
+        <div class="io"><div><b>In</b>Character sheet, new picture, art direction, whole story, your notes</div><div><b>Out</b>What it sees + must-fix / nice-to-have issues</div></div>
+        <p class="stops">a picture still has must-fix issues after 2 redraws, or Gemini returns no picture</p>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 10 -->
+    <div class="node you">
+      <div class="node-head"><h3><span class="step-no">10</span>Decide on flagged pictures</h3><span class="chip you">You · only if needed</span></div>
+      <p class="does">Each flagged picture is shown with the reviewer's reasons. Often the reviewer is being strict and the picture is fine.</p>
+      <div class="io">
+        <div><b>You can</b>Accept it · redraw it with your own instructions (back to step 9 for that picture only)</div>
+        <div><b>Out</b>A complete set of pictures</div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- 11 -->
+    <div class="node code">
+      <div class="node-head"><h3><span class="step-no">11</span>Assembler</h3><span class="chip code">No AI · pdfkit</span></div>
+      <p class="does">Lays out a 10 × 10 inch book: title cover, a page per spread with the picture above and the words below
+        (the font shrinks just enough to fit), and "The End". Page layout is a rule, so it's code: instant, free, and the same every time.</p>
+      <div class="io">
+        <div><b>In</b>Final text, all pictures</div>
+        <div><b>Out</b>The PDF, saved with the book</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:28px">
+    <h2>Every step at a glance</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Kind</th><th>Model</th><th>Runs</th><th class="num">Typical cost</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Your request</td><td>You + validation</td><td>None</td><td>Once</td><td class="num">$0</td></tr>
+        <tr><td>2</td><td>Researcher</td><td>Looping agent with tools</td><td>Claude Opus 5.5 + web search</td><td>Once (more if you redirect it)</td><td class="num">~$0.40</td></tr>
+        <tr><td>3</td><td>Outliner</td><td>Single call, schema</td><td>Claude Opus 5.5</td><td>Once per outline</td><td class="num">~$0.05</td></tr>
+        <tr><td>4</td><td>Approve outline</td><td>You</td><td>None</td><td>Always</td><td class="num">$0</td></tr>
+        <tr><td>5</td><td>Writer ⇄ Editor</td><td>Two agents, feedback loop</td><td>Claude Opus 5.5</td><td>1–3 rounds</td><td class="num">~$0.25</td></tr>
+        <tr><td>6</td><td>Approve text</td><td>You</td><td>None</td><td>Always</td><td class="num">$0</td></tr>
+        <tr><td>7</td><td>Art Director</td><td>Single call, schema</td><td>Claude Opus 5.5</td><td>Once</td><td class="num">~$0.07</td></tr>
+        <tr><td>8–9</td><td>Illustrator</td><td>Plain code calling an image model</td><td>Gemini 3.1 Flash Lite Image</td><td>Sheet, then 4 in parallel</td><td class="num">~$0.40–0.65</td></tr>
+        <tr><td>9</td><td>Art Reviewer</td><td>Single call with images, feedback loop</td><td>Claude Haiku 5.5</td><td>~10–20 reviews, in parallel</td><td class="num">~$0.03*</td></tr>
+        <tr><td>10</td><td>Flagged pictures</td><td>You</td><td>None</td><td>Only if needed</td><td class="num">$0</td></tr>
+        <tr><td>11</td><td>Assembler</td><td>Plain code</td><td>None (pdfkit)</td><td>Once</td><td class="num">$0</td></tr>
+        <tr><td></td><td>Orchestrator</td><td>Plain code</td><td>None</td><td>Throughout: order, checkpoints, costs, stops</td><td class="num">$0</td></tr>
+        <tr><td colspan="5"><strong>Whole book</strong></td><td class="num"><strong>~$1.20–1.50</strong></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="muted small">*Estimated. The Art Reviewer cost $0.71 per book on Claude Opus; Claude Haiku 5.5 is about 40× cheaper per token.
+      Each book page shows the actual cost per agent.</p>
+  </div>
+
+  <div class="card">
+    <h2>Rules the design follows</h2>
+    <ul>
+      <li><strong>Schemas for anything that must be exact; prompts for preferences.</strong> Every handoff above is a fixed shape.</li>
+      <li><strong>Code makes the decisions</strong>: approvals, retries, limits and when to stop for you.</li>
+      <li><strong>A reviewer is only as good as its context</strong>: the Editor gets the research, the Art Reviewer gets the whole story.</li>
+      <li><strong>Fix repeated failures upstream</strong>: the Writer avoids things pictures can't show (counting, flying backward).</li>
+      <li><strong>AI for judgment, code for rules</strong>: only the Researcher loops on its own; the Illustrator and Assembler aren't agents.</li>
+      <li><strong>Never pay twice</strong>: every step's result is saved, so a stopped book resumes from its last checkpoint.</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>
