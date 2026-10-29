@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { handleGrocery, startDailyChecks } = require('./grocery/api');
 const { handleDossier } = require('./dossier/api');
+const { handleStorybook, startStorybook } = require('./storybook/api');
 
 // Load .env files for local development (Render supplies real env vars in production).
 // First definition of a key wins, and real environment variables beat both files.
@@ -536,6 +537,8 @@ const server = http.createServer((req, res) => {
   if (handleGrocery(req, res, pathname)) return;
   // /dossier (private personal record) is self-contained; see dossier/api.js.
   if (handleDossier(req, res, pathname)) return;
+  // /storybook (AI picture-book agents) is self-contained; see storybook/api.js.
+  if (handleStorybook(req, res, pathname)) return;
 
   const contactsMatch = pathname.match(/^\/api\/maps\/(contacts|schools|regions)(?:\/([A-Za-z0-9_-]+))?$/);
   if (contactsMatch) {
@@ -636,4 +639,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   startDailyChecks();
+  startStorybook();
 });

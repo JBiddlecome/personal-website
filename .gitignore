@@ -5,3 +5,4 @@ contact-submissions.log
 data/
 scripts/.lausd-cache/
 grocery/grocery_list.xlsx
+.storybook-data/

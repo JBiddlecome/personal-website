@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Storybook</title>
+<link rel="stylesheet" href="/storybook/styles.css">
+</head>
+<body>
+<main>
+  <form class="card login-card" id="login-form">
+    <h2>Storybook</h2>
+    <p class="muted small">A team of AI agents that makes children's picture books.</p>
+    <label>Password
+      <input type="password" id="password" autocomplete="current-password" required autofocus>
+    </label>
+    <div class="actions"><button type="submit" id="login-btn">Sign in</button></div>
+    <p class="error hidden" id="login-error"></p>
+  </form>
+</main>
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  err.classList.add('hidden');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/storybook/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: document.getElementById('password').value }),
+    });
+    if (res.ok) { location.reload(); return; }
+    err.textContent = (await res.json().catch(() => ({}))).error || 'Sign-in failed.';
+  } catch {
+    err.textContent = 'Network error. Try again.';
+  }
+  err.classList.remove('hidden');
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>

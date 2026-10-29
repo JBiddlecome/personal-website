@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Storybook</title>
+<link rel="stylesheet" href="/storybook/styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="inner">
+    <h1><a href="/storybook">Storybook</a></h1>
+    <nav>
+      <a href="/storybook/how-it-works">How it works</a>
+      <button class="link" id="logout">Sign out</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- Home: new book + bookshelf -->
+  <section id="home">
+    <div class="card">
+      <h2>Make a new book</h2>
+      <form class="grid-form" id="book-form">
+        <label class="wide">What is the book about?
+          <input name="subject" required maxlength="120" placeholder="e.g. hummingbirds, volcanoes, garbage trucks">
+        </label>
+        <label>Reader age
+          <select name="age_group"><option>2-4</option><option selected>4-6</option><option>6-8</option><option>8-10</option></select>
+        </label>
+        <label>Story type
+          <select name="story_type">
+            <option>fable</option><option>adventure</option><option>rhyming poem</option>
+            <option>bedtime story</option><option>mystery</option><option>quest</option>
+          </select>
+        </label>
+        <label>Style
+          <input name="style" required maxlength="80" value="gentle and funny" list="styles">
+          <datalist id="styles">
+            <option value="gentle and funny"><option value="silly and loud"><option value="cozy and calm">
+            <option value="adventurous"><option value="spooky but not scary">
+          </datalist>
+        </label>
+        <label>Pages
+          <input name="page_count" type="number" min="4" max="12" value="8">
+        </label>
+        <div class="wide actions">
+          <button type="submit" id="go">Start the agents</button>
+          <span class="muted small">About $1.50 in API fees. The agents stop twice for your approval: after the outline and after the text.</span>
+        </div>
+        <p class="error hidden wide" id="form-error"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Bookshelf</h2>
+      <ul class="books" id="books"><li class="muted">Loading…</li></ul>
+    </div>
+  </section>
+
+  <!-- One book -->
+  <section id="book" class="hidden">
+    <p><a href="/storybook">← All books</a></p>
+    <div class="card">
+      <div class="book-head">
+        <div>
+          <h2 id="book-title">New book</h2>
+          <p class="muted small" id="book-request"></p>
+        </div>
+        <span class="badge" id="book-status"></span>
+      </div>
+      <ol class="stages" id="stages"></ol>
+    </div>
+
+    <div class="card your-turn hidden" id="decision"></div>
+
+    <div class="card hidden" id="result">
+      <h2>Your book</h2>
+      <div class="actions" style="margin-top:0; margin-bottom:12px">
+        <a class="button" id="pdf-link" target="_blank">Open the PDF</a>
+      </div>
+      <iframe class="pdf" id="pdf-frame" title="Your book"></iframe>
+    </div>
+
+    <div class="card hidden" id="pictures-card">
+      <h2>Pictures</h2>
+      <div class="gallery" id="gallery"></div>
+    </div>
+
+    <div class="card">
+      <h2>What the agents are doing</h2>
+      <div class="log" id="log"></div>
+      <div class="cost-line"><span id="cost-detail"></span><span id="cost-total">$0.00</span></div>
+      <div class="actions"><button class="link" id="delete-book">Delete this book</button></div>
+    </div>
+  </section>
+</main>
+<script src="/storybook/app.js"></script>
+</body>
+</html>
