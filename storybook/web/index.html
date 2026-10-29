@@ -6,8 +6,140 @@
 <meta name="robots" content="noindex">
 <title>Storybook</title>
 <link rel="stylesheet" href="/storybook/styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
 </head>
 <body>
+<div class="watercolor-bg" aria-hidden="true">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"
+       xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+    <defs>
+      <filter id="wc-a" x="-60%" y="-60%" width="220%" height="220%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.018 0.022" numOctaves="4" seed="3" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="50" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feGaussianBlur in="d" stdDeviation="22"/>
+      </filter>
+      <filter id="wc-b" x="-60%" y="-60%" width="220%" height="220%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.028 0.016" numOctaves="5" seed="9" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="44" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feGaussianBlur in="d" stdDeviation="26"/>
+      </filter>
+      <filter id="wc-c" x="-60%" y="-60%" width="220%" height="220%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.022 0.030" numOctaves="3" seed="17" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="38" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feGaussianBlur in="d" stdDeviation="18"/>
+      </filter>
+      <radialGradient id="moon-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fff8e8" stop-opacity="0.9"/>
+        <stop offset="60%" stop-color="#fef3d0" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#fef3d0" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#e8e0f8" stop-opacity="0.45"/>
+        <stop offset="100%" stop-color="#e8e0f8" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1440" height="900" fill="#faf5eb"/>
+    <rect width="1440" height="420" fill="url(#sky)"/>
+    <!-- Watercolor washes -->
+    <ellipse cx="160" cy="170" rx="420" ry="290" fill="#ddd0f2" opacity="0.52" filter="url(#wc-a)"/>
+    <ellipse cx="90" cy="110" rx="280" ry="200" fill="#cfc0ec" opacity="0.38" filter="url(#wc-b)"/>
+    <ellipse cx="1300" cy="140" rx="380" ry="260" fill="#c4d8f8" opacity="0.50" filter="url(#wc-a)"/>
+    <ellipse cx="1380" cy="240" rx="240" ry="170" fill="#b4c8ec" opacity="0.42" filter="url(#wc-c)"/>
+    <ellipse cx="720" cy="90" rx="340" ry="150" fill="#f5e8b4" opacity="0.48" filter="url(#wc-b)"/>
+    <ellipse cx="70" cy="520" rx="230" ry="200" fill="#c4e4cc" opacity="0.42" filter="url(#wc-c)"/>
+    <ellipse cx="110" cy="640" rx="180" ry="140" fill="#b4d8bc" opacity="0.36" filter="url(#wc-a)"/>
+    <ellipse cx="1380" cy="500" rx="250" ry="220" fill="#f5ccd4" opacity="0.44" filter="url(#wc-b)"/>
+    <ellipse cx="1340" cy="640" rx="180" ry="150" fill="#edbecc" opacity="0.38" filter="url(#wc-c)"/>
+    <ellipse cx="580" cy="720" rx="300" ry="160" fill="#b4d4dc" opacity="0.35" filter="url(#wc-a)"/>
+    <ellipse cx="900" cy="760" rx="260" ry="130" fill="#a8ccdc" opacity="0.30" filter="url(#wc-b)"/>
+    <ellipse cx="720" cy="880" rx="580" ry="100" fill="#f0e4c0" opacity="0.50" filter="url(#wc-c)"/>
+    <!-- Moon -->
+    <circle cx="1068" cy="105" r="88" fill="url(#moon-glow)"/>
+    <circle cx="1068" cy="105" r="46" fill="#fefae8" opacity="0.88"/>
+    <circle cx="1078" cy="98" r="38" fill="#faf5dc" opacity="0.70"/>
+    <circle cx="1055" cy="95" r="5" fill="#f5ecc8" opacity="0.60"/>
+    <circle cx="1072" cy="112" r="3" fill="#f5ecc8" opacity="0.50"/>
+    <circle cx="1082" cy="90" r="4" fill="#f5ecc8" opacity="0.45"/>
+    <!-- Stars -->
+    <g fill="#f0e0a0" opacity="0.85">
+      <polygon points="342,52 345,62 355,65 345,68 342,78 339,68 329,65 339,62" transform="scale(0.85) translate(60,0)"/>
+      <circle cx="248" cy="74" r="2.2"/><circle cx="255" cy="64" r="1.4"/><circle cx="240" cy="80" r="1.4"/>
+      <circle cx="512" cy="42" r="2.4"/><circle cx="522" cy="32" r="1.6"/><circle cx="502" cy="50" r="1.4"/>
+      <circle cx="680" cy="38" r="2.0"/><circle cx="690" cy="29" r="1.5"/>
+      <circle cx="840" cy="55" r="2.2"/><circle cx="852" cy="44" r="1.5"/><circle cx="832" cy="62" r="1.4"/>
+      <circle cx="980" cy="35" r="1.8"/><circle cx="992" cy="27" r="1.4"/>
+      <circle cx="1140" cy="48" r="2.0"/><circle cx="1150" cy="38" r="1.5"/>
+      <circle cx="400" cy="28" r="1.8"/><circle cx="410" cy="20" r="1.3"/>
+      <circle cx="1220" cy="70" r="1.6"/><circle cx="640" cy="22" r="1.5"/>
+      <circle cx="162" cy="52" r="1.8"/><circle cx="172" cy="42" r="1.3"/>
+    </g>
+    <g fill="#d8e8f8" opacity="0.70">
+      <circle cx="300" cy="38" r="1.8"/><circle cx="560" cy="28" r="1.6"/>
+      <circle cx="740" cy="42" r="1.5"/><circle cx="918" cy="30" r="1.7"/>
+      <circle cx="1060" cy="155" r="1.4"/><circle cx="1180" cy="38" r="1.6"/>
+    </g>
+    <!-- Birds -->
+    <g stroke="#8a7870" stroke-width="1.6" fill="none" opacity="0.55" stroke-linecap="round">
+      <path d="M 428,118 Q 434,112 440,118"/><path d="M 440,108 Q 446,102 452,108"/>
+      <path d="M 452,122 Q 458,116 464,122"/><path d="M 498,95 Q 504,89 510,95"/>
+      <path d="M 510,108 Q 516,102 522,108"/>
+    </g>
+    <!-- Castle silhouette -->
+    <g fill="#8090a8" opacity="0.22">
+      <rect x="590" y="740" width="22" height="90"/>
+      <rect x="588" y="734" width="5" height="9"/><rect x="595" y="734" width="5" height="9"/>
+      <rect x="602" y="734" width="5" height="9"/><rect x="609" y="734" width="5" height="9"/>
+      <rect x="606" y="755" width="48" height="75"/>
+      <rect x="604" y="749" width="6" height="9"/><rect x="613" y="749" width="6" height="9"/>
+      <rect x="622" y="749" width="6" height="9"/><rect x="631" y="749" width="6" height="9"/>
+      <rect x="640" y="749" width="6" height="9"/><rect x="649" y="749" width="6" height="9"/>
+      <rect x="648" y="748" width="22" height="82"/>
+      <rect x="646" y="742" width="5" height="9"/><rect x="653" y="742" width="5" height="9"/>
+      <rect x="660" y="742" width="5" height="9"/><rect x="667" y="742" width="5" height="9"/>
+      <rect x="588" y="775" width="82" height="55"/>
+      <rect x="614" y="795" width="20" height="35"/>
+      <rect x="618" y="720" width="2" height="30"/>
+      <polygon points="620,720 638,727 620,734"/>
+    </g>
+    <!-- Trees left -->
+    <g opacity="0.38" fill="#6a8758">
+      <polygon points="-10,900 36,800 82,900"/><polygon points="24,900 68,810 112,900"/>
+      <polygon points="56,900 95,820 134,900"/><polygon points="-30,900 12,815 54,900"/>
+    </g>
+    <g opacity="0.68" fill="#4a6640">
+      <polygon points="-15,900 38,778 91,900"/><rect x="31" y="852" width="14" height="48"/>
+      <polygon points="44,900 90,766 136,900"/><rect x="83" y="848" width="14" height="52"/>
+      <polygon points="-40,900 18,795 76,900"/><rect x="11" y="858" width="12" height="42"/>
+      <polygon points="70,900 112,784 154,900"/><rect x="105" y="854" width="12" height="46"/>
+    </g>
+    <g opacity="0.80" fill="#3a5230">
+      <polygon points="0,900 46,752 92,900"/><rect x="38" y="840" width="16" height="60"/>
+      <polygon points="-20,900 32,768 84,900"/><rect x="24" y="848" width="16" height="52"/>
+      <polygon points="8,900 52,795 96,900" opacity="0.55"/>
+      <polygon points="-12,900 36,808 84,900" opacity="0.50"/>
+    </g>
+    <!-- Trees right -->
+    <g opacity="0.38" fill="#6a8758">
+      <polygon points="1358,900 1404,800 1450,900"/><polygon points="1316,900 1360,810 1404,900"/>
+      <polygon points="1384,900 1423,820 1462,900"/>
+    </g>
+    <g opacity="0.68" fill="#4a6640">
+      <polygon points="1349,900 1395,778 1441,900"/><rect x="1388" y="852" width="14" height="48"/>
+      <polygon points="1304,900 1350,766 1396,900"/><rect x="1343" y="848" width="14" height="52"/>
+      <polygon points="1364,900 1420,795 1476,900"/><rect x="1413" y="858" width="12" height="42"/>
+      <polygon points="1286,900 1328,784 1370,900"/><rect x="1321" y="854" width="12" height="46"/>
+    </g>
+    <g opacity="0.80" fill="#3a5230">
+      <polygon points="1348,900 1394,752 1440,900"/><rect x="1386" y="840" width="16" height="60"/>
+      <polygon points="1356,900 1408,768 1460,900"/><rect x="1400" y="848" width="16" height="52"/>
+      <polygon points="1344,900 1388,795 1432,900" opacity="0.55"/>
+      <polygon points="1356,900 1404,808 1452,900" opacity="0.50"/>
+    </g>
+    <!-- Ground mist -->
+    <ellipse cx="720" cy="920" rx="820" ry="72" fill="#e8eef8" opacity="0.42" filter="url(#wc-c)"/>
+    <ellipse cx="720" cy="900" rx="600" ry="40" fill="#f0f4f8" opacity="0.30"/>
+  </svg>
+</div>
 <header class="top">
   <div class="inner">
     <h1><a href="/storybook">Storybook</a></h1>
