@@ -4,7 +4,8 @@
 //   node dossier/pull.js [site-url]             default site: https://jakebiddlecome.com
 //
 // Saves journal-YYYY-MM-DD.json files to ~/Dossier/journal and the library to ~/Dossier/books/books.json
-// (override the base folder with DOSSIER_DIR).
+// (override the base folder with DOSSIER_DIR), and the apartment layout to layout.json in the apartment model folder
+// (override with FLOORPLAN_DIR).
 // Only entries that are new or changed since the last pull are downloaded.
 const fs = require('fs');
 const os = require('os');
@@ -24,6 +25,8 @@ const SITE = (process.argv[2] || 'https://jakebiddlecome.com').replace(/\/$/, ''
 const BASE = process.env.DOSSIER_DIR || path.join(os.homedir(), 'Dossier');
 const PASSWORD = process.env.DOSSIER_PASSWORD || envFromFile('DOSSIER_PASSWORD');
 const JOURNAL_RE = /^journal-\d{4}-\d{2}-\d{2}\.json$/;
+const LAYOUT = 'floorplan-layout.json';
+const FLOORPLAN_DIR = process.env.FLOORPLAN_DIR || path.join(os.homedir(), 'GitHub Local', 'Apartment Floorplan');
 
 async function main() {
   if (!PASSWORD) throw new Error('Set DOSSIER_PASSWORD in the environment or in .env first.');
@@ -36,13 +39,13 @@ async function main() {
 
   const list = await fetch(`${SITE}/dossier/api/files`, { headers: auth });
   if (!list.ok) throw new Error(`Listing failed (${list.status})`);
-  const entries = (await list.json()).files.filter((f) => JOURNAL_RE.test(f.name) || f.name === 'books.json');
+  const entries = (await list.json()).files.filter((f) => JOURNAL_RE.test(f.name) || f.name === 'books.json' || f.name === LAYOUT);
 
   let pulled = 0;
   for (const f of entries) {
-    const dir = path.join(BASE, f.name === 'books.json' ? 'books' : 'journal');
+    const dir = f.name === LAYOUT ? FLOORPLAN_DIR : path.join(BASE, f.name === 'books.json' ? 'books' : 'journal');
     fs.mkdirSync(dir, { recursive: true });
-    const local = path.join(dir, f.name);
+    const local = path.join(dir, f.name === LAYOUT ? 'layout.json' : f.name);
     const remoteTime = new Date(f.updated_at).getTime();
     if (fs.existsSync(local) && fs.statSync(local).mtimeMs >= remoteTime) continue;
     const res = await fetch(`${SITE}/dossier/api/files/${encodeURIComponent(f.name)}`, { headers: auth });

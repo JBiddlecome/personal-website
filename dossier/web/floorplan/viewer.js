@@ -12,17 +12,22 @@ const toWorld = (x, y, z) => new THREE.Vector3(x, z, -y);
 const toPlan = (v) => ({ x: v.x, y: -v.z, z: v.y });
 const $ = (id) => document.getElementById(id);
 
-// On the website: Save can only write to the local copy, so Move stays there, and the service worker keeps the page working offline.
-if (location.pathname.startsWith('/dossier/floorplan')) {
-  $('move').hidden = true;
-  navigator.serviceWorker?.register('sw.js').catch((err) => console.warn('offline copy not set up', err));
-}
+// On the website: Save writes to the server, and the service worker keeps the page working offline.
+const onSite = location.pathname.startsWith('/dossier/floorplan');
+if (onSite) navigator.serviceWorker?.register('sw.js').catch((err) => console.warn('offline copy not set up', err));
 
 // Saved furniture positions. A missing or broken file just means everything stays where the model puts it.
 try {
   loadLayout(await (await fetch('layout.json', { cache: 'no-store' })).json());
 } catch (err) {
   console.warn('layout.json not loaded', err);
+}
+// Moves not saved yet survive a closed app, a dead battery or no signal, and replace what the server has until saved or discarded.
+const UNSAVED_KEY = 'floorplan-unsaved-layout';
+const pending = localStorage.getItem(UNSAVED_KEY);
+if (pending) {
+  for (const id of Object.keys(layout)) delete layout[id];
+  loadLayout(JSON.parse(pending));
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -294,7 +299,7 @@ function dragTo(clientX, clientY) {
 }
 
 // Moving furniture. Drags along a flat plane at the height it was grabbed, so the piece stays under the pointer.
-let moving = false, selected = null, moveDrag = null, unsaved = false, saveFile = null;
+let moving = false, selected = null, moveDrag = null, unsaved = !!pending, saveFile = null;
 const selectionBox = new THREE.LineSegments(unitEdges, new THREE.LineBasicMaterial({ color: 0x1f5fbf, depthTest: false }));
 selectionBox.renderOrder = 2;
 selectionBox.visible = false;
@@ -312,9 +317,9 @@ function showMoveStatus(text, cls = '') {
 function updateSelection() {
   selectionBox.visible = !!selected;
   $('moveRotate').disabled = $('moveReset').disabled = !selected;
-  $('moveSave').disabled = !unsaved;
+  $('moveSave').disabled = $('moveDiscard').disabled = !unsaved;
   if (!selected) {
-    showMoveStatus('Click a piece of furniture, then drag it.');
+    showMoveStatus(unsaved ? 'You have moves that are not saved yet.' : 'Tap a piece of furniture, then drag it.');
     return;
   }
   const f = pieceBounds(buildModel({ level: 'both' }).boxes, selected);
@@ -327,6 +332,7 @@ function updateSelection() {
 
 function layoutChanged() {
   unsaved = true;
+  localStorage.setItem(UNSAVED_KEY, JSON.stringify(layout));
   rebuild();
   updateSelection();
   if (fit) { fitSolids = buildModel({ level: fit.level }).boxes.filter(notFloor); updateFit(); }
@@ -346,8 +352,8 @@ function startMoveDrag(e) {
 }
 
 function moveDragTo(e) {
-  // A click that wobbles a pixel only selects, it doesn't nudge the piece or snap it to something.
-  if (!moveDrag.started && Math.hypot(e.clientX - moveDrag.screenX, e.clientY - moveDrag.screenY) < 4) return;
+  // A click that wobbles only selects, it doesn't nudge the piece or snap it to something. Fingers wobble more than a mouse.
+  if (!moveDrag.started && Math.hypot(e.clientX - moveDrag.screenX, e.clientY - moveDrag.screenY) < (e.pointerType === 'touch' ? 10 : 4)) return;
   moveDrag.started = true;
   const hit = floorPoint(e.clientX, e.clientY, moveDrag.height);
   if (!hit) return;
@@ -370,9 +376,31 @@ function setMoving(on) {
   resize();
 }
 
-// Writes layout.json over the project's copy. The page checks it landed there, since that's the copy the phone loads.
+// On the website, writes to the server. The local copy writes layout.json over the project's file.
+// Either way the page reads it back to check it landed. On the site that also refreshes the offline copy.
 async function saveLayout() {
   const text = JSON.stringify(layout, null, 2);
+  if (onSite) {
+    showMoveStatus('Saving...');
+    let message = null;
+    try {
+      const res = await fetch('/dossier/api/files/floorplan-layout.json', { method: 'PUT', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: text });
+      if (res.status === 401) message = 'Your sign-in expired. Reload to sign in, then Save again.';
+      else if (!res.ok) message = `The server said ${res.status}.`;
+    } catch {
+      message = 'No connection. Save again when you have signal.';
+    }
+    if (!message) {
+      const served = await fetch('layout.json', { cache: 'no-store' }).then((r) => r.text()).catch(() => '');
+      if (served !== text) message = 'The server did not keep the change. Try again.';
+    }
+    if (message) {
+      showMoveStatus(`Not saved. ${message} Your moves are kept on this device.`, 'bad');
+      return;
+    }
+    markSaved('Saved. Every device gets this on its next load.');
+    return;
+  }
   if (!window.showSaveFilePicker) {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -399,9 +427,14 @@ async function saveLayout() {
     showMoveStatus('Saved, but not in the Apartment Floorplan folder, so the phone will not see it. Save again and pick layout.json in that folder.', 'bad');
     return;
   }
+  markSaved('Saved. Refresh the phone to see it.');
+}
+
+function markSaved(text) {
   unsaved = false;
-  $('moveSave').disabled = true;
-  showMoveStatus('Saved. Refresh the phone to see it.', 'good');
+  localStorage.removeItem(UNSAVED_KEY);
+  $('moveSave').disabled = $('moveDiscard').disabled = true;
+  showMoveStatus(text, 'good');
 }
 
 // Walking
@@ -499,7 +532,6 @@ addEventListener('pointerup', (e) => {
     controls.enabled = !walking;
   }
 });
-addEventListener('beforeunload', (e) => { if (unsaved) e.preventDefault(); });
 
 const endPointer = (e) => {
   if (measuring && down && down.id === e.pointerId && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8) {
@@ -611,6 +643,10 @@ $('moveReset').onclick = () => {
   layoutChanged();
 };
 $('moveSave').onclick = saveLayout;
+$('moveDiscard').onclick = () => {
+  localStorage.removeItem(UNSAVED_KEY);
+  location.reload();
+};
 
 $('measure').onclick = () => {
   if (!measuring && moving) setMoving(false);
