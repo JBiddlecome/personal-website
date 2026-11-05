@@ -16,6 +16,12 @@ const CLI_SESSION_HOURS = 1;
 const WEB_DIR = path.join(__dirname, 'web');
 const PUBLIC_FILES = new Set(['login.html', 'styles.css']);
 const MAX_UPLOAD = 15e6;
+// The apartment's dimensions and furniture layout are personal, so like the rest of the dossier they stay out of
+// this repo. Only the page code is in web/floorplan; these two come from the store (dossier/publish.js --floorplan).
+const FLOORPLAN_DATA = {
+  '/dossier/floorplan/apartment.js': { name: 'floorplan-apartment.js', type: 'application/javascript; charset=utf-8' },
+  '/dossier/floorplan/layout.json': { name: 'floorplan-layout.json', type: 'application/json; charset=utf-8' },
+};
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 // Keep the whole section out of search engines and caches.
@@ -93,12 +99,12 @@ function handleLogin(req, res, body) {
 }
 
 // ── Static page ───────────────────────────────────────────────────────────────
-function serveWeb(res, file) {
+function serveWeb(res, file, status = 200) {
   const full = path.join(WEB_DIR, file);
   if (!full.startsWith(WEB_DIR + path.sep)) { res.writeHead(404); res.end('Not Found'); return; }
   fs.stat(full, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain', ...PRIVATE_HEADERS }); res.end('Not Found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream', ...PRIVATE_HEADERS });
+    res.writeHead(status, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream', ...PRIVATE_HEADERS });
     fs.createReadStream(full).pipe(res);
   });
 }
@@ -127,6 +133,8 @@ async function readJson(req) {
 function handleDossier(req, res, pathname) {
   // /books is a friendly address for the library page, which lives under /dossier for its session cookie.
   if (pathname === '/books' || pathname === '/books/') { res.writeHead(302, { Location: '/dossier/books', ...PRIVATE_HEADERS }); res.end(); return true; }
+  // Same for the apartment model. The trailing slash matters: the page loads its files by relative path.
+  if (pathname === '/floorplan' || pathname === '/floorplan/') { res.writeHead(302, { Location: '/dossier/floorplan/', ...PRIVATE_HEADERS }); res.end(); return true; }
   if (pathname !== '/dossier' && !pathname.startsWith('/dossier/')) return false;
   route(req, res, pathname).catch((err) => {
     const status = err.status || 500;
@@ -143,6 +151,17 @@ async function route(req, res, pathname) {
     if (method !== 'GET') { res.writeHead(405); res.end(); return; }
     if (pathname === '/dossier' || pathname === '/dossier/') { serveWeb(res, isAuthed(req) ? 'index.html' : 'login.html'); return; }
     if (pathname === '/dossier/books') { serveWeb(res, isAuthed(req) ? 'books.html' : 'login.html'); return; }
+    if (pathname === '/dossier/floorplan') { res.writeHead(302, { Location: '/dossier/floorplan/', ...PRIVATE_HEADERS }); res.end(); return; }
+    // 401, not 200, so the page's offline copy never saves the sign-in form in its place.
+    if (pathname === '/dossier/floorplan/') { if (isAuthed(req)) serveWeb(res, 'floorplan/index.html'); else serveWeb(res, 'login.html', 401); return; }
+    const data = FLOORPLAN_DATA[pathname];
+    if (data && isAuthed(req)) {
+      const stored = await store.getFile(data.name);
+      if (!stored) { res.writeHead(404, PRIVATE_HEADERS); res.end('Not Found'); return; }
+      res.writeHead(200, { 'Content-Type': data.type, ...PRIVATE_HEADERS });
+      res.end(stored.body);
+      return;
+    }
     const file = pathname.slice('/dossier/'.length);
     if (!PUBLIC_FILES.has(file) && !isAuthed(req)) { res.writeHead(404, PRIVATE_HEADERS); res.end('Not Found'); return; }
     serveWeb(res, file);

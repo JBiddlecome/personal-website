@@ -3,6 +3,8 @@
 //   node dossier/publish.js [site-url]          default site: https://jakebiddlecome.com
 //   node dossier/publish.js --books [site-url]  also upload ~/Dossier/books/books.json. The library is edited on
 //                                               the site, so run dossier/pull.js first or you overwrite those edits.
+//   node dossier/publish.js --floorplan [site-url]  upload only apartment.js and layout.json from the apartment model
+//                                               folder (override with FLOORPLAN_DIR).
 //
 // Reads DOSSIER_PASSWORD from the environment or the repo's .env, logs in for a short-lived token,
 // then uploads ~/Dossier/data/dossier.json (plus journal-prompts.json if present) and every image in ~/Dossier/photos (override the folder
@@ -23,18 +25,25 @@ function envFromFile(key) {
 
 const args = process.argv.slice(2);
 const WITH_BOOKS = args.includes('--books');
+const FLOORPLAN_ONLY = args.includes('--floorplan');
+const FLOORPLAN_DIR = process.env.FLOORPLAN_DIR || path.join(os.homedir(), 'GitHub Local', 'Apartment Floorplan');
 const SITE = (args.find((a) => !a.startsWith('--')) || 'https://jakebiddlecome.com').replace(/\/$/, '');
 const DIR = process.env.DOSSIER_DIR || path.join(os.homedir(), 'Dossier');
 const PASSWORD = process.env.DOSSIER_PASSWORD || envFromFile('DOSSIER_PASSWORD');
-const TYPES = { '.json': 'application/json; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+const TYPES = { '.js': 'application/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 
 async function main() {
   if (!PASSWORD) throw new Error('Set DOSSIER_PASSWORD in the environment or in .env first.');
-  const files = [path.join(DIR, 'data', 'dossier.json')];
-  const prompts = path.join(DIR, 'data', 'journal-prompts.json');
-  if (fs.existsSync(prompts)) files.push(prompts);
-  if (WITH_BOOKS) files.push(path.join(DIR, 'books', 'books.json'));
-  for (const f of fs.readdirSync(path.join(DIR, 'photos'))) if (TYPES[path.extname(f).toLowerCase()]) files.push(path.join(DIR, 'photos', f));
+  const files = [];
+  if (FLOORPLAN_ONLY) {
+    files.push(path.join(FLOORPLAN_DIR, 'apartment.js'), path.join(FLOORPLAN_DIR, 'layout.json'));
+  } else {
+    files.push(path.join(DIR, 'data', 'dossier.json'));
+    const prompts = path.join(DIR, 'data', 'journal-prompts.json');
+    if (fs.existsSync(prompts)) files.push(prompts);
+    if (WITH_BOOKS) files.push(path.join(DIR, 'books', 'books.json'));
+    for (const f of fs.readdirSync(path.join(DIR, 'photos'))) if (TYPES[path.extname(f).toLowerCase()]) files.push(path.join(DIR, 'photos', f));
+  }
   for (const f of files) if (f.endsWith('.json')) JSON.parse(fs.readFileSync(f, 'utf8')); // fail early on a malformed data file
 
   const login = await fetch(`${SITE}/dossier/api/login`, {
@@ -44,7 +53,7 @@ async function main() {
   if (!login.ok) throw new Error(`Login failed (${login.status}): ${error || 'no details'}`);
 
   for (const file of files) {
-    const name = path.basename(file);
+    const name = (FLOORPLAN_ONLY ? 'floorplan-' : '') + path.basename(file);
     const res = await fetch(`${SITE}/dossier/api/files/${encodeURIComponent(name)}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': TYPES[path.extname(name).toLowerCase()] },
