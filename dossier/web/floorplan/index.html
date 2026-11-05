@@ -26,8 +26,6 @@
   #fitStatus, #moveStatus { margin-top: 6px; font-weight: 600; }
   #fitStatus.good, #moveStatus.good { color: #2c7a37; }
   #fitStatus.bad, #moveStatus.bad { color: #b3261e; }
-  /* Moving furniture is a mouse job, so phones keep the shorter bar. */
-  @media (pointer: coarse) { #move { display: none; } }
   #readout { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     max-width: calc(100% - 20px); box-sizing: border-box; padding: 8px 12px; background: #fff; border: 1px solid #b9b2a3;
     border-radius: 6px; text-align: center; }
@@ -64,6 +62,7 @@
     <div class="fitRow">
       <button id="moveRotate">Rotate 30°</button>
       <button id="moveReset">Reset</button>
+      <button id="moveDiscard" disabled>Discard</button>
       <button id="moveSave" disabled>Save</button>
     </div>
     <div id="moveStatus" role="status"></div>

@@ -3,8 +3,9 @@
 //   node dossier/publish.js [site-url]          default site: https://jakebiddlecome.com
 //   node dossier/publish.js --books [site-url]  also upload ~/Dossier/books/books.json. The library is edited on
 //                                               the site, so run dossier/pull.js first or you overwrite those edits.
-//   node dossier/publish.js --floorplan [site-url]  upload only apartment.js and layout.json from the apartment model
-//                                               folder (override with FLOORPLAN_DIR).
+//   node dossier/publish.js --floorplan [site-url]  upload only apartment.js from the apartment model folder (override
+//                                               with FLOORPLAN_DIR). Add --layout to also upload layout.json. The layout
+//                                               is edited on the site, so run dossier/pull.js first or you overwrite those edits.
 //
 // Reads DOSSIER_PASSWORD from the environment or the repo's .env, logs in for a short-lived token,
 // then uploads ~/Dossier/data/dossier.json (plus journal-prompts.json if present) and every image in ~/Dossier/photos (override the folder
@@ -36,7 +37,8 @@ async function main() {
   if (!PASSWORD) throw new Error('Set DOSSIER_PASSWORD in the environment or in .env first.');
   const files = [];
   if (FLOORPLAN_ONLY) {
-    files.push(path.join(FLOORPLAN_DIR, 'apartment.js'), path.join(FLOORPLAN_DIR, 'layout.json'));
+    files.push(path.join(FLOORPLAN_DIR, 'apartment.js'));
+    if (args.includes('--layout')) files.push(path.join(FLOORPLAN_DIR, 'layout.json'));
   } else {
     files.push(path.join(DIR, 'data', 'dossier.json'));
     const prompts = path.join(DIR, 'data', 'journal-prompts.json');
