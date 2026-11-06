@@ -16,7 +16,7 @@
     border: 1px solid #b9b2a3; border-radius: 6px; cursor: pointer; }
   button[aria-pressed="true"] { background: #33473b; border-color: #33473b; color: #fff; }
   button:disabled { opacity: .45; cursor: default; }
-  #fitPanel, #movePanel { flex: 1 0 100%; box-sizing: border-box; padding-bottom: 8px; border-bottom: 1px solid #cfc9bc; }
+  #fitPanel, #movePanel, #askPanel { flex: 1 0 100%; box-sizing: border-box; padding-bottom: 8px; border-bottom: 1px solid #cfc9bc; }
   .fitRow { display: flex; gap: 6px; }
   .fitRow label { flex: 1; min-width: 0; font-size: 13px; }
   /* 16px keeps iPhone Safari from zooming the page when a field gets focus. */
@@ -28,6 +28,11 @@
   #fitStatus, #moveStatus { margin-top: 6px; font-weight: 600; }
   #fitStatus.good, #moveStatus.good { color: #2c7a37; }
   #fitStatus.bad, #moveStatus.bad { color: #b3261e; }
+  #askLog { max-height: 35vh; overflow-y: auto; padding: 4px 0; }
+  #askLog p { margin: 0 0 8px; white-space: pre-wrap; }
+  #askLog .q { font-weight: 600; }
+  #askLog .wait, #askLog .hint { color: #6b655a; }
+  #askLog .bad { color: #b3261e; }
   #readout { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     max-width: calc(100% - 20px); box-sizing: border-box; padding: 8px 12px; background: #fff; border: 1px solid #b9b2a3;
     border-radius: 6px; text-align: center; }
@@ -73,6 +78,15 @@
     </div>
     <div id="fitStatus" role="status"></div>
   </div>
+  <div id="askPanel" hidden>
+    <div id="askLog" aria-live="polite">
+      <p class="hint">Ask about sizes, gaps and what fits, like "How much room is between the couch and the TV?" It reads the layout on screen, moves you haven't saved included.</p>
+    </div>
+    <form id="askForm" class="fitRow">
+      <input id="askInput" type="text" maxlength="4000" autocomplete="off" placeholder="Will an 84 x 38 x 34 sofa fit in the office?" aria-label="Question about the apartment">
+      <button id="askSend">Ask</button>
+    </form>
+  </div>
   <div id="movePanel" hidden>
     <div class="fitRow">
       <button id="moveRotate">Rotate 30°</button>
@@ -101,6 +115,7 @@
   <button id="fitToggle" aria-pressed="false">Fit</button>
   <button id="move" aria-pressed="false">Move</button>
   <button id="image">Image</button>
+  <button id="askToggle" aria-pressed="false" hidden>Ask</button>
 </div>
 <script type="module" src="./viewer.js"></script>
 </body>

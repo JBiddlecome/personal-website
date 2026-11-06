@@ -957,6 +957,61 @@ async function saveImage() {
 }
 $('image').onclick = saveImage;
 
+// Questions about the apartment, answered by Claude on the server from this same model. Only on the site,
+// which holds the AI key. The conversation lasts until the page reloads.
+const chat = [];
+function addChatLine(cls, text) {
+  const p = document.createElement('p');
+  p.className = cls;
+  p.textContent = text;
+  $('askLog').append(p);
+  $('askLog').scrollTop = $('askLog').scrollHeight;
+  resize();
+  return p;
+}
+$('askToggle').hidden = !onSite;
+$('askToggle').onclick = () => {
+  const open = $('askPanel').hidden;
+  $('askPanel').hidden = !open;
+  press('askToggle', open);
+  resize();
+  if (open) $('askInput').focus();
+};
+$('askForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const question = $('askInput').value.trim();
+  if (!question || $('askSend').disabled) return;
+  $('askInput').value = '';
+  $('askSend').disabled = true;
+  addChatLine('q', question);
+  const wait = addChatLine('wait', 'Looking that up...');
+  chat.push({ role: 'user', content: question });
+  let reply = null, problem = null;
+  try {
+    // The server takes up to 39 earlier messages. An odd count keeps the oldest one a question.
+    const res = await fetch('/dossier/api/floorplan/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chat.slice(-39), layout }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) reply = data.reply;
+    else problem = res.status === 401 ? 'Your sign-in expired. Reload to sign in.' : data.error || `The server said ${res.status}.`;
+  } catch {
+    problem = 'No connection. Ask again when you have signal.';
+  }
+  wait.remove();
+  if (reply) {
+    chat.push({ role: 'assistant', content: reply.slice(0, 4000) });
+    addChatLine('a', reply);
+  } else {
+    // Drop the unanswered question so the conversation still alternates question, answer.
+    chat.pop();
+    addChatLine('bad', problem);
+  }
+  $('askSend').disabled = false;
+};
+
 function resize() {
   const w = innerWidth, h = innerHeight - $('bar').offsetHeight;
   renderer.setSize(w, h);
