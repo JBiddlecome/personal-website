@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const store = require('./store');
+const floorplanAi = require('./floorplan-ai');
 
 // Read lazily: server.js loads .env files after requiring this module.
 const password = () => process.env.DOSSIER_PASSWORD || '';
@@ -178,6 +179,19 @@ async function route(req, res, pathname) {
   if (!isAuthed(req)) { sendJson(res, 401, { error: 'Login required.' }); return; }
 
   if (method === 'GET' && apiPath === '/files') { sendJson(res, 200, { files: await store.listFiles() }); return; }
+
+  // Questions about the apartment model. Its messages are safe to show: they name setup or AI-service problems, not internals.
+  if (method === 'POST' && apiPath === '/floorplan/ask') {
+    let body;
+    try { body = JSON.parse((await readRaw(req, 3e5)).toString('utf8')); } catch (err) { throw err.status ? err : Object.assign(new Error('Invalid JSON body.'), { status: 400 }); }
+    try {
+      sendJson(res, 200, { reply: await floorplanAi.ask(body) });
+    } catch (err) {
+      if (err.status === 502 || err.status === 503) { sendJson(res, err.status, { error: err.message }); return; }
+      throw err;
+    }
+    return;
+  }
 
   const m = apiPath.match(/^\/files\/([^/]+)$/);
   if (m) {
