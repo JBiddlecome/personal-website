@@ -12,7 +12,7 @@
   [hidden] { display: none !important; }
   #bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: #f7f4ee; border-top: 1px solid #cfc9bc; }
-  button { min-height: 44px; padding: 0 12px; font: inherit; color: inherit; background: #fff;
+  button, select { min-height: 44px; padding: 0 12px; font: inherit; color: inherit; background: #fff;
     border: 1px solid #b9b2a3; border-radius: 6px; cursor: pointer; }
   button[aria-pressed="true"] { background: #33473b; border-color: #33473b; color: #fff; }
   button:disabled { opacity: .45; cursor: default; }
@@ -20,9 +20,11 @@
   .fitRow { display: flex; gap: 6px; }
   .fitRow label { flex: 1; min-width: 0; font-size: 13px; }
   /* 16px keeps iPhone Safari from zooming the page when a field gets focus. */
-  .fitRow input { width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 8px; font-size: 16px;
+  .fitRow input, .fitRow select { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 8px; font-size: 16px;
     color: inherit; background: #fff; border: 1px solid #b9b2a3; border-radius: 6px; }
-  .fitRow button { flex: 1; margin-top: 6px; padding: 0 4px; }
+  .fitRow + .fitRow { margin-top: 6px; }
+  .fitRow select, .fitRow input[type="text"] { flex: 2; }
+  .fitRow button { flex: 1; padding: 0 4px; }
   #fitStatus, #moveStatus { margin-top: 6px; font-weight: 600; }
   #fitStatus.good, #moveStatus.good { color: #2c7a37; }
   #fitStatus.bad, #moveStatus.bad { color: #b3261e; }
@@ -30,9 +32,12 @@
     max-width: calc(100% - 20px); box-sizing: border-box; padding: 8px 12px; background: #fff; border: 1px solid #b9b2a3;
     border-radius: 6px; text-align: center; }
   #readout strong { display: block; font-size: 18px; }
+  #readout button { display: block; margin: 6px auto 0; min-height: 36px; }
   .label { position: fixed; transform: translate(-50%, -50%); pointer-events: none; text-align: center; font-size: 13px;
-    color: #fff; text-shadow: 0 0 3px #000, 0 1px 2px #000; white-space: nowrap; }
-  .label.clearance { padding: 1px 4px; color: #fff; background: #1f5fbf; border-radius: 4px; text-shadow: none; }
+    color: #fff; text-shadow: 0 0 3px #000, 0 1px 2px #000; white-space: pre; }
+  .label.clearance, .label.measure, #hoverName { padding: 1px 4px; color: #fff; background: #1f5fbf; border-radius: 4px; text-shadow: none; }
+  .label.measure { background: #d1341f; }
+  #hoverName { background: #33473b; }
   #stick { position: fixed; left: 16px; width: 120px; height: 120px; border-radius: 50%; background: rgba(40, 40, 36, .22);
     border: 2px solid rgba(40, 40, 36, .4); touch-action: none; display: flex; align-items: center; justify-content: center; }
   #stickKnob { width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 255, 255, .85); pointer-events: none; }
@@ -43,6 +48,8 @@
 <div id="readout" role="status" hidden></div>
 <div id="labels"></div>
 <div id="fitLabels"></div>
+<div id="measureLabels"></div>
+<div id="hoverName" class="label" hidden></div>
 <div id="stick" role="application" aria-label="Walk joystick" hidden><div id="stickKnob"></div></div>
 <div id="bar">
   <div id="fitPanel" hidden>
@@ -50,6 +57,14 @@
       <label>Width (in)<input id="fitW" type="number" inputmode="decimal" min="1" max="400" step="any"></label>
       <label>Depth (in)<input id="fitD" type="number" inputmode="decimal" min="1" max="400" step="any"></label>
       <label>Height (in)<input id="fitH" type="number" inputmode="decimal" min="1" max="400" step="any"></label>
+    </div>
+    <div class="fitRow">
+      <select id="fitSaved" aria-label="Saved sizes"></select>
+      <button id="fitForget">Delete</button>
+    </div>
+    <div class="fitRow">
+      <input id="fitName" type="text" maxlength="60" placeholder="Name, like Costco sofa" aria-label="Name for this size">
+      <button id="fitKeep">Save size</button>
     </div>
     <div class="fitRow">
       <button id="fitPlace">Place</button>
@@ -61,22 +76,31 @@
   <div id="movePanel" hidden>
     <div class="fitRow">
       <button id="moveRotate">Rotate 30°</button>
+      <button id="moveRotate90">Rotate 90°</button>
       <button id="moveReset">Reset</button>
+      <button id="moveUndo" disabled>Undo</button>
+    </div>
+    <div class="fitRow">
       <button id="moveDiscard" disabled>Discard</button>
       <button id="moveSave" disabled>Save</button>
     </div>
     <div id="moveStatus" role="status"></div>
   </div>
-  <button id="down" aria-pressed="true">Down</button>
-  <button id="up" aria-pressed="false">Up</button>
-  <button id="both" aria-pressed="false">Both</button>
-  <button id="view3d" aria-pressed="true">3D</button>
-  <button id="viewTop" aria-pressed="false">Top</button>
-  <button id="walk" aria-pressed="false">Walk</button>
+  <select id="floor" aria-label="Floor">
+    <option value="1">Downstairs</option>
+    <option value="2">Upstairs</option>
+    <option value="both">Both floors</option>
+  </select>
+  <select id="view" aria-label="View">
+    <option value="3d">3D</option>
+    <option value="top">Top</option>
+    <option value="walk">Walk</option>
+  </select>
   <button id="low" aria-pressed="false">Low</button>
   <button id="measure" aria-pressed="false">Measure</button>
   <button id="fitToggle" aria-pressed="false">Fit</button>
   <button id="move" aria-pressed="false">Move</button>
+  <button id="image">Image</button>
 </div>
 <script type="module" src="./viewer.js"></script>
 </body>

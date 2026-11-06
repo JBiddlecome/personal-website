@@ -12,22 +12,41 @@ const toWorld = (x, y, z) => new THREE.Vector3(x, z, -y);
 const toPlan = (v) => ({ x: v.x, y: -v.z, z: v.y });
 const $ = (id) => document.getElementById(id);
 
+// Browser storage can throw in private windows. The page works without it.
+const local = {
+  get: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+  set: (key, value) => { try { if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* see above */ } },
+};
+
 // On the website: Save writes to the server, and the service worker keeps the page working offline.
 const onSite = location.pathname.startsWith('/dossier/floorplan');
 if (onSite) navigator.serviceWorker?.register('sw.js').catch((err) => console.warn('offline copy not set up', err));
 
+// The served layout.json as text: '' when there is none yet, null when it can't be reached.
+// no-store asks the service worker for the server's copy, never an early offline one.
+const fetchLayoutText = (cache) => fetch('layout.json', { cache }).then((r) => (r.ok ? r.text() : r.status === 404 ? '' : null)).catch(() => null);
+const clearLayout = () => { for (const id of Object.keys(layout)) delete layout[id]; };
+
 // Saved furniture positions. A missing or broken file just means everything stays where the model puts it.
+// base is the server's text these moves started from, to notice another device saving in between.
+let base = await fetchLayoutText('no-cache');
 try {
-  loadLayout(await (await fetch('layout.json', { cache: 'no-store' })).json());
+  loadLayout(JSON.parse(base || '{}'));
 } catch (err) {
   console.warn('layout.json not loaded', err);
 }
 // Moves not saved yet survive a closed app, a dead battery or no signal, and replace what the server has until saved or discarded.
-const UNSAVED_KEY = 'floorplan-unsaved-layout';
-const pending = localStorage.getItem(UNSAVED_KEY);
+const UNSAVED_KEY = 'floorplan-unsaved-layout', BASE_KEY = 'floorplan-unsaved-base';
+let pending = null;
+try {
+  pending = JSON.parse(local.get(UNSAVED_KEY));
+} catch (err) {
+  console.warn('unsaved moves unreadable, ignored', err);
+}
 if (pending) {
-  for (const id of Object.keys(layout)) delete layout[id];
-  loadLayout(JSON.parse(pending));
+  clearLayout();
+  loadLayout(pending);
+  base = local.get(BASE_KEY) ?? base;
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -76,7 +95,7 @@ let labels = [];
 function rebuild() {
   if (group) {
     scene.remove(group);
-    // Dragging furniture rebuilds constantly, so free the one-off shapes. The box shapes are shared.
+    // Moving furniture rebuilds often, so free the one-off shapes. The box shapes are shared.
     group.traverse((o) => { if (o.geometry && o.geometry !== unitBox && o.geometry !== unitEdges) o.geometry.dispose(); });
   }
   group = new THREE.Group();
@@ -122,7 +141,7 @@ function rebuild() {
   labels = level === 'both' || walking ? [] : model.rooms.map((r) => {
     const el = document.createElement('div');
     el.className = 'label';
-    el.textContent = r.name;
+    el.textContent = `${r.name}\n${Math.round((r.x1 - r.x0) * (r.y1 - r.y0) / 144)} sq ft`;
     labelBox.append(el);
     return { el, at: toWorld((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, r.z) };
   });
@@ -141,42 +160,64 @@ function aim(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2((clientX - r.left) / r.width * 2 - 1, -(clientY - r.top) / r.height * 2 + 1), camera);
 }
+const pieceUnder = (clientX, clientY) => {
+  aim(clientX, clientY);
+  return raycaster.intersectObject(group, true).find((h) => h.object.isMesh);
+};
 
-// Measure tool
+// Measure tool. Finished measurements stay on screen until Clear, so walls and furniture can be compared.
 const readout = $('readout');
 const measureGroup = new THREE.Group();
 scene.add(measureGroup);
 const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xd1341f, depthTest: false });
+const measureLineMaterial = new THREE.LineBasicMaterial({ color: 0xd1341f, depthTest: false });
 const marker = new THREE.SphereGeometry(1, 12, 8);
-let measuring = false, points = [], firstRaw = null;
+let measuring = false, points = [], firstRaw = null, measures = [], measureLabels = [];
 
 function drawMeasure() {
   measureGroup.clear();
-  const world = points.map((p) => toWorld(p.x, p.y, p.z));
-  for (const w of world) {
-    const m = new THREE.Mesh(marker, markerMaterial);
-    m.position.copy(w);
-    m.renderOrder = 2;
-    measureGroup.add(m);
-  }
-  if (world.length === 2) {
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(world),
-      new THREE.LineBasicMaterial({ color: 0xd1341f, depthTest: false }));
+  $('measureLabels').replaceChildren();
+  measureLabels = [];
+  for (const pair of [...measures, points]) {
+    const world = pair.map((p) => toWorld(p.x, p.y, p.z));
+    for (const w of world) {
+      const m = new THREE.Mesh(marker, markerMaterial);
+      m.position.copy(w);
+      m.renderOrder = 2;
+      measureGroup.add(m);
+    }
+    if (world.length < 2) continue;
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(world), measureLineMaterial);
     line.renderOrder = 2;
     measureGroup.add(line);
-    const [a, b] = points;
-    const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y), dz = Math.abs(a.z - b.z);
-    const parts = [['east-west', dx], ['north-south', dy], ['height', dz]].filter(([, d]) => d > 0.01);
-    readout.innerHTML = `<strong>${formatInches(Math.hypot(dx, dy, dz))}</strong>` +
-      (parts.length > 1 ? parts.map(([n, d]) => `${n} ${formatInches(d)}`).join('<br>') : parts[0]?.[0] ?? '');
-  } else {
-    readout.textContent = world.length ? 'Tap the second point' : 'Tap the first point';
+    const el = document.createElement('div');
+    el.className = 'label measure';
+    el.textContent = inchesShort(world[0].distanceTo(world[1]));
+    $('measureLabels').append(el);
+    measureLabels.push({ el, at: world[0].clone().add(world[1]).multiplyScalar(0.5) });
   }
+  const last = measures.at(-1);
+  if (points.length || !last) {
+    readout.textContent = points.length ? 'Tap the second point' : 'Tap the first point';
+    return;
+  }
+  const [a, b] = last;
+  const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y), dz = Math.abs(a.z - b.z);
+  const parts = [['east-west', dx], ['north-south', dy], ['height', dz]].filter(([, d]) => d > 0.01);
+  readout.innerHTML = `<strong>${formatInches(Math.hypot(dx, dy, dz))}</strong>` +
+    (parts.length > 1 ? parts.map(([n, d]) => `${n} ${formatInches(d)}`).join('<br>') : parts[0]?.[0] ?? '') +
+    '<button id="measureClear" type="button">Clear</button>';
 }
 
+function clearMeasures() {
+  points = [];
+  measures = [];
+  drawMeasure();
+}
+readout.onclick = (e) => { if (e.target.id === 'measureClear') clearMeasures(); };
+
 function tapAt(clientX, clientY) {
-  aim(clientX, clientY);
-  const hit = raycaster.intersectObject(group, true).find((h) => h.object.isMesh);
+  const hit = pieceUnder(clientX, clientY);
   if (!hit) return;
   const raw = toPlan(hit.point);
   // An angled piece's outline isn't its real surface, so measuring doesn't snap to it.
@@ -184,10 +225,13 @@ function tapAt(clientX, clientY) {
   let p = snap(fit ? [...flat, fitBounds()] : flat, raw, viewScale(camera, hit.point) * 12);
   // The top view measures floor distance, whichever surface was tapped.
   if (camera === ortho) raw.z = p.z = 0;
-  if (points.length === 2) points = [];
-  if (points.length === 1) p = straighten(points[0], p, firstRaw, raw);
-  else firstRaw = raw;
-  points.push(p);
+  if (points.length === 1) {
+    measures.push([points[0], straighten(points[0], p, firstRaw, raw)]);
+    points = [];
+  } else {
+    firstRaw = raw;
+    points = [p];
+  }
   drawMeasure();
 }
 
@@ -209,9 +253,15 @@ const fitBounds = () => ({
   z0: fit.z, z1: fit.z + fit.h,
 });
 
+const validSize = (values) => values.every((v) => Number.isFinite(v) && v > 0 && v <= MAX_FIT_SIZE);
 function readFitSize() {
   const values = ['fitW', 'fitD', 'fitH'].map((id) => Number($(id).value));
-  return values.every((v) => Number.isFinite(v) && v > 0 && v <= MAX_FIT_SIZE) ? values : null;
+  return validSize(values) ? values : null;
+}
+
+function showFitStatus(text, cls = '') {
+  $('fitStatus').textContent = text;
+  $('fitStatus').className = cls;
 }
 
 function updateFit() {
@@ -221,8 +271,7 @@ function updateFit() {
   const visible = fit && (walking || level === 'both' || level === fit.level);
   fitMesh.visible = !!visible;
   if (!fit) {
-    $('fitStatus').textContent = 'Enter a size in inches, then tap Place.';
-    $('fitStatus').className = '';
+    showFitStatus('Enter a size in inches or pick a saved one, then tap Place.');
     return;
   }
   const f = fitBounds();
@@ -232,8 +281,7 @@ function updateFit() {
   const { hits, clear } = fitReport(fitSolids, f);
   if (fit.h > CEILING) hits.push('Ceiling');
   fitMaterial.color.set(hits.length ? 0xd1341f : 0x3f9a4a);
-  $('fitStatus').textContent = hits.length ? `Doesn't fit, hits: ${hits.join(', ')}` : 'Fits';
-  $('fitStatus').className = hits.length ? 'bad' : 'good';
+  showFitStatus(hits.length ? `Doesn't fit, hits: ${hits.join(', ')}` : 'Fits', hits.length ? 'bad' : 'good');
 
   if (!visible) return;
   // A blue line and a number across each open side of the box.
@@ -261,8 +309,7 @@ function updateFit() {
 function placeFit() {
   const size = readFitSize();
   if (!size) {
-    $('fitStatus').textContent = 'Enter a width, depth and height, each from 1 to 400 inches.';
-    $('fitStatus').className = 'bad';
+    showFitStatus('Enter a width, depth and height, each from 1 to 400 inches.', 'bad');
     return;
   }
   const lv = level === 2 ? 2 : 1;
@@ -277,6 +324,67 @@ function placeFit() {
   fit = { x: spot.x, y: spot.y, z, level: lv, spanX: w, spanY: d, h, rotated: false };
   fitSolids = floor.boxes.filter(notFloor);
   updateFit();
+}
+
+// Editing the size updates a box that's already placed, keeping its spot and its rotation.
+function resizeFit() {
+  const size = readFitSize();
+  if (!fit || !size) return;
+  const [w, d, h] = size;
+  fit.spanX = fit.rotated ? d : w;
+  fit.spanY = fit.rotated ? w : d;
+  fit.h = h;
+  updateFit();
+}
+
+// Sizes to test, kept by name. On the site they live on the server, so the phone in a store sees what the laptop entered.
+const FITS_URL = '/dossier/api/files/floorplan-fits.json', FITS_KEY = 'floorplan-fits';
+let fits = [], fitsLoaded = false;
+
+function showFits() {
+  $('fitSaved').replaceChildren(new Option(fits.length ? 'Saved sizes' : 'No saved sizes yet', ''),
+    ...fits.map((f, i) => new Option(`${f.name} (${f.w} × ${f.d} × ${f.h})`, i)));
+}
+
+async function loadFits() {
+  try {
+    const data = onSite
+      ? await fetch(FITS_URL, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : r.status === 404 ? [] : Promise.reject(new Error(r.status))))
+      : JSON.parse(local.get(FITS_KEY) ?? '[]');
+    fits = (Array.isArray(data) ? data : []).filter((f) => typeof f?.name === 'string' && validSize([f.w, f.d, f.h]));
+    fitsLoaded = true;
+  } catch (err) {
+    console.warn('saved sizes not loaded', err);
+  }
+  showFits();
+}
+
+async function storeFits(next) {
+  // Writing a list that never loaded would wipe the one on the server.
+  if (!fitsLoaded) {
+    showFitStatus('Saved sizes did not load, so saving now would replace them. Reload when you have signal.', 'bad');
+    return false;
+  }
+  const text = JSON.stringify(next, null, 2);
+  if (onSite) {
+    let problem = null;
+    try {
+      const res = await fetch(FITS_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: text });
+      if (res.status === 401) problem = 'Your sign-in expired. Reload to sign in.';
+      else if (!res.ok) problem = `The server said ${res.status}.`;
+    } catch {
+      problem = 'No connection.';
+    }
+    if (problem) {
+      showFitStatus(`Not saved. ${problem}`, 'bad');
+      return false;
+    }
+  } else {
+    local.set(FITS_KEY, text);
+  }
+  fits = next;
+  showFits();
+  return true;
 }
 
 // Grabbing and dragging the box along its floor
@@ -299,7 +407,10 @@ function dragTo(clientX, clientY) {
 }
 
 // Moving furniture. Drags along a flat plane at the height it was grabbed, so the piece stays under the pointer.
-let moving = false, selected = null, moveDrag = null, unsaved = !!pending, saveFile = null;
+let moving = false, selected = null, moveDrag = null, unsaved = !!pending, saveFile = null, overwrite = false;
+// Undo steps, as layout snapshots. The saved layout is the one at depth savedAt, so undoing back to it is clean again.
+const history = [];
+let savedAt = pending ? -1 : 0;
 const selectionBox = new THREE.LineSegments(unitEdges, new THREE.LineBasicMaterial({ color: 0x1f5fbf, depthTest: false }));
 selectionBox.renderOrder = 2;
 selectionBox.visible = false;
@@ -314,57 +425,97 @@ function showMoveStatus(text, cls = '') {
   $('moveStatus').className = cls;
 }
 
-function updateSelection() {
-  selectionBox.visible = !!selected;
-  $('moveRotate').disabled = $('moveReset').disabled = !selected;
-  $('moveSave').disabled = $('moveDiscard').disabled = !unsaved;
-  if (!selected) {
-    showMoveStatus(unsaved ? 'You have moves that are not saved yet.' : 'Tap a piece of furniture, then drag it.');
-    return;
-  }
-  const f = pieceBounds(buildModel({ level: 'both' }).boxes, selected);
+function showSelection(f, others) {
   selectionBox.scale.set(f.x1 - f.x0, f.z1 - f.z0, f.y1 - f.y0);
   selectionBox.position.copy(toWorld((f.x0 + f.x1) / 2, (f.y0 + f.y1) / 2, (f.z0 + f.z1) / 2));
-  const { hits, clear } = fitReport(othersOf(selected), f);
+  const { hits, clear } = fitReport(others, f);
   const gaps = Object.entries(clear).filter(([, d]) => Number.isFinite(d)).map(([side, d]) => `${side} ${inchesShort(d)}`).join(', ');
   showMoveStatus(hits.length ? `${selected} overlaps: ${hits.join(', ')}` : `${selected}: ${gaps}`, hits.length ? 'bad' : '');
 }
 
+function updateSelection() {
+  selectionBox.visible = !!selected;
+  $('moveRotate').disabled = $('moveRotate90').disabled = $('moveReset').disabled = !selected;
+  $('moveUndo').disabled = !history.length;
+  $('moveSave').disabled = $('moveDiscard').disabled = !unsaved;
+  if (!selected) {
+    const keysHint = matchMedia('(pointer: fine)').matches ? ' Arrow keys nudge it 1", with Shift 1/4".' : '';
+    showMoveStatus(unsaved ? 'You have moves that are not saved yet.' : `Tap a piece of furniture, then drag it.${keysHint}`);
+    return;
+  }
+  showSelection(pieceBounds(buildModel({ level: 'both' }).boxes, selected), othersOf(selected));
+}
+
 function layoutChanged() {
-  unsaved = true;
-  localStorage.setItem(UNSAVED_KEY, JSON.stringify(layout));
+  unsaved = history.length !== savedAt;
+  local.set(UNSAVED_KEY, unsaved ? JSON.stringify(layout) : null);
+  local.set(BASE_KEY, unsaved ? base : null);
   rebuild();
   updateSelection();
   if (fit) { fitSolids = buildModel({ level: fit.level }).boxes.filter(notFloor); updateFit(); }
 }
 
+function remember() {
+  // A new change after undoing past the save means the saved layout can't be reached by undo any more.
+  if (history.length < savedAt) savedAt = -1;
+  history.push(JSON.stringify(layout));
+}
+
+function change(edit) {
+  remember();
+  edit();
+  layoutChanged();
+}
+
+function undo() {
+  if (!history.length || moveDrag) return;
+  clearLayout();
+  Object.assign(layout, JSON.parse(history.pop()));
+  layoutChanged();
+}
+
 function startMoveDrag(e) {
-  aim(e.clientX, e.clientY);
-  const hit = raycaster.intersectObject(group, true).find((h) => h.object.isMesh);
+  const hit = pieceUnder(e.clientX, e.clientY);
   const id = hit?.object.userData.piece;
   if (!id) return;
   selected = id;
   const { dx = 0, dy = 0, rot = 0 } = layout[id] ?? {};
   const from = pieceBounds(buildModel({ level: 'both' }).boxes, id);
-  moveDrag = { pointer: e.pointerId, screenX: e.clientX, screenY: e.clientY, started: false, height: hit.point.y, grab: toPlan(hit.point), dx, dy, rot, from, others: othersOf(id) };
+  const meshes = group.children.filter((o) => o.userData.piece === id).map((o) => [o, o.position.clone()]);
+  moveDrag = { pointer: e.pointerId, screenX: e.clientX, screenY: e.clientY, started: false, height: hit.point.y, grab: toPlan(hit.point), dx, dy, rot, from, meshes, others: othersOf(id) };
   controls.enabled = false;
   updateSelection();
 }
 
 function moveDragTo(e) {
+  const d = moveDrag, f = d.from;
   // A click that wobbles only selects, it doesn't nudge the piece or snap it to something. Fingers wobble more than a mouse.
-  if (!moveDrag.started && Math.hypot(e.clientX - moveDrag.screenX, e.clientY - moveDrag.screenY) < (e.pointerType === 'touch' ? 10 : 4)) return;
-  moveDrag.started = true;
-  const hit = floorPoint(e.clientX, e.clientY, moveDrag.height);
+  if (!d.started) {
+    if (Math.hypot(e.clientX - d.screenX, e.clientY - d.screenY) < (e.pointerType === 'touch' ? 10 : 4)) return;
+    d.started = true;
+    remember();
+  }
+  const hit = floorPoint(e.clientX, e.clientY, d.height);
   if (!hit) return;
-  const p = toPlan(hit), d = moveDrag, f = d.from;
+  const p = toPlan(hit);
   const quarter = (n) => Math.round(n * 4) / 4;
   let mx = quarter(p.x - d.grab.x), my = quarter(p.y - d.grab.y);
   mx = Math.min(BOUNDS.x1 - f.x1, Math.max(BOUNDS.x0 - f.x0, mx));
   my = Math.min(BOUNDS.y1 - f.y1, Math.max(BOUNDS.y0 - f.y0, my));
   const pull = snapFit(d.others, { ...f, x0: f.x0 + mx, x1: f.x1 + mx, y0: f.y0 + my, y1: f.y1 + my }, viewScale(camera, hit) * 10);
-  layout[selected] = { dx: d.dx + mx + pull.dx, dy: d.dy + my + pull.dy, rot: d.rot };
-  layoutChanged();
+  const ox = mx + pull.dx, oy = my + pull.dy;
+  layout[selected] = { dx: d.dx + ox, dy: d.dy + oy, rot: d.rot };
+  // Only the piece's meshes slide while dragging. Rebuilding the whole model on every move stutters on phones; letting go rebuilds once.
+  const shift = toWorld(ox, oy, 0);
+  for (const [o, at] of d.meshes) o.position.copy(at).add(shift);
+  showSelection({ ...f, x0: f.x0 + ox, x1: f.x1 + ox, y0: f.y0 + oy, y1: f.y1 + oy }, d.others);
+}
+
+function endMoveDrag() {
+  const started = moveDrag.started;
+  moveDrag = null;
+  controls.enabled = !walking;
+  if (started) layoutChanged();
 }
 
 function setMoving(on) {
@@ -372,14 +523,38 @@ function setMoving(on) {
   press('move', on);
   $('movePanel').hidden = !on;
   if (!on) selected = null;
+  hoverName.hidden = true;
+  canvas.style.cursor = '';
   updateSelection();
   resize();
+}
+
+// Arrow keys move the selected piece the way the arrow points on screen, along the nearest wall direction.
+const ARROWS = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+function screenAxis(v) {
+  v.applyQuaternion(camera.quaternion);
+  const x = v.x, y = -v.z;
+  return Math.abs(x) > Math.abs(y) ? { x: Math.sign(x), y: 0 } : { x: 0, y: Math.sign(y) };
+}
+function nudge([right, up], step) {
+  const r = screenAxis(new THREE.Vector3(1, 0, 0));
+  // The top view looks straight down, so screen-up is the camera's up. In 3D it's the way the camera faces.
+  const u = screenAxis(camera === ortho ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, -1));
+  const m = layout[selected] ?? { dx: 0, dy: 0, rot: 0 };
+  change(() => { layout[selected] = { ...m, dx: m.dx + (r.x * right + u.x * up) * step, dy: m.dy + (r.y * right + u.y * up) * step }; });
 }
 
 // On the website, writes to the server. The local copy writes layout.json over the project's file.
 // Either way the page reads it back to check it landed. On the site that also refreshes the offline copy.
 async function saveLayout() {
   const text = JSON.stringify(layout, null, 2);
+  // Another device may have saved since these moves began. Say so once; a second Save replaces it.
+  const current = await fetchLayoutText('no-store');
+  if (!overwrite && base != null && current != null && current !== base && current !== text) {
+    overwrite = true;
+    showMoveStatus('Another device saved a different layout after you started these moves. Save again to replace it with yours, or Discard to load theirs.', 'bad');
+    return;
+  }
   if (onSite) {
     showMoveStatus('Saving...');
     let message = null;
@@ -390,15 +565,12 @@ async function saveLayout() {
     } catch {
       message = 'No connection. Save again when you have signal.';
     }
-    if (!message) {
-      const served = await fetch('layout.json', { cache: 'no-store' }).then((r) => r.text()).catch(() => '');
-      if (served !== text) message = 'The server did not keep the change. Try again.';
-    }
+    if (!message && await fetchLayoutText('no-store') !== text) message = 'The server did not keep the change. Try again.';
     if (message) {
       showMoveStatus(`Not saved. ${message} Your moves are kept on this device.`, 'bad');
       return;
     }
-    markSaved('Saved. Every device gets this on its next load.');
+    markSaved(text, 'Saved. Every device gets this on its next load.');
     return;
   }
   if (!window.showSaveFilePicker) {
@@ -421,20 +593,22 @@ async function saveLayout() {
     showMoveStatus(`Not saved: ${err.message}`, 'bad');
     return;
   }
-  const served = await fetch('layout.json', { cache: 'no-store' }).then((r) => r.text()).catch(() => '');
-  if (served !== text) {
+  if (await fetchLayoutText('no-store') !== text) {
     saveFile = null;
     showMoveStatus('Saved, but not in the Apartment Floorplan folder, so the phone will not see it. Save again and pick layout.json in that folder.', 'bad');
     return;
   }
-  markSaved('Saved. Refresh the phone to see it.');
+  markSaved(text, 'Saved. Refresh the phone to see it.');
 }
 
-function markSaved(text) {
-  unsaved = false;
-  localStorage.removeItem(UNSAVED_KEY);
+function markSaved(text, message) {
+  unsaved = overwrite = false;
+  base = text;
+  savedAt = history.length;
+  local.set(UNSAVED_KEY, null);
+  local.set(BASE_KEY, null);
   $('moveSave').disabled = $('moveDiscard').disabled = true;
-  showMoveStatus(text, 'good');
+  showMoveStatus(message, 'good');
 }
 
 // Walking
@@ -490,7 +664,21 @@ const releaseStick = (e) => {
 };
 $('stick').addEventListener('pointerup', releaseStick);
 $('stick').addEventListener('pointercancel', releaseStick);
-addEventListener('keydown', (e) => { if (walking && e.target.tagName !== 'INPUT') keys.add(e.code); });
+
+const typing = (e) => ['INPUT', 'SELECT'].includes(e.target.tagName);
+addEventListener('keydown', (e) => {
+  if (typing(e)) return;
+  if (walking) { keys.add(e.code); return; }
+  if (moving && (e.ctrlKey || e.metaKey) && e.code === 'KeyZ') {
+    e.preventDefault();
+    undo();
+    return;
+  }
+  if (moving && selected && !moveDrag && ARROWS[e.key]) {
+    e.preventDefault();
+    nudge(ARROWS[e.key], e.shiftKey ? 0.25 : 1);
+  }
+});
 addEventListener('keyup', (e) => keys.delete(e.code));
 
 // Canvas gestures. Capture runs before OrbitControls, so grabbing the box can switch orbiting off.
@@ -525,16 +713,24 @@ addEventListener('pointermove', (e) => {
   if (dragging && e.pointerId === dragging.id) dragTo(e.clientX, e.clientY);
   if (moveDrag && e.pointerId === moveDrag.pointer) moveDragTo(e);
 });
-// On the window, so letting go over the button bar still drops the piece.
-addEventListener('pointerup', (e) => {
-  if (moveDrag && e.pointerId === moveDrag.pointer) {
-    moveDrag = null;
-    controls.enabled = !walking;
-  }
-});
 
+// With a mouse in Move mode, the piece under the pointer shows its name.
+const hoverName = $('hoverName');
+canvas.addEventListener('pointermove', (e) => {
+  if (!moving || moveDrag || e.pointerType !== 'mouse' || e.buttons) { hoverName.hidden = true; return; }
+  const id = pieceUnder(e.clientX, e.clientY)?.object.userData.piece;
+  hoverName.hidden = !id;
+  canvas.style.cursor = id ? 'grab' : '';
+  if (!id) return;
+  hoverName.textContent = id;
+  hoverName.style.left = `${e.clientX}px`;
+  hoverName.style.top = `${e.clientY - 20}px`;
+});
+canvas.addEventListener('pointerleave', () => { hoverName.hidden = true; });
+
+// On the window, so letting go over the button bar still drops what was being dragged.
 const endPointer = (e) => {
-  if (measuring && down && down.id === e.pointerId && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8) {
+  if (measuring && down && down.id === e.pointerId && e.type === 'pointerup' && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8) {
     tapAt(e.clientX, e.clientY);
   }
   if (down && down.id === e.pointerId) down = null;
@@ -543,25 +739,25 @@ const endPointer = (e) => {
     dragging = null;
     controls.enabled = !walking;
   }
+  if (moveDrag && moveDrag.pointer === e.pointerId) endMoveDrag();
 };
-canvas.addEventListener('pointerup', endPointer);
+addEventListener('pointerup', endPointer);
 addEventListener('pointercancel', endPointer);
 
 // Buttons
 const press = (id, on) => $(id).setAttribute('aria-pressed', String(on));
 
+// The view, floor and Low setting come back on the next visit. Walking starts fresh.
+const VIEW_KEY = 'floorplan-view';
 function refreshButtons() {
   const top = camera === ortho && !walking;
-  press('view3d', !top && !walking);
-  press('viewTop', top);
-  press('walk', walking);
+  $('view').value = walking ? 'walk' : top ? 'top' : '3d';
+  $('floor').value = String(level);
+  $('floor').querySelector('[value="both"]').disabled = top || walking;
   $('low').disabled = top || walking;
   $('move').disabled = walking;
-  $('both').disabled = top || walking;
-  press('down', level === 1);
-  press('up', level === 2);
-  press('both', level === 'both');
   $('stick').hidden = !walking;
+  local.set(VIEW_KEY, JSON.stringify({ top, level, low }));
 }
 
 function setView(cam) {
@@ -590,8 +786,7 @@ function setView(cam) {
   refreshButtons();
   rebuild();
   updateFit();
-  points = [];
-  if (measuring) drawMeasure();
+  clearMeasures();
   if (moving) { selected = null; updateSelection(); }
 }
 
@@ -609,42 +804,45 @@ function startWalking() {
   refreshButtons();
   rebuild();
   updateFit();
-  points = [];
-  if (measuring) drawMeasure();
+  clearMeasures();
 }
 
-$('view3d').onclick = () => setView(persp);
-$('viewTop').onclick = () => setView(ortho);
-$('walk').onclick = startWalking;
-for (const [id, lv] of [['down', 1], ['up', 2], ['both', 'both']]) {
-  $(id).onclick = () => {
-    level = lv;
-    if (walking) { goToStart(lv); refreshButtons(); updateFit(); } else setView(camera);
-  };
-}
+// Blur after picking, so walking's arrow keys don't change the menu.
+$('view').onchange = (e) => {
+  const v = e.target.value;
+  e.target.blur();
+  if (v === 'walk') startWalking(); else setView(v === 'top' ? ortho : persp);
+};
+$('floor').onchange = (e) => {
+  const v = e.target.value;
+  e.target.blur();
+  level = v === 'both' ? 'both' : Number(v);
+  if (walking) { goToStart(level); refreshButtons(); updateFit(); } else setView(camera);
+};
 
 $('low').onclick = () => {
   low = !low;
   rebuild();
   press('low', low);
+  refreshButtons();
 };
 
 $('move').onclick = () => {
   if (!moving && measuring) $('measure').click();
   setMoving(!moving);
 };
-$('moveRotate').onclick = () => {
+const rotateBy = (deg) => () => {
   const m = layout[selected] ?? { dx: 0, dy: 0, rot: 0 };
-  layout[selected] = { ...m, rot: (m.rot + 30) % 360 };
-  layoutChanged();
+  change(() => { layout[selected] = { ...m, rot: (m.rot + deg) % 360 }; });
 };
-$('moveReset').onclick = () => {
-  delete layout[selected];
-  layoutChanged();
-};
+$('moveRotate').onclick = rotateBy(30);
+$('moveRotate90').onclick = rotateBy(90);
+$('moveReset').onclick = () => change(() => { delete layout[selected]; });
+$('moveUndo').onclick = undo;
 $('moveSave').onclick = saveLayout;
 $('moveDiscard').onclick = () => {
-  localStorage.removeItem(UNSAVED_KEY);
+  local.set(UNSAVED_KEY, null);
+  local.set(BASE_KEY, null);
   location.reload();
 };
 
@@ -653,8 +851,7 @@ $('measure').onclick = () => {
   measuring = !measuring;
   press('measure', measuring);
   readout.hidden = !measuring;
-  points = [];
-  if (measuring) drawMeasure(); else measureGroup.clear();
+  clearMeasures();
 };
 
 $('fitToggle').onclick = () => {
@@ -675,18 +872,90 @@ $('fitRemove').onclick = () => {
   fit = null;
   updateFit();
 };
-// Editing the size updates a box that's already placed, keeping its spot and its rotation.
-for (const id of ['fitW', 'fitD', 'fitH']) {
-  $(id).addEventListener('input', () => {
-    const size = readFitSize();
-    if (!fit || !size) return;
-    const [w, d, h] = size;
-    fit.spanX = fit.rotated ? d : w;
-    fit.spanY = fit.rotated ? w : d;
-    fit.h = h;
-    updateFit();
-  });
+for (const id of ['fitW', 'fitD', 'fitH']) $(id).addEventListener('input', resizeFit);
+
+$('fitSaved').onchange = (e) => {
+  const f = fits[e.target.value];
+  if (!f) return;
+  $('fitW').value = f.w;
+  $('fitD').value = f.d;
+  $('fitH').value = f.h;
+  $('fitName').value = f.name;
+  if (fit) resizeFit(); else placeFit();
+};
+$('fitKeep').onclick = async () => {
+  const size = readFitSize(), name = $('fitName').value.trim();
+  if (!size || !name) {
+    showFitStatus('Enter a name and a width, depth and height to save a size.', 'bad');
+    return;
+  }
+  const [w, d, h] = size;
+  // Saving under a name that's already there updates it.
+  const next = [...fits.filter((f) => f.name !== name), { name, w, d, h }].sort((a, b) => a.name.localeCompare(b.name));
+  if (!await storeFits(next)) return;
+  $('fitSaved').value = String(next.findIndex((f) => f.name === name));
+  showFitStatus(`Saved "${name}".`, 'good');
+};
+$('fitForget').onclick = async () => {
+  const f = fits[$('fitSaved').value];
+  if (!f) {
+    showFitStatus('Pick a saved size to delete.', 'bad');
+    return;
+  }
+  if (await storeFits(fits.filter((x) => x !== f))) showFitStatus(`Deleted "${f.name}".`, 'good');
+};
+loadFits();
+
+// The 3D view as a PNG, room labels and measurements included. Phones get the share sheet, computers a download.
+async function saveImage() {
+  // WebGL only lets the picture be copied in the same moment it is drawn.
+  renderer.render(scene, camera);
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(canvas, 0, 0);
+  ctx.scale(canvas.width / canvas.clientWidth, canvas.width / canvas.clientWidth);
+  ctx.font = '13px system-ui, -apple-system, "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  for (const { el } of [...labels, ...fitLines, ...measureLabels]) {
+    if (el.hidden) continue;
+    const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+    const lines = el.textContent.split('\n'), bg = getComputedStyle(el).backgroundColor;
+    lines.forEach((text, i) => {
+      const ly = y + (i - (lines.length - 1) / 2) * 15;
+      if (bg !== 'rgba(0, 0, 0, 0)') {
+        const w = ctx.measureText(text).width + 8;
+        ctx.fillStyle = bg;
+        ctx.fillRect(x - w / 2, ly - 9, w, 18);
+      } else {
+        ctx.strokeStyle = 'rgba(0, 0, 0, .8)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(text, x, ly);
+      }
+      ctx.fillStyle = '#fff';
+      ctx.fillText(text, x, ly);
+    });
+  }
+  const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/png'));
+  const file = new File([blob], 'apartment.png', { type: 'image/png' });
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+    } catch (err) {
+      if (err.name !== 'AbortError') console.warn('share failed', err);
+    }
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(file);
+  link.download = file.name;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
+$('image').onclick = saveImage;
 
 function resize() {
   const w = innerWidth, h = innerHeight - $('bar').offsetHeight;
@@ -705,6 +974,19 @@ function resize() {
   $('stick').style.bottom = `${$('bar').offsetHeight + 16}px`;
 }
 addEventListener('resize', resize);
+
+// Before anything calls refreshButtons, which saves the view it shows.
+try {
+  const last = JSON.parse(local.get(VIEW_KEY));
+  if (last) {
+    if ([1, 2, 'both'].includes(last.level)) level = last.level;
+    low = last.low === true;
+    press('low', low);
+    setView(last.top ? ortho : persp);
+  }
+} catch (err) {
+  console.warn('last view not restored', err);
+}
 resize();
 refreshButtons();
 updateFit();
@@ -718,7 +1000,7 @@ renderer.setAnimationLoop(() => {
   // Keep markers the same size on screen, however far away they are.
   for (const m of measureGroup.children) if (m.isMesh) m.scale.setScalar(viewScale(camera, m.position) * 6);
   renderer.render(scene, camera);
-  for (const { el, at } of [...labels, ...fitLines]) {
+  for (const { el, at } of [...labels, ...fitLines, ...measureLabels]) {
     v.copy(at).project(camera);
     // Anything behind a walking camera projects to a misleading spot, so hide it.
     el.hidden = v.z > 1;
