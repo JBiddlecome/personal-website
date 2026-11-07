@@ -183,7 +183,7 @@ async function route(req, res, pathname) {
   // Questions about the apartment model. Its messages are safe to show: they name setup or AI-service problems, not internals.
   if (method === 'POST' && apiPath === '/floorplan/ask') {
     let body;
-    try { body = JSON.parse((await readRaw(req, 3e5)).toString('utf8')); } catch (err) { throw err.status ? err : Object.assign(new Error('Invalid JSON body.'), { status: 400 }); }
+    try { body = JSON.parse((await readRaw(req, 6e6)).toString('utf8')); } catch (err) { throw err.status ? err : Object.assign(new Error('Invalid JSON body.'), { status: 400 }); }
     try {
       sendJson(res, 200, await floorplanAi.ask(body));
     } catch (err) {

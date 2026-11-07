@@ -63,6 +63,35 @@ const DIR = process.env.FLOORPLAN_DIR || path.join(os.homedir(), 'GitHub Local',
   assert.ok(!state.work._added && !state.work['Red lamp 1'], 'removing also clears its move');
   ai.setColor(M, state, { object: 'Shoe rack', color: 'original' });
   assert.ok(!state.work._colors, 'empty colors are dropped');
+  // A lamp sketched from a photo in rough inches: base, stem, shade, finial. Scaled to 14" tall, it keeps its proportions.
+  const sketch = [
+    { shape: 'cylinder', x: 0, y: 0, z: 0, width: 6, height: 1, color: '#B08D57' },
+    { shape: 'cylinder', x: 0, y: 0, z: 1, width: 1, height: 9, color: '#B08D57' },
+    { shape: 'cone', x: 0, y: 0, z: 8, width: 10, top_width: 7, height: 6, color: '#F2EBDD' },
+    { shape: 'sphere', x: 0, y: 0, z: 14, width: 1, color: '#B08D57' },
+  ];
+  const fitted = ai.fitParts(sketch, { height: 14 });
+  assert.equal(fitted.h, 14);
+  assert.equal(fitted.w, 9.375, 'the 10" by 15" sketch keeps its proportion: 14 * 10 / 15, to the nearest 1/8"');
+  assert.equal(fitted.parts[0].z, 0);
+  assert.ok(fitted.parts[2].top < fitted.parts[2].w, 'shade narrows toward the top');
+  assert.throws(() => ai.fitParts(sketch, {}), /height, width or depth/);
+  const both = ai.fitParts(sketch, { width: 20, height: 30 });
+  assert.equal(both.w, 20);
+  assert.equal(both.h, 30);
+
+  ai.commit(M, state, {});
+  const photoLamp = ai.addObject(M, state, { name: 'Brass lamp', shape: 'parts', height: 14, parts: sketch, on: 'End table 2' }).added;
+  assert.equal(photoLamp.height, 14);
+  assert.equal(photoLamp.bottom_above_floor, table.height);
+  assert.equal(photoLamp.color, '#b08d57', 'main color from the first part');
+  const lampBeams = M.buildModel({ level: 1 }).beams.filter((b) => b.piece === 'Brass lamp');
+  assert.equal(lampBeams.length, 4, 'three cylinders or cones and a sphere');
+  assert.ok(lampBeams.some((b) => b.sphere) && lampBeams.some((b) => b.rTop > 0 && b.rTop < b.r), 'a sphere and a narrowing cone');
+  assert.equal(state.work._added[0].parts.length, 4, 'parts are saved with the object');
+  assert.throws(() => ai.addObject(M, state, { name: 'No height', shape: 'parts', height: 5, parts: [{ shape: 'box', x: 0, y: 0, z: 0, width: 2, color: '#000000' }], on: 'Couch' }), /needs a height/);
+  assert.throws(() => ai.addObject(M, state, { name: 'Bare box', shape: 'box', width: 5, on: 'Couch' }), /width, a height and a color/);
+
   // Malformed saved entries are ignored, not drawn.
   ai.commit(M, state, { _colors: { Couch: 'red' }, _added: [{ name: 'Bad', shape: 'cone', w: 1, d: 1, h: 1, x: 0, y: 0, z: 0, level: 1, color: '#000000' }] });
   assert.deepEqual(state.work, {});

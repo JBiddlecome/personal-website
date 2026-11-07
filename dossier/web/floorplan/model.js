@@ -6,15 +6,23 @@ const E = A.EXTERIOR_WALL, L = A.LENGTH, W = A.WIDTH, FF = A.FLOOR_TO_FLOOR, P =
 // Furniture moved by hand, by piece name: { dx, dy, rot } with rot in degrees clockwise. Saved as layout.json.
 // Two reserved keys ride along, so saving, undo and unsaved changes cover them too:
 //   _colors: { 'Shoe rack': '#e0b020' }  a new color for a piece or a named part of the building
-//   _added:  [{ name, shape: 'box' | 'cylinder', w, d, h, x, y, z, level, color }]  extra objects; x and y are
-//            the center, z the bottom above that floor, and a cylinder's diameter is w. They move like furniture.
+//   _added:  [{ name, shape: 'box' | 'cylinder' | 'parts', w, d, h, x, y, z, level, color, parts? }]  extra objects;
+//            x and y are the center, z the bottom above that floor, and a cylinder's diameter is w. They move like
+//            furniture. A 'parts' object is built from up to 24 upright shapes, each placed relative to the object's
+//            center and bottom: { shape: 'box' | 'cylinder' | 'cone' | 'sphere', x, y, z, w, d, h, top, color }.
+//            w is a round part's diameter, top a cone's top diameter, and a sphere's size is w alone.
 export const layout = {};
 const HEX = /^#[0-9a-f]{6}$/i;
 const size = (n) => Number.isFinite(n) && n > 0 && n <= 400;
+const near = (n) => Number.isFinite(n) && Math.abs(n) <= 400;
+const validPart = (p) => ['box', 'cylinder', 'cone', 'sphere'].includes(p?.shape) && near(p.x) && near(p.y) && near(p.z) && p.z >= 0
+  && size(p.w) && size(p.d) && size(p.h) && (p.shape !== 'cone' || (Number.isFinite(p.top) && p.top >= 0 && p.top <= 400)) && HEX.test(p.color);
 const validAdded = (a) => typeof a?.name === 'string' && a.name.length > 0 && a.name.length <= 60 && !a.name.startsWith('_')
-  && (a.shape === 'box' || a.shape === 'cylinder') && size(a.w) && size(a.d) && size(a.h)
+  && ['box', 'cylinder', 'parts'].includes(a.shape) && size(a.w) && size(a.d) && size(a.h)
   && Number.isFinite(a.x) && Number.isFinite(a.y) && Number.isFinite(a.z) && a.z >= 0 && a.z <= 400
-  && (a.level === 1 || a.level === 2) && HEX.test(a.color);
+  && (a.level === 1 || a.level === 2) && HEX.test(a.color)
+  && (a.shape !== 'parts' || (Array.isArray(a.parts) && a.parts.length > 0 && a.parts.length <= 24 && a.parts.every(validPart)));
+const keepPart = ({ shape, x, y, z, w, d, h, top, color }) => ({ shape, x, y, z, w, d, h, ...(shape === 'cone' && { top }), color });
 export function loadLayout(data) {
   for (const [id, m] of Object.entries(data ?? {})) {
     if (id === '_colors') {
@@ -23,7 +31,7 @@ export function loadLayout(data) {
     } else if (id === '_added') {
       const names = new Set();
       const added = (Array.isArray(m) ? m : []).filter((a) => validAdded(a) && !names.has(a.name) && names.add(a.name)).slice(0, 100)
-        .map(({ name, shape, w, d, h, x, y, z, level, color }) => ({ name, shape, w, d, h, x, y, z, level, color }));
+        .map(({ name, shape, w, d, h, x, y, z, level, color, parts }) => ({ name, shape, w, d, h, x, y, z, level, color, ...(shape === 'parts' && { parts: parts.map(keepPart) }) }));
       if (added.length) layout._added = added;
     } else if (Number.isFinite(m?.dx) && Number.isFinite(m?.dy) && Number.isInteger(m?.rot)) {
       layout[id] = { dx: m.dx, dy: m.dy, rot: m.rot };
@@ -103,8 +111,12 @@ export function buildModel({ level = 'both', cut = Infinity, ceilings = false, f
   const item = (name, color, x0, y0, dx, dy, z0, z1) => box(name, color, x0, x0 + dx, y0, y0 + dy, z0, z1);
   // Open shapes like a lamp or easel block walking and test fit across their whole taped outline.
   const outline = (name, x0, y0, dx, dy, h, z0 = 0) => box(name, C.trim, x0, x0 + dx, y0, y0 + dy, z0, h, { hidden: true });
-  const column = (name, color, x, y, r, z0, z1) => {
-    if (show && z0 + base < cutZ) beams.push({ name, color, r, a: [x, y, z0 + base], b: [x, y, Math.min(z1 + base, cutZ)] });
+  // rTop makes it a cone with its tip cut off (rTop 0 is a full cone). shortcut: the low-wall cut keeps the top radius.
+  const column = (name, color, x, y, r, z0, z1, rTop) => {
+    if (show && z0 + base < cutZ) beams.push({ name, color, r, rTop, a: [x, y, z0 + base], b: [x, y, Math.min(z1 + base, cutZ)] });
+  };
+  const ball = (name, color, x, y, zCenter, r) => {
+    if (show && zCenter + base < cutZ) beams.push({ name, color, r, sphere: true, a: [x, y, zCenter + base], b: [x, y, zCenter + base] });
   };
 
   // Everything fn draws becomes one piece you can select, moved and turned about its own center.
@@ -621,11 +633,20 @@ export function buildModel({ level = 'both', cut = Infinity, ceilings = false, f
 
   if (furniture) {
     for (const a of layout._added ?? []) {
+      const parts = a.parts ?? [{ shape: a.shape, x: 0, y: 0, z: 0, w: a.w, d: a.d, h: a.h, color: a.color }];
       section(a.level, a.level === 2 ? FF : 0, () => piece(a.name, () => {
-        const color = parseInt(a.color.slice(1), 16);
-        if (a.shape === 'box') return box(a.name, color, a.x - a.w / 2, a.x + a.w / 2, a.y - a.d / 2, a.y + a.d / 2, a.z, a.z + a.h);
-        column(a.name, color, a.x, a.y, a.w / 2, a.z, a.z + a.h);
-        outline(a.name, a.x - a.w / 2, a.y - a.w / 2, a.w, a.w, a.z + a.h, a.z);
+        for (const p of parts) {
+          const x = a.x + p.x, y = a.y + p.y, z = a.z + p.z, color = parseInt(p.color.slice(1), 16);
+          if (p.shape === 'box') {
+            box(a.name, color, x - p.w / 2, x + p.w / 2, y - p.d / 2, y + p.d / 2, z, z + p.h);
+            continue;
+          }
+          // Round parts are drawn as cylinders or spheres, with an invisible box around each for walking and test fit.
+          const across = p.shape === 'cone' ? Math.max(p.w, p.top) : p.w, tall = p.shape === 'sphere' ? p.w : p.h;
+          if (p.shape === 'sphere') ball(a.name, color, x, y, z + p.w / 2, p.w / 2);
+          else column(a.name, color, x, y, p.w / 2, z, z + p.h, p.shape === 'cone' ? p.top / 2 : undefined);
+          outline(a.name, x - across / 2, y - across / 2, across, across, z + tall, z);
+        }
       }));
     }
   }

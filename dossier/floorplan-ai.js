@@ -35,6 +35,8 @@ Rules:
 - Colors are hex like #e0b020. Pick a natural shade for a named color.
 - To set something on top of an object (a lamp on a table), use add_object with "on". If the user says "the tables", add one to each.
 - Give added objects short, unique names that say what they are, like "Red lamp 1".
+- When the user shares a photo of something to add, rebuild its shape with add_object shape "parts": 3 to 12 upright boxes, cylinders, cones and spheres, stacked the way they are in the photo, with colors taken from the photo. A lampshade is a cone with a top_width (narrower at the top unless the shade flares). Sketch in rough inches; the tool scales everything to the size the user gave, so get the proportions right. If the user gave no size, use a typical one for that kind of object and say what you assumed. Parts can't tilt, so approximate angled arms with upright pieces.
+- If a photo arrives without a request, describe what you see and ask where to put it and how big it is.
 - Only furniture and added objects move. Walls, windows, doors, counters and the stairs don't.`;
 
 // The apartment's measurements are private and live in the store, so the model is assembled in a temp folder
@@ -247,8 +249,50 @@ function setColor(M, state, { object, floor, color }) {
   };
 }
 
-function addObject(M, state, { name, shape, width, depth, height, color, floor, on, x, y, bottom }) {
+// Claude sketches the parts from a photo in rough inches. This scales the whole sketch to the size the user gave:
+// each given size sets its own axis, and the others follow the first given one, so proportions hold.
+// Round parts stay round, so their diameters use the average of the east-west and north-south scales.
+const r8 = (n) => Math.max(0.125, Math.round(n * 8) / 8);
+function fitParts(parts, { width, depth, height }) {
+  const spans = parts.map((p) => {
+    const across = p.shape === 'cone' ? Math.max(p.width, p.top_width ?? 0) : p.width;
+    const w = across, d = p.shape === 'box' ? p.depth ?? p.width : across, h = p.shape === 'sphere' ? p.width : p.height;
+    return { x0: p.x - w / 2, x1: p.x + w / 2, y0: p.y - d / 2, y1: p.y + d / 2, z0: p.z, z1: p.z + h };
+  });
+  const edge = (k, pick) => pick(...spans.map((s) => s[k]));
+  const x0 = edge('x0', Math.min), y0 = edge('y0', Math.min), z0 = edge('z0', Math.min);
+  const W = edge('x1', Math.max) - x0, D = edge('y1', Math.max) - y0, H = edge('z1', Math.max) - z0;
+  const given = [[height, H], [width, W], [depth, D]].find(([s]) => s != null);
+  if (!given) throw new Error("Give the object's height, width or depth so it can be scaled.");
+  const k = given[0] / given[1];
+  const sx = width != null ? width / W : k, sy = depth != null ? depth / D : k, sz = height != null ? height / H : k;
+  const sr = (sx + sy) / 2, cx = x0 + W / 2, cy = y0 + D / 2;
+  return {
+    w: r8(W * sx), d: r8(D * sy), h: r8(H * sz),
+    parts: parts.map((p) => ({
+      shape: p.shape,
+      x: Math.round((p.x - cx) * sx * 8) / 8, y: Math.round((p.y - cy) * sy * 8) / 8, z: Math.round((p.z - z0) * sz * 8) / 8,
+      w: r8(p.width * (p.shape === 'box' ? sx : sr)),
+      d: r8(p.shape === 'box' ? (p.depth ?? p.width) * sy : p.width * sr),
+      h: r8(p.shape === 'sphere' ? p.width * sr : p.height * sz),
+      ...(p.shape === 'cone' && { top: Math.round((p.top_width ?? 0) * sr * 8) / 8 }),
+      color: p.color.toLowerCase(),
+    })),
+  };
+}
+
+function addObject(M, state, { name, shape, width, depth, height, color, parts, floor, on, x, y, bottom }) {
   const label = name.trim();
+  let built;
+  if (shape === 'parts') {
+    if (!parts?.length) throw new Error('A parts object needs its parts.');
+    const bad = parts.find((p) => p.shape !== 'sphere' && p.height == null);
+    if (bad) throw new Error(`Every part except a sphere needs a height (a ${bad.shape} has none).`);
+    built = fitParts(parts, { width, depth, height });
+  } else {
+    if (width == null || height == null || !color) throw new Error('A box or cylinder needs a width, a height and a color.');
+    built = { w: width, d: shape === 'cylinder' ? width : depth ?? width, h: height };
+  }
   if (allObjects(state.floors).some((o) => o.name.toLowerCase() === label.toLowerCase())) throw new Error(`"${label}" is already taken. Pick another name.`);
   let level, target = null;
   if (on) {
@@ -259,11 +303,12 @@ function addObject(M, state, { name, shape, width, depth, height, color, floor, 
     level = FLOORS[floor ?? 'downstairs'];
   }
   const item = {
-    name: label, shape, w: width, d: shape === 'cylinder' ? width : depth ?? width, h: height,
+    name: label, shape, w: built.w, d: built.d, h: built.h,
     x: x ?? (target.x0 + target.x1) / 2, y: y ?? (target.y0 + target.y1) / 2,
     // On top of the target unless told otherwise. Heights are above that floor.
     z: bottom ?? (target ? target.z1 - target.base : 0),
-    level, color: color.toLowerCase(),
+    level, color: (color ?? built.parts[0].color).toLowerCase(),
+    ...(built.parts && { parts: built.parts }),
   };
   commit(M, state, { ...state.work, _added: [...(state.work._added ?? []), item] });
   const made = allObjects(state.floors).find((o) => o.name === item.name);
@@ -358,14 +403,25 @@ function tools(M, state) {
     }),
     betaZodTool({
       name: 'add_object',
-      description: 'Add a simple box or cylinder to the 3D view. Put it on top of an object with "on" (centered on it unless x and y are given), or give x, y and a floor. Reports anything it overlaps.',
+      description: 'Add an object to the 3D view: a single box or cylinder, or a "parts" object built from up to 24 upright shapes (for something in a photo). Put it on top of an object with "on" (centered on it unless x and y are given), or give x, y and a floor. A parts object is scaled as a whole to the width, depth and height given here; give at least one, and any left out keep the sketch\'s proportions. Reports anything it overlaps.',
       inputSchema: z.object({
         name: z.string().min(1).max(60).describe('Short and unique, like "Red lamp 1"'),
-        shape: z.enum(['box', 'cylinder']),
-        width: size.describe("Inches east-west; a cylinder's diameter"),
-        depth: size.optional().describe('Inches north-south; boxes only, defaults to width'),
-        height: size,
-        color: hexColor,
+        shape: z.enum(['box', 'cylinder', 'parts']),
+        width: size.optional().describe("Inches east-west; a cylinder's diameter. Required for box and cylinder"),
+        depth: size.optional().describe('Inches north-south; defaults to width for a box'),
+        height: size.optional().describe('Inches tall. Required for box and cylinder'),
+        color: hexColor.optional().describe('Required for box and cylinder. Parts carry their own colors'),
+        parts: z.array(z.object({
+          shape: z.enum(['box', 'cylinder', 'cone', 'sphere']),
+          x: z.number().describe('Center, east, in rough inches'),
+          y: z.number().describe('Center, north, in rough inches'),
+          z: z.number().min(0).describe('Bottom, in rough inches above the object\'s base'),
+          width: size.describe('Box width east-west, or the diameter of a cylinder, sphere, or the bottom of a cone'),
+          depth: size.optional().describe('Box depth north-south; defaults to width'),
+          height: size.optional().describe('Required except for a sphere'),
+          top_width: z.number().min(0).max(400).optional().describe('Cone top diameter; 0 for a point. Make it larger than width for a shade that flares upward'),
+          color: hexColor,
+        })).min(1).max(24).optional().describe('For shape "parts": upright shapes sketched from the photo, in one consistent rough-inch scale'),
         on: z.string().optional().describe('Object to set it on, from list_objects'),
         floor: floorParam,
         x: z.number().optional().describe('Center, inches east'),
@@ -401,8 +457,12 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 // messages: [{ role: 'user' | 'assistant', content: string }], oldest first, ending with the new question.
 // Earlier turns go back as plain text with no thinking blocks, so there is no replayed history to keep identical.
 // layout: the page's current layout, unsaved changes included. Otherwise the saved layout.
+// image: an optional photo for the newest message, { media_type, data } with data in base64. It isn't kept;
+// later turns carry only their text.
 // Returns { reply, layout }, with layout only when something changed.
-async function ask({ messages, layout } = {}) {
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_BASE64 = 5e6;
+async function ask({ messages, layout, image } = {}) {
   if (!Array.isArray(messages) || !messages.length || messages.length > 40) throw fail(400, 'Send 1 to 40 messages.');
   messages.forEach((m, i) => {
     if (m?.role !== (i % 2 ? 'assistant' : 'user') || typeof m.content !== 'string' || !m.content.trim() || m.content.length > 4000) {
@@ -410,6 +470,9 @@ async function ask({ messages, layout } = {}) {
     }
   });
   if (messages.length % 2 === 0) throw fail(400, 'The last message must be the question.');
+  if (image != null && (!IMAGE_TYPES.includes(image.media_type) || typeof image.data !== 'string' || !image.data || image.data.length > MAX_IMAGE_BASE64 || !/^[A-Za-z0-9+/=]+$/.test(image.data))) {
+    throw fail(400, 'The photo must be a JPEG, PNG, WebP or GIF under about 3.5 MB.');
+  }
   if (!process.env.ANTHROPIC_API_KEY) throw fail(503, 'The AI key is not set up on the server.');
 
   const M = await loadModel();
@@ -430,7 +493,12 @@ async function ask({ messages, layout } = {}) {
       cache_control: { type: 'ephemeral' },
       system: SYSTEM,
       tools: tools(M, state),
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: messages.map((m, i) => ({
+        role: m.role,
+        content: image && i === messages.length - 1
+          ? [{ type: 'image', source: { type: 'base64', media_type: image.media_type, data: image.data } }, { type: 'text', text: m.content }]
+          : m.content,
+      })),
     });
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError) throw fail(503, 'The AI key on the server was not accepted.');
@@ -445,4 +513,4 @@ async function ask({ messages, layout } = {}) {
   return { reply: text || 'Done.', layout: changes };
 }
 
-module.exports = { ask, loadModel, snapshot, commit, measureGap, checkFit, listRooms, listObjects, setColor, addObject, moveObject, removeObject };
+module.exports = { ask, loadModel, snapshot, commit, fitParts, measureGap, checkFit, listRooms, listObjects, setColor, addObject, moveObject, removeObject };
