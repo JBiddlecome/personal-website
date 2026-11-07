@@ -4,10 +4,30 @@ import * as A from './apartment.js';
 const E = A.EXTERIOR_WALL, L = A.LENGTH, W = A.WIDTH, FF = A.FLOOR_TO_FLOOR, P = A.PATIO;
 
 // Furniture moved by hand, by piece name: { dx, dy, rot } with rot in degrees clockwise. Saved as layout.json.
+// Two reserved keys ride along, so saving, undo and unsaved changes cover them too:
+//   _colors: { 'Shoe rack': '#e0b020' }  a new color for a piece or a named part of the building
+//   _added:  [{ name, shape: 'box' | 'cylinder', w, d, h, x, y, z, level, color }]  extra objects; x and y are
+//            the center, z the bottom above that floor, and a cylinder's diameter is w. They move like furniture.
 export const layout = {};
+const HEX = /^#[0-9a-f]{6}$/i;
+const size = (n) => Number.isFinite(n) && n > 0 && n <= 400;
+const validAdded = (a) => typeof a?.name === 'string' && a.name.length > 0 && a.name.length <= 60 && !a.name.startsWith('_')
+  && (a.shape === 'box' || a.shape === 'cylinder') && size(a.w) && size(a.d) && size(a.h)
+  && Number.isFinite(a.x) && Number.isFinite(a.y) && Number.isFinite(a.z) && a.z >= 0 && a.z <= 400
+  && (a.level === 1 || a.level === 2) && HEX.test(a.color);
 export function loadLayout(data) {
   for (const [id, m] of Object.entries(data ?? {})) {
-    if (Number.isFinite(m?.dx) && Number.isFinite(m?.dy) && Number.isInteger(m?.rot)) layout[id] = { dx: m.dx, dy: m.dy, rot: m.rot };
+    if (id === '_colors') {
+      const colors = Object.entries(m ?? {}).filter(([name, c]) => name.length <= 80 && HEX.test(c));
+      if (colors.length) layout._colors = Object.fromEntries(colors);
+    } else if (id === '_added') {
+      const names = new Set();
+      const added = (Array.isArray(m) ? m : []).filter((a) => validAdded(a) && !names.has(a.name) && names.add(a.name)).slice(0, 100)
+        .map(({ name, shape, w, d, h, x, y, z, level, color }) => ({ name, shape, w, d, h, x, y, z, level, color }));
+      if (added.length) layout._added = added;
+    } else if (Number.isFinite(m?.dx) && Number.isFinite(m?.dy) && Number.isInteger(m?.rot)) {
+      layout[id] = { dx: m.dx, dy: m.dy, rot: m.rot };
+    }
   }
 }
 
@@ -598,6 +618,23 @@ export function buildModel({ level = 'both', cut = Infinity, ceilings = false, f
 
     if (furniture) { primaryBedroom(); officeRoom(); upstairsBath(); upstairsHall(); }
   });
+
+  if (furniture) {
+    for (const a of layout._added ?? []) {
+      section(a.level, a.level === 2 ? FF : 0, () => piece(a.name, () => {
+        const color = parseInt(a.color.slice(1), 16);
+        if (a.shape === 'box') return box(a.name, color, a.x - a.w / 2, a.x + a.w / 2, a.y - a.d / 2, a.y + a.d / 2, a.z, a.z + a.h);
+        column(a.name, color, a.x, a.y, a.w / 2, a.z, a.z + a.h);
+        outline(a.name, a.x - a.w / 2, a.y - a.w / 2, a.w, a.w, a.z + a.h, a.z);
+      }));
+    }
+  }
+  // New colors cover every part of a piece, or every box of a named part of the building.
+  const colors = layout._colors ?? {};
+  for (const b of [...boxes, ...beams]) {
+    const c = colors[b.piece] ?? colors[b.name];
+    if (c) b.color = parseInt(c.slice(1), 16);
+  }
 
   if (ceilings) {
     const y = sy0, top = FF + A.CEILING, thin = 0.5;
