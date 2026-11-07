@@ -969,6 +969,27 @@ function addChatLine(cls, text) {
   resize();
   return p;
 }
+// Claude's changes come back as a whole new layout and land as unsaved edits, like moving furniture by hand,
+// so Undo, Save, Discard and the kept-on-device copy all work as usual.
+function applyAiChanges(next) {
+  remember();
+  clearLayout();
+  loadLayout(next);
+  selected = null;
+  if (walking) solidsForWalk = walkSolids();
+  layoutChanged();
+  const p = addChatLine('hint', 'Changed on screen, not saved yet.');
+  const act = (label, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.onclick = fn;
+    p.append(b);
+  };
+  act('Save', async () => { await saveLayout(); addChatLine('hint', $('moveStatus').textContent); });
+  act('Undo', () => { undo(); addChatLine('hint', 'Undone.'); });
+}
+
 $('askToggle').hidden = !onSite;
 $('askToggle').onclick = () => {
   const open = $('askPanel').hidden;
@@ -986,7 +1007,7 @@ $('askForm').onsubmit = async (e) => {
   addChatLine('q', question);
   const wait = addChatLine('wait', 'Looking that up...');
   chat.push({ role: 'user', content: question });
-  let reply = null, problem = null;
+  let reply = null, changes = null, problem = null;
   try {
     // The server takes up to 39 earlier messages. An odd count keeps the oldest one a question.
     const res = await fetch('/dossier/api/floorplan/ask', {
@@ -995,7 +1016,7 @@ $('askForm').onsubmit = async (e) => {
       body: JSON.stringify({ messages: chat.slice(-39), layout }),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.ok) reply = data.reply;
+    if (res.ok) ({ reply, layout: changes } = data);
     else problem = res.status === 401 ? 'Your sign-in expired. Reload to sign in.' : data.error || `The server said ${res.status}.`;
   } catch {
     problem = 'No connection. Ask again when you have signal.';
@@ -1004,6 +1025,7 @@ $('askForm').onsubmit = async (e) => {
   if (reply) {
     chat.push({ role: 'assistant', content: reply.slice(0, 4000) });
     addChatLine('a', reply);
+    if (changes) applyAiChanges(changes);
   } else {
     // Drop the unanswered question so the conversation still alternates question, answer.
     chat.pop();

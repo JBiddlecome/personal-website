@@ -41,6 +41,32 @@ const DIR = process.env.FLOORPLAN_DIR || path.join(os.homedir(), 'GitHub Local',
   const spot = ai.checkFit(M, floors, { width: 4, depth: 4, height: 4, room: 'Living Room', x: (couch.x0 + couch.x1) / 2, y: (couch.y0 + couch.y1) / 2 });
   assert.ok(spot.hits.includes('Couch'), JSON.stringify(spot.hits));
 
+  // Changes: the user's two examples, then moving, removing and the limits.
+  const state = {};
+  ai.commit(M, state, {});
+  ai.setColor(M, state, { object: 'Shoe rack', color: '#E0B020' });
+  assert.equal(state.work._colors['Shoe rack'], '#e0b020');
+  assert.ok(M.buildModel({ level: 1 }).boxes.filter((b) => b.piece === 'Shoe rack').every((b) => b.color === 0xe0b020), 'shoe rack drawn yellow');
+  const table = ai.listObjects(M, state.floors, {}).find((o) => o.name === 'End table 1');
+  const lamp = ai.addObject(M, state, { name: 'Red lamp 1', shape: 'cylinder', width: 3, height: 12, color: '#c0392b', on: 'End table 1' }).added;
+  assert.equal(lamp.bottom_above_floor, table.height, 'lamp sits on the table top');
+  assert.equal(lamp.east_west, 3);
+  assert.equal(lamp.color, '#c0392b', 'color comes from the cylinder, not its outline');
+  assert.ok(M.buildModel({ level: 1 }).beams.some((b) => b.piece === 'Red lamp 1'), 'drawn as a cylinder');
+  assert.throws(() => ai.addObject(M, state, { name: 'red lamp 1', shape: 'box', width: 3, height: 3, color: '#000000', on: 'Couch' }), /already taken/);
+  const before = ai.listObjects(M, state.floors, {}).find((o) => o.name === 'Red lamp 1');
+  ai.moveObject(M, state, { object: 'Red lamp 1', dx: 10, dy: 0 });
+  assert.equal(ai.listObjects(M, state.floors, {}).find((o) => o.name === 'Red lamp 1').x0, before.x0 + 10, 'added objects move like furniture');
+  assert.throws(() => ai.moveObject(M, state, { object: 'Front door', dx: 5 }), /doesn't move/);
+  assert.throws(() => ai.removeObject(M, state, { object: 'Couch' }), /Only objects added/);
+  ai.removeObject(M, state, { object: 'Red lamp 1' });
+  assert.ok(!state.work._added && !state.work['Red lamp 1'], 'removing also clears its move');
+  ai.setColor(M, state, { object: 'Shoe rack', color: 'original' });
+  assert.ok(!state.work._colors, 'empty colors are dropped');
+  // Malformed saved entries are ignored, not drawn.
+  ai.commit(M, state, { _colors: { Couch: 'red' }, _added: [{ name: 'Bad', shape: 'cone', w: 1, d: 1, h: 1, x: 0, y: 0, z: 0, level: 1, color: '#000000' }] });
+  assert.deepEqual(state.work, {});
+
   console.log('floorplan AI tools: all checks passed');
   console.log(JSON.stringify({ gap, sofa: ai.checkFit(M, floors, { width: 84, depth: 38, height: 34, room: 'Living Room' }) }, null, 1).slice(0, 2500));
 })().catch((err) => { console.error(err); process.exit(1); });

@@ -1,6 +1,7 @@
-// Answers questions about the apartment (/floorplan) with Claude. Claude picks what to look up; every number comes
-// from the same model code the 3D page runs (web/floorplan/model.js), never from Claude's own estimate.
-// Read-only for now: nothing here moves furniture or saves anything.
+// Answers questions about the apartment (/floorplan) with Claude, and makes changes it asks for. Claude picks what
+// to look up; every number comes from the same model code the 3D page runs (web/floorplan/model.js), never from
+// Claude's own estimate. Changes (colors, added objects, moved furniture) are made to a copy of the layout that goes
+// back to the page as unsaved edits, so nothing here saves anything.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -23,13 +24,18 @@ const SYSTEM = `You answer questions about the user's apartment from a measured 
 
 The apartment has two floors, downstairs and upstairs. Plan coordinates are in inches: x runs west to east and y runs south to north. The patio is on the west side and the street is to the east.
 
+You can also change what the 3D view shows: recolor objects, add simple boxes and cylinders (a lamp, a planned shelf), move or turn furniture, and remove objects you added. Changes appear on the user's screen right away as unsaved edits they can Save or Undo, so make what they ask without asking for confirmation, then say briefly what you did.
+
 Rules:
 - Every distance and size in your answer must come from a tool result. Never estimate one yourself.
 - Match the user's words to object names from list_objects (for example "sofa" is probably "Couch"). If the match is a guess, say which object you used.
 - Gaps next to an object marked angled are measured to its outer rectangle, so the real space is a little larger. Say so when it matters.
 - Give lengths in feet and inches, like 6' 2 1/2".
 - Answer in a few short sentences of plain text, without headings or tables. Lead with the answer.
-- You can't move furniture or place anything in the 3D view yet. If asked, say so, and answer the fit question instead.`;
+- Colors are hex like #e0b020. Pick a natural shade for a named color.
+- To set something on top of an object (a lamp on a table), use add_object with "on". If the user says "the tables", add one to each.
+- Give added objects short, unique names that say what they are, like "Red lamp 1".
+- Only furniture and added objects move. Walls, windows, doors, counters and the stairs don't.`;
 
 // The apartment's measurements are private and live in the store, so the model is assembled in a temp folder
 // and imported from there. Cached until apartment.js or model.js changes.
@@ -55,6 +61,7 @@ async function savedLayout() {
   try { return file ? JSON.parse(file.body.toString('utf8')) : {}; } catch (_) { return {}; }
 }
 
+const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 const round = (n) => Math.round(n * 8) / 8;
 const inches = (M, n) => (Number.isFinite(n) ? { inches: round(n), text: M.formatInches(n) } : null);
 
@@ -63,6 +70,7 @@ const inches = (M, n) => (Number.isFinite(n) ? { inches: round(n), text: M.forma
 function snapshot(M, layoutData) {
   for (const id of Object.keys(M.layout)) delete M.layout[id];
   M.loadLayout(layoutData);
+  const added = new Set((M.layout._added ?? []).map((a) => a.name));
   const floors = {};
   for (const level of [1, 2]) {
     const built = M.buildModel({ level });
@@ -78,16 +86,20 @@ function snapshot(M, layoutData) {
     const groups = new Map();
     for (const b of built.boxes) {
       if (!b.piece && SKIP.test(b.name)) continue;
-      const name = b.piece ?? (b.name === 'Stair tread' ? 'Stairs' : b.name);
+      const key = b.piece ?? b.name;
+      const name = key === 'Stair tread' ? 'Stairs' : key;
       const g = groups.get(name);
-      if (!g) groups.set(name, { name, furniture: !!b.piece, angled: !!b.turn, x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 });
+      if (!g) groups.set(name, { name, key, furniture: !!b.piece, added: added.has(key), angled: !!b.turn, color: b.hidden ? null : hex(b.color), x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 });
       else {
         g.x0 = Math.min(g.x0, b.x0); g.x1 = Math.max(g.x1, b.x1);
         g.y0 = Math.min(g.y0, b.y0); g.y1 = Math.max(g.y1, b.y1);
         g.z0 = Math.min(g.z0, b.z0); g.z1 = Math.max(g.z1, b.z1);
         g.angled ||= !!b.turn;
+        if (!b.hidden) g.color ??= hex(b.color);
       }
     }
+    // Round things are cylinders, drawn apart from the invisible outline box that stands in for them.
+    for (const g of groups.values()) g.color ??= hex(built.beams.find((c) => c.piece === g.key)?.color ?? 0);
     const objects = [...groups.values()].map((o) => ({ ...o, floor: FLOOR_NAME[level], room: roomAt((o.x0 + o.x1) / 2, (o.y0 + o.y1) / 2), base }));
     floors[level] = { rooms, objects, solids: built.boxes.filter(notFloor), base };
   }
@@ -115,7 +127,7 @@ function findRoom(floors, name, floor) {
 
 function describeObject(M, o) {
   return {
-    name: o.name, floor: o.floor, room: o.room, furniture: o.furniture, angled: o.angled || undefined,
+    name: o.name, floor: o.floor, room: o.room, furniture: o.furniture, added: o.added || undefined, angled: o.angled || undefined, color: o.color,
     east_west: round(o.x1 - o.x0), north_south: round(o.y1 - o.y0), height: round(o.z1 - o.z0), bottom_above_floor: round(o.z0 - o.base),
     x0: round(o.x0), x1: round(o.x1), y0: round(o.y0), y1: round(o.y1),
   };
@@ -204,13 +216,97 @@ function checkFit(M, floors, { width, depth, height, room, floor, x, y }) {
   };
 }
 
+// ── Changes ───────────────────────────────────────────────────────────────────
+// state.work is the page's layout (moves, _colors, _added) being edited. After each change the model is rebuilt
+// from it, so later lookups in the same answer see the change, and the work copy is replaced by what the model
+// actually accepted (loadLayout drops anything malformed).
+function commit(M, state, nextWork) {
+  state.floors = snapshot(M, nextWork);
+  state.work = JSON.parse(JSON.stringify(M.layout));
+  state.changed = true;
+}
+
+const allObjects = (floors) => [...floors[1].objects, ...floors[2].objects];
+
+// What an object runs into on its floor, apart from itself and anything named in ignore.
+function overlapsOf(M, floors, o, ignore = []) {
+  const solids = floors[FLOORS[o.floor]].solids.filter((s) => ![o.key, ...ignore].includes(s.piece ?? s.name));
+  return M.fitReport(solids, o).hits;
+}
+
+function setColor(M, state, { object, floor, color }) {
+  const o = findObject(state.floors, object, floor);
+  const colors = { ...(state.work._colors ?? {}) };
+  if (color === 'original') delete colors[o.key];
+  else colors[o.key] = color.toLowerCase();
+  commit(M, state, { ...state.work, _colors: colors });
+  const onBoth = !o.furniture && allObjects(state.floors).filter((x) => x.key === o.key).length > 1;
+  return {
+    done: color === 'original' ? `${o.name} is back to its own color.` : `${o.name} is now ${color}.`,
+    note: onBoth ? `Every "${o.key}" on both floors changed.` : undefined,
+  };
+}
+
+function addObject(M, state, { name, shape, width, depth, height, color, floor, on, x, y, bottom }) {
+  const label = name.trim();
+  if (allObjects(state.floors).some((o) => o.name.toLowerCase() === label.toLowerCase())) throw new Error(`"${label}" is already taken. Pick another name.`);
+  let level, target = null;
+  if (on) {
+    target = findObject(state.floors, on, floor);
+    level = FLOORS[target.floor];
+  } else {
+    if (x == null || y == null) throw new Error('Give x and y, or an object to put it on.');
+    level = FLOORS[floor ?? 'downstairs'];
+  }
+  const item = {
+    name: label, shape, w: width, d: shape === 'cylinder' ? width : depth ?? width, h: height,
+    x: x ?? (target.x0 + target.x1) / 2, y: y ?? (target.y0 + target.y1) / 2,
+    // On top of the target unless told otherwise. Heights are above that floor.
+    z: bottom ?? (target ? target.z1 - target.base : 0),
+    level, color: color.toLowerCase(),
+  };
+  commit(M, state, { ...state.work, _added: [...(state.work._added ?? []), item] });
+  const made = allObjects(state.floors).find((o) => o.name === item.name);
+  if (!made) throw new Error('That object could not be added. Sizes must be 0 to 400 inches.');
+  const hits = overlapsOf(M, state.floors, made, target ? [target.key] : []);
+  return { added: describeObject(M, made), overlaps: hits.length ? hits : undefined };
+}
+
+function moveObject(M, state, { object, floor, dx, dy, to_x, to_y, turn_by }) {
+  const o = findObject(state.floors, object, floor);
+  if (!o.furniture) throw new Error(`${o.name} is part of the building and doesn't move.`);
+  const was = state.work[o.key] ?? { dx: 0, dy: 0, rot: 0 };
+  const cx = (o.x0 + o.x1) / 2, cy = (o.y0 + o.y1) / 2;
+  const next = {
+    dx: was.dx + (to_x != null ? to_x - cx : dx ?? 0),
+    dy: was.dy + (to_y != null ? to_y - cy : dy ?? 0),
+    rot: (((was.rot + (turn_by ?? 0)) % 360) + 360) % 360,
+  };
+  commit(M, state, { ...state.work, [o.key]: next });
+  const moved = allObjects(state.floors).find((x) => x.key === o.key && x.floor === o.floor);
+  const hits = overlapsOf(M, state.floors, moved);
+  return { moved: describeObject(M, moved), overlaps: hits.length ? hits : undefined };
+}
+
+function removeObject(M, state, { object }) {
+  const o = findObject(state.floors, object);
+  if (!o.added) throw new Error(`${o.name} is real furniture or part of the building. Only objects added here can be removed.`);
+  const next = { ...state.work, _added: state.work._added.filter((a) => a.name !== o.key) };
+  delete next[o.key];
+  if (next._colors) { next._colors = { ...next._colors }; delete next._colors[o.key]; }
+  commit(M, state, next);
+  return { removed: o.name };
+}
+
 const floorParam = z.enum(['downstairs', 'upstairs']).optional();
 const size = z.number().positive().max(400);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/).describe('Hex color like #e0b020');
 
-function tools(M, floors) {
-  const run = (fn) => async (input) => {
+function tools(M, state) {
+  // Lookups read the current model; changes get the whole state so they can replace it.
+  const run = (fn, edits) => async (input) => {
     try {
-      return JSON.stringify(fn(M, floors, input));
+      return JSON.stringify(fn(M, edits ? state : state.floors, input));
     } catch (err) {
       return JSON.stringify({ error: err.message });
     }
@@ -224,7 +320,7 @@ function tools(M, floors) {
     }),
     betaZodTool({
       name: 'list_objects',
-      description: 'Furniture, fixtures, doors, windows and walls, with each one\'s floor, room, size (east_west, north_south, height, in inches) and plan bounds. Filter by floor or room to keep it short.',
+      description: "Furniture, fixtures, doors, windows, walls and added objects, with each one's floor, room, color, size (east_west, north_south, height, in inches), height of its bottom above the floor, and plan bounds. Filter by floor or room to keep it short.",
       inputSchema: z.object({ floor: floorParam, room: z.string().optional().describe('A room name from list_rooms') }),
       run: run((m, f, input) => listObjects(m, f, input)),
     }),
@@ -250,6 +346,52 @@ function tools(M, floors) {
       }),
       run: run(checkFit),
     }),
+    betaZodTool({
+      name: 'set_color',
+      description: 'Recolor an object: a piece of furniture, an added object, or a named part of the building (every box with that name). "original" puts back its own color.',
+      inputSchema: z.object({
+        object: z.string().describe('Exact object name from list_objects'),
+        floor: floorParam,
+        color: z.union([hexColor, z.literal('original')]),
+      }),
+      run: run(setColor, true),
+    }),
+    betaZodTool({
+      name: 'add_object',
+      description: 'Add a simple box or cylinder to the 3D view. Put it on top of an object with "on" (centered on it unless x and y are given), or give x, y and a floor. Reports anything it overlaps.',
+      inputSchema: z.object({
+        name: z.string().min(1).max(60).describe('Short and unique, like "Red lamp 1"'),
+        shape: z.enum(['box', 'cylinder']),
+        width: size.describe("Inches east-west; a cylinder's diameter"),
+        depth: size.optional().describe('Inches north-south; boxes only, defaults to width'),
+        height: size,
+        color: hexColor,
+        on: z.string().optional().describe('Object to set it on, from list_objects'),
+        floor: floorParam,
+        x: z.number().optional().describe('Center, inches east'),
+        y: z.number().optional().describe('Center, inches north'),
+        bottom: z.number().min(0).max(400).optional().describe('Inches above the floor. Defaults to the top of "on", or the floor'),
+      }),
+      run: run(addObject, true),
+    }),
+    betaZodTool({
+      name: 'move_object',
+      description: 'Move or turn a piece of furniture or an added object. Either shift it (dx inches east, dy inches north) or put its center at to_x, to_y. turn_by turns it clockwise in whole degrees. Reports anything it overlaps afterwards.',
+      inputSchema: z.object({
+        object: z.string().describe('Exact object name from list_objects'),
+        floor: floorParam,
+        dx: z.number().optional(), dy: z.number().optional(),
+        to_x: z.number().optional(), to_y: z.number().optional(),
+        turn_by: z.number().int().optional(),
+      }),
+      run: run(moveObject, true),
+    }),
+    betaZodTool({
+      name: 'remove_object',
+      description: "Remove an object that was added with add_object. Real furniture can't be removed.",
+      inputSchema: z.object({ object: z.string() }),
+      run: run(removeObject, true),
+    }),
   ];
 }
 
@@ -258,7 +400,8 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 
 // messages: [{ role: 'user' | 'assistant', content: string }], oldest first, ending with the new question.
 // Earlier turns go back as plain text with no thinking blocks, so there is no replayed history to keep identical.
-// layout: the page's current furniture positions, unsaved moves included. Otherwise the saved layout.
+// layout: the page's current layout, unsaved changes included. Otherwise the saved layout.
+// Returns { reply, layout }, with layout only when something changed.
 async function ask({ messages, layout } = {}) {
   if (!Array.isArray(messages) || !messages.length || messages.length > 40) throw fail(400, 'Send 1 to 40 messages.');
   messages.forEach((m, i) => {
@@ -270,21 +413,23 @@ async function ask({ messages, layout } = {}) {
   if (!process.env.ANTHROPIC_API_KEY) throw fail(503, 'The AI key is not set up on the server.');
 
   const M = await loadModel();
-  const floors = snapshot(M, layout && typeof layout === 'object' ? layout : await savedLayout());
+  const state = {};
+  commit(M, state, layout && typeof layout === 'object' ? layout : await savedLayout());
+  state.changed = false;
   client ??= new Anthropic();
   let final;
   try {
     final = await client.beta.messages.toolRunner({
       model: MODEL,
       max_tokens: 16000,
-      max_iterations: 12,
+      max_iterations: 16,
       output_config: { effort: 'medium' },
       // If a safety check declines the request, the API retries it on another model.
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       cache_control: { type: 'ephemeral' },
       system: SYSTEM,
-      tools: tools(M, floors),
+      tools: tools(M, state),
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
   } catch (err) {
@@ -293,10 +438,11 @@ async function ask({ messages, layout } = {}) {
     if (err instanceof Anthropic.APIError) throw fail(502, `The AI service said ${err.status ?? 'no'}: ${err.message}`);
     throw err;
   }
-  if (final.stop_reason === 'refusal') return 'Claude declined to answer that one.';
+  const changes = state.changed ? state.work : undefined;
+  if (final.stop_reason === 'refusal') return { reply: 'Claude declined to answer that one.', layout: changes };
   const text = final.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n\n').trim();
-  if (final.stop_reason === 'tool_use') return `${text}\n\n(I stopped after too many lookups. Try a narrower question.)`.trim();
-  return text || 'No answer came back. Try asking again.';
+  if (final.stop_reason === 'tool_use') return { reply: `${text}\n\n(I stopped after too many steps. Try a narrower request.)`.trim(), layout: changes };
+  return { reply: text || 'Done.', layout: changes };
 }
 
-module.exports = { ask, loadModel, snapshot, measureGap, checkFit, listRooms, listObjects };
+module.exports = { ask, loadModel, snapshot, commit, measureGap, checkFit, listRooms, listObjects, setColor, addObject, moveObject, removeObject };
