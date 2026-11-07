@@ -119,10 +119,11 @@ function rebuild() {
   }
   for (const beam of model.beams) {
     const a = toWorld(...beam.a), b = toWorld(...beam.b);
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(beam.r, beam.r, a.distanceTo(b), 20), material(beam.color));
+    const geometry = beam.sphere ? new THREE.SphereGeometry(beam.r, 20, 14) : new THREE.CylinderGeometry(beam.rTop ?? beam.r, beam.r, a.distanceTo(b), 20);
+    const mesh = new THREE.Mesh(geometry, material(beam.color));
     mesh.userData.piece = beam.piece;
     mesh.position.copy(a).add(b).multiplyScalar(0.5);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    if (!beam.sphere) mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
     group.add(mesh);
   }
   // Sloped pieces: an (x, z) outline extruded north-south.
@@ -998,22 +999,64 @@ $('askToggle').onclick = () => {
   resize();
   if (open) $('askInput').focus();
 };
+// A photo for the next question, shrunk on the device so it uploads quickly on a weak signal. Sent once, not kept.
+const MAX_PHOTO_SIDE = 1024;
+let photo = null;
+async function shrinkPhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  const k = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bitmap.width * k);
+  c.height = Math.round(bitmap.height * k);
+  c.getContext('2d').drawImage(bitmap, 0, 0, c.width, c.height);
+  const url = c.toDataURL('image/jpeg', 0.85);
+  return { url, media_type: 'image/jpeg', data: url.slice(url.indexOf(',') + 1) };
+}
+function attachPhoto(next) {
+  photo = next;
+  $('askThumb').src = photo?.url ?? '';
+  $('askAttached').hidden = !photo;
+  resize();
+}
+$('askPhoto').onclick = () => $('askFile').click();
+$('askFile').onchange = async () => {
+  const file = $('askFile').files[0];
+  $('askFile').value = '';
+  if (!file) return;
+  try {
+    attachPhoto(await shrinkPhoto(file));
+    $('askInput').focus();
+  } catch {
+    addChatLine('bad', "That photo couldn't be opened. Try a JPEG or PNG.");
+  }
+};
+$('askUnattach').onclick = () => attachPhoto(null);
+
 $('askForm').onsubmit = async (e) => {
   e.preventDefault();
-  const question = $('askInput').value.trim();
+  const sending = photo;
+  // A photo alone still gets an answer: Claude describes it and asks where it goes and how big it is.
+  const question = $('askInput').value.trim() || (sending ? 'Here is a photo.' : '');
   if (!question || $('askSend').disabled) return;
   $('askInput').value = '';
   $('askSend').disabled = true;
-  addChatLine('q', question);
-  const wait = addChatLine('wait', 'Looking that up...');
-  chat.push({ role: 'user', content: question });
+  const asked = addChatLine('q', question);
+  if (sending) {
+    const img = document.createElement('img');
+    img.src = sending.url;
+    img.alt = 'Photo sent';
+    asked.append(img);
+  }
+  const wait = addChatLine('wait', sending ? 'Looking at the photo...' : 'Looking that up...');
+  // Later turns carry only text, so the note tells Claude a photo was part of this one.
+  chat.push({ role: 'user', content: sending ? `${question}\n(Photo attached.)` : question });
   let reply = null, changes = null, problem = null;
   try {
     // The server takes up to 39 earlier messages. An odd count keeps the oldest one a question.
     const res = await fetch('/dossier/api/floorplan/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: chat.slice(-39), layout }),
+      body: JSON.stringify({ messages: chat.slice(-39), layout, image: sending ? { media_type: sending.media_type, data: sending.data } : undefined }),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) ({ reply, layout: changes } = data);
@@ -1026,8 +1069,9 @@ $('askForm').onsubmit = async (e) => {
     chat.push({ role: 'assistant', content: reply.slice(0, 4000) });
     addChatLine('a', reply);
     if (changes) applyAiChanges(changes);
+    if (photo === sending) attachPhoto(null);
   } else {
-    // Drop the unanswered question so the conversation still alternates question, answer.
+    // Drop the unanswered question so the conversation still alternates question, answer. The photo stays attached to retry.
     chat.pop();
     addChatLine('bad', problem);
   }

@@ -34,6 +34,9 @@
   #askLog .wait, #askLog .hint { color: #6b655a; }
   #askLog .bad { color: #b3261e; }
   #askLog p button { min-height: 36px; margin-left: 8px; }
+  #askLog img { display: block; max-height: 80px; margin-top: 4px; border-radius: 4px; }
+  #askAttached { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  #askAttached img { height: 48px; border-radius: 4px; }
   #readout { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     max-width: calc(100% - 20px); box-sizing: border-box; padding: 8px 12px; background: #fff; border: 1px solid #b9b2a3;
     border-radius: 6px; text-align: center; }
@@ -81,9 +84,12 @@
   </div>
   <div id="askPanel" hidden>
     <div id="askLog" aria-live="polite">
-      <p class="hint">Ask about sizes, gaps and what fits, or ask for a change, like "Make the shoe rack yellow" or "Put a red lamp 3 inches wide and 12 tall on each end table." Changes show up on screen unsaved, so you can Save or Undo them.</p>
+      <p class="hint">Ask about sizes, gaps and what fits, or ask for a change, like "Make the shoe rack yellow" or "Put a red lamp 3 inches wide and 12 tall on each end table." Add a photo to have it build that object, like a lamp, at the size you give. Changes show up on screen unsaved, so you can Save or Undo them.</p>
     </div>
+    <div id="askAttached" hidden><img id="askThumb" alt="Photo to send"><span>Photo attached</span><button type="button" id="askUnattach">Remove</button></div>
+    <input id="askFile" type="file" accept="image/*" hidden>
     <form id="askForm" class="fitRow">
+      <button type="button" id="askPhoto">Photo</button>
       <input id="askInput" type="text" maxlength="4000" autocomplete="off" placeholder="Ask a question or for a change" aria-label="Question about the apartment">
       <button id="askSend">Ask</button>
     </form>
