@@ -69,7 +69,7 @@ async function getFile(name) {
 async function putFile(name, contentType, body) {
   if (!isValidName(name)) throw Object.assign(new Error('Invalid file name.'), { status: 400 });
   if (!getPool()) {
-    const sub = JOURNAL_RE.test(name) ? 'journal' : name === 'books.json' ? 'books' : null;
+    const sub = JOURNAL_RE.test(name) ? 'journal' : name === 'books.json' ? 'books' : name === 'job-check.json' ? 'data' : null;
     if (!sub) throw Object.assign(new Error('Publishing needs DATABASE_URL; locally the page reads DOSSIER_DIR directly.'), { status: 503 });
     await fs.promises.mkdir(path.join(localDir(), sub), { recursive: true });
     await fs.promises.writeFile(path.join(localDir(), sub, name), body);

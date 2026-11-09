@@ -135,6 +135,7 @@ function handleDossier(req, res, pathname) {
   // /books is a friendly address for the library page, which lives under /dossier for its session cookie.
   if (pathname === '/books' || pathname === '/books/') { res.writeHead(302, { Location: '/dossier/books', ...PRIVATE_HEADERS }); res.end(); return true; }
   // Same for the apartment model. The trailing slash matters: the page loads its files by relative path.
+  if (pathname === '/job_check' || pathname === '/job_check/') { res.writeHead(302, { Location: '/dossier/job_check', ...PRIVATE_HEADERS }); res.end(); return true; }
   if (pathname === '/floorplan' || pathname === '/floorplan/') { res.writeHead(302, { Location: '/dossier/floorplan/', ...PRIVATE_HEADERS }); res.end(); return true; }
   if (pathname !== '/dossier' && !pathname.startsWith('/dossier/')) return false;
   route(req, res, pathname).catch((err) => {
@@ -152,6 +153,7 @@ async function route(req, res, pathname) {
     if (method !== 'GET') { res.writeHead(405); res.end(); return; }
     if (pathname === '/dossier' || pathname === '/dossier/') { serveWeb(res, isAuthed(req) ? 'index.html' : 'login.html'); return; }
     if (pathname === '/dossier/books') { serveWeb(res, isAuthed(req) ? 'books.html' : 'login.html'); return; }
+    if (pathname === '/dossier/job_check') { serveWeb(res, isAuthed(req) ? 'job_check.html' : 'login.html'); return; }
     if (pathname === '/dossier/floorplan') { res.writeHead(302, { Location: '/dossier/floorplan/', ...PRIVATE_HEADERS }); res.end(); return; }
     // 401, not 200, so the page's offline copy never saves the sign-in form in its place.
     if (pathname === '/dossier/floorplan/') { if (isAuthed(req)) serveWeb(res, 'floorplan/index.html'); else serveWeb(res, 'login.html', 401); return; }
