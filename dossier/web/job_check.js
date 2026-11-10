@@ -5,10 +5,18 @@
     const $ = (id) => document.getElementById(id);
     const FILE = '/dossier/api/files/job-check.json';
     // Monday-first, matching the work week.
+    // Marks are SVG paths (0-100 box), not font glyphs, so every day draws with the same line weight.
     const DAYS = [
-        ['Mon', '✕', '#a62a20'], ['Tue', '○', '#2b5d8a'], ['Wed', '△', '#2f7a3a'], ['Thu', '□', '#7a4a9a'],
-        ['Fri', '◇', '#b86a12'], ['Sat', '☆', '#5d5447'], ['Sun', '+', '#5d5447'],
+        ['Mon', 'M22 22L78 78M78 22L22 78', '#a62a20'],
+        ['Tue', 'M50 18a32 32 0 1 0 0.01 0', '#2b5d8a'],
+        ['Wed', 'M50 16L84 80H16Z', '#2f7a3a'],
+        ['Thu', 'M20 20H80V80H20Z', '#7a4a9a'],
+        ['Fri', 'M50 12L88 50L50 88L12 50Z', '#b86a12'],
+        ['Sat', 'M50 12L59 38H87L64 55L73 82L50 66L27 82L36 55L13 38H41Z', '#5d5447'],
+        ['Sun', 'M50 15V85M15 50H85', '#5d5447'],
     ];
+    const PAST = '#b9b2a6';
+    const mark = (d, color, w) => `<svg viewBox="0 0 100 100" aria-hidden="true"><path d="${d}" stroke="${color}" stroke-width="${w}"/></svg>`;
     const iso = (d) => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
     const weekDates = () => {
         const now = new Date();
@@ -48,13 +56,15 @@
         const todayIdx = dates.indexOf(iso(new Date()));
         $('legend').innerHTML = DAYS.map(([name, sym, color], i) => {
             const count = (data.days[dates[i]] || []).length;
-            return `<span class="${i === todayIdx ? 'today' : ''}" style="color:${color}">${sym} ${name} ${count}</span>`;
+            return `<span class="${i === todayIdx ? 'today' : ''}" style="color:${color}">${mark(sym, color, 10)} ${name} ${count}</span>`;
         }).join('');
         for (const b of grid.children) {
             const n = Number(b.dataset.n);
+            // Earlier days: thin and gray underneath. Today: thick, in its color, drawn last so it sits on top.
             const marks = DAYS.map(([name, sym, color], i) => (data.days[dates[i]] || []).includes(n)
-                ? `<span class="m" style="color:${color}">${sym}</span>` : '').join('');
-            b.innerHTML = `<span class="n">${n}</span>${marks}`;
+                ? `<span class="m">${i === todayIdx ? mark(sym, color, 11) : mark(sym, PAST, 5)}</span>` : '');
+            if (todayIdx >= 0) marks.push(marks.splice(todayIdx, 1)[0]);
+            b.innerHTML = `<span class="n">${n}</span>${marks.join('')}`;
             const on = DAYS.filter((_, i) => (data.days[dates[i]] || []).includes(n)).map(([name]) => name);
             b.setAttribute('aria-label', `Square ${n}${on.length ? ', marked ' + on.join(', ') : ''}`);
         }
