@@ -14,6 +14,9 @@
         .jc { max-width: 640px; margin: 1.5rem auto 3rem; padding: 1.2rem 16px; background: var(--paper); border-radius: 3px; }
         .jc h1 { font-family: var(--stencil); font-size: 1.6rem; }
         .jc-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: 0.6rem 0 0.9rem; font-size: 0.9rem; }
+        .jc-legend button { font: inherit; color: inherit; background: none; border: 0; padding: 0.1rem 0.2rem; cursor: pointer; }
+        .jc-legend button:disabled { opacity: 0.45; cursor: default; }
+        .jc-legend button:focus-visible { outline: 2px solid var(--red); }
         .jc-legend .today { font-weight: 700; text-decoration: underline; }
         .jc-grid { display: grid; grid-template-columns: repeat(10, 1fr); border: 2px solid var(--ink); }
         .jc-grid button { position: relative; aspect-ratio: 1; border: 1px solid var(--rule); background: #fffaf0; cursor: pointer; font: 700 clamp(1rem, 4.5vw, 1.8rem) var(--type); }
