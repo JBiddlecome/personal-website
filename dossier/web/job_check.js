@@ -1,5 +1,5 @@
 // Job Check: one 10x10 grid reused all week, like the paper version. Each weekday has its own mark;
-// clicking a square toggles today's mark there and saves right away to job-check.json in the dossier store.
+// clicking a square toggles the picked day's mark there (today unless a past day in the legend is clicked; reload resets to today) and saves right away to job-check.json in the dossier store.
 // Data: { days: { "YYYY-MM-DD": [square numbers 1-100] } }, so every past week is kept.
 (async function () {
     const $ = (id) => document.getElementById(id);
@@ -43,6 +43,7 @@
         return;
     }
 
+    let picked = null; // index of a past weekday picked in the legend; null = today
     const grid = $('grid');
     for (let n = 1; n <= 100; n++) {
         const b = document.createElement('button');
@@ -53,10 +54,11 @@
 
     function render() {
         const dates = weekDates();
-        const todayIdx = dates.indexOf(iso(new Date()));
+        const todayIdx = picked ?? dates.indexOf(iso(new Date())); // the active day: drawn in color, gets the clicks
+        const realToday = dates.indexOf(iso(new Date()));
         $('legend').innerHTML = DAYS.map(([name, sym, color], i) => {
             const count = (data.days[dates[i]] || []).length;
-            return `<span class="${i === todayIdx ? 'today' : ''}" style="color:${color}">${mark(sym, color, 10)} ${name} ${count}</span>`;
+            return `<button type="button" data-i="${i}" class="${i === todayIdx ? 'today' : ''}" aria-pressed="${i === todayIdx}"${i > realToday ? ' disabled' : ''} style="color:${color}">${mark(sym, color, 10)} ${name} ${count}</button>`;
         }).join('');
         for (const b of grid.children) {
             const n = Number(b.dataset.n);
@@ -89,12 +91,22 @@
         const b = e.target.closest('button');
         if (!b) return;
         const n = Number(b.dataset.n);
-        const today = iso(new Date()); // read on every click so a page left open overnight marks the right day
+        // Today is read on every click so a page left open overnight marks the right day.
+        const today = picked === null ? iso(new Date()) : weekDates()[picked];
         const list = data.days[today] || [];
         data.days[today] = list.includes(n) ? list.filter((x) => x !== n) : [...list, n].sort((a, b) => a - b);
         if (!data.days[today].length) delete data.days[today];
         render();
         save();
+    });
+
+    $('legend').addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        const i = Number(b.dataset.i);
+        picked = i === weekDates().indexOf(iso(new Date())) ? null : i;
+        render();
+        state(picked === null ? 'Marking today.' : `Marking ${DAYS[i][0]} ${weekDates()[i]}. Reload or click today to go back.`);
     });
 
     render();
