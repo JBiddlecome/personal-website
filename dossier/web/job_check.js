@@ -87,17 +87,34 @@
         });
     }
 
+    // The /apply skill also marks squares (dossier/job-check-mark.js), so re-read the file before each change;
+    // otherwise a page left open would save its old copy over those marks.
+    async function refresh() {
+        try {
+            const res = await fetch(FILE, { cache: 'no-store' });
+            if (res.ok) data = await res.json();
+        } catch (_) { /* keep the copy we have; the save below reports any real problem */ }
+    }
+
     grid.addEventListener('click', (e) => {
         const b = e.target.closest('button');
         if (!b) return;
         const n = Number(b.dataset.n);
         // Today is read on every click so a page left open overnight marks the right day.
         const today = picked === null ? iso(new Date()) : weekDates()[picked];
-        const list = data.days[today] || [];
-        data.days[today] = list.includes(n) ? list.filter((x) => x !== n) : [...list, n].sort((a, b) => a - b);
-        if (!data.days[today].length) delete data.days[today];
-        render();
+        chain = chain.then(async () => {
+            await refresh();
+            const list = data.days[today] || [];
+            data.days[today] = list.includes(n) ? list.filter((x) => x !== n) : [...list, n].sort((a, b) => a - b);
+            if (!data.days[today].length) delete data.days[today];
+            render();
+        });
         save();
+    });
+
+    // Show marks the skill added while this tab sat in the background.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') chain = chain.then(async () => { await refresh(); render(); });
     });
 
     $('legend').addEventListener('click', (e) => {
