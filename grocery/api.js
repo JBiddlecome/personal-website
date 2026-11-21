@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { z } = require('zod');
 const db = require('./db');
+const { clientIp, createLoginGuard } = require('../lib/ratelimit');
 const { parseReceipt, DEPARTMENTS } = require('./parse');
 const deals = require('./deals');
 const sizes = require('./sizes');
@@ -61,28 +62,23 @@ function isAuthed(req) {
   return verify(readCookie(req, COOKIE));
 }
 
-// Simple brute-force brake: at most 10 failed logins per IP per 15 minutes.
-const failures = new Map();
-function tooManyFailures(ip) {
-  const now = Date.now();
-  const recent = (failures.get(ip) || []).filter((t) => now - t < 15 * 60 * 1000);
-  failures.set(ip, recent);
-  return recent.length >= 10;
-}
+// Brute-force brake: at most 10 failed logins per address, and 50 from all addresses together, per 15 minutes.
+const guard = createLoginGuard({ perIp: 10, overall: 50, windowMs: 15 * 60 * 1000 });
 
 function handleLogin(req, res, body) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const ip = clientIp(req);
   const expected = password();
   if (!expected) { sendJson(res, 503, { error: 'GROCERY_PASSWORD is not configured.' }); return; }
-  if (tooManyFailures(ip)) { sendJson(res, 429, { error: 'Too many attempts. Try again later.' }); return; }
-  const given = String(body.password || '');
-  const ok = given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+  if (guard.blocked(ip)) { sendJson(res, 429, { error: 'Too many attempts. Try again later.' }); return; }
+  const given = String((body && body.password) || '');
+  // Compare digests so the comparison is constant-time regardless of length.
+  const ok = crypto.timingSafeEqual(crypto.createHash('sha256').update(given).digest(), crypto.createHash('sha256').update(expected).digest());
   if (!ok) {
-    failures.get(ip).push(Date.now());
+    guard.fail(ip);
     setTimeout(() => sendJson(res, 401, { error: 'Incorrect password.' }), 400);
     return;
   }
-  const days = body.client === 'app' ? APP_SESSION_DAYS : WEB_SESSION_DAYS;
+  const days = body && body.client === 'app' ? APP_SESSION_DAYS : WEB_SESSION_DAYS;
   const expiresAt = Date.now() + days * 864e5;
   const token = sign(expiresAt);
   const secure = (req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';

@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const store = require('./store');
+const { clientIp, createLoginGuard } = require('../lib/ratelimit');
 const pipeline = require('./pipeline');
 const { BookRequest } = require('./models');
 
@@ -55,24 +56,18 @@ function readCookie(req, name) {
 
 const isAuthed = (req) => verify(readCookie(req, COOKIE));
 
-// Brute-force brake: at most 5 failed logins per IP per 30 minutes.
-const failures = new Map();
-function tooManyFailures(ip) {
-  const now = Date.now();
-  const recent = (failures.get(ip) || []).filter((t) => now - t < 30 * 60 * 1000);
-  failures.set(ip, recent);
-  return recent.length >= 5;
-}
+// Brute-force brake: at most 5 failed logins per address, and 50 from all addresses together, per 30 minutes.
+const guard = createLoginGuard({ perIp: 5, overall: 50, windowMs: 30 * 60 * 1000 });
 
 function handleLogin(req, res, body) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const ip = clientIp(req);
   const expected = password();
   if (!expected) { sendJson(res, 503, { error: 'STORYBOOK_PASSWORD is not configured.' }); return; }
-  if (tooManyFailures(ip)) { sendJson(res, 429, { error: 'Too many attempts. Try again later.' }); return; }
-  const given = String(body.password || '');
+  if (guard.blocked(ip)) { sendJson(res, 429, { error: 'Too many attempts. Try again later.' }); return; }
+  const given = String((body && body.password) || '');
   const ok = crypto.timingSafeEqual(crypto.createHash('sha256').update(given).digest(), crypto.createHash('sha256').update(expected).digest());
   if (!ok) {
-    failures.get(ip).push(Date.now());
+    guard.fail(ip);
     setTimeout(() => sendJson(res, 401, { error: 'Incorrect password.' }), 600);
     return;
   }
