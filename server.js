@@ -6,6 +6,7 @@ const { handleGrocery, startDailyChecks } = require('./grocery/api');
 const { handleDossier } = require('./dossier/api');
 const { handleStorybook, startStorybook } = require('./storybook/api');
 const { clientIp, createLimiter, createLoginGuard } = require('./lib/ratelimit');
+const siteLog = require('./lib/sitelog');
 
 // Load .env files for local development (Render supplies real env vars in production).
 // First definition of a key wins, and real environment variables beat both files.
@@ -42,7 +43,7 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 const OPENAI_API_KEY = process.env.RESUME_AI_KEY;
 const ASSISTANT_ID = process.env.ASSISTANT_ID || 'asst_l7877S10rt2TO0Yvr1Nm6rxW';
 
-// Contact form: submissions are always logged; email delivery uses Resend if configured.
+// Contact form: submissions are always saved (lib/sitelog.js); email delivery uses Resend if configured.
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO = process.env.CONTACT_TO || 'contact@jakebiddlecome.com';
 const CONTACT_FROM = process.env.CONTACT_FROM || 'onboarding@resend.dev';
@@ -129,11 +130,6 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function appendLog(filePath, entry) {
-  fs.appendFile(filePath, JSON.stringify(entry) + '\n', 'utf8', (err) => {
-    if (err) console.error(`Failed to write log at ${filePath}:`, err);
-  });
-}
 
 // ── Chat: Anthropic streaming backend ────────────────────────────
 async function handleAnthropicChat(res, messages) {
@@ -298,7 +294,7 @@ async function handleChat(req, res, body) {
     return;
   }
 
-  appendLog(CHAT_LOG_PATH, {
+  siteLog.append('chat', CHAT_LOG_PATH, {
     timestamp: new Date().toISOString(),
     ip: clientIp(req),
     prompt: messages[messages.length - 1].content
@@ -359,7 +355,8 @@ async function handleContact(req, res, body) {
     return;
   }
 
-  appendLog(CONTACT_LOG_PATH, submission);
+  // Saved before the email is sent, so a submission is kept even if delivery fails.
+  await siteLog.append('contact', CONTACT_LOG_PATH, submission);
 
   if (RESEND_API_KEY) {
     try {
@@ -511,7 +508,7 @@ function handleMapsContacts(req, res, method, kind, id, body) {
 }
 
 // ── Logs (protected) ─────────────────────────────────────────────
-function handleLogs(req, res, url, logPath) {
+function handleLogs(req, res, url, kind, logPath) {
   const urlObj = new URL(url, `http://${req.headers.host || 'localhost'}`);
   const providedToken = urlObj.searchParams.get('token');
   const secretToken = process.env.LOGS_SECRET_TOKEN;
@@ -525,18 +522,12 @@ function handleLogs(req, res, url, logPath) {
     return;
   }
 
-  fs.readFile(logPath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('No logs recorded yet.');
-      } else {
-        sendJson(res, 500, { error: 'Failed to read log file.' });
-      }
-      return;
-    }
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(data);
+  siteLog.readAll(kind, logPath).then((data) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(data || 'No logs recorded yet.');
+  }).catch((err) => {
+    console.error('logs read error:', err);
+    sendJson(res, 500, { error: 'Failed to read the log.' });
   });
 }
 
@@ -634,11 +625,11 @@ function handleRequest(req, res) {
   }
 
   if (method === 'GET' && pathname === '/api/logs') {
-    handleLogs(req, res, url, CHAT_LOG_PATH);
+    handleLogs(req, res, url, 'chat', CHAT_LOG_PATH);
     return;
   }
   if (method === 'GET' && pathname === '/api/contact-logs') {
-    handleLogs(req, res, url, CONTACT_LOG_PATH);
+    handleLogs(req, res, url, 'contact', CONTACT_LOG_PATH);
     return;
   }
 
