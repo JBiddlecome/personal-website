@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { handleGrocery, startDailyChecks } = require('./grocery/api');
 const { handleDossier } = require('./dossier/api');
 const { handleStorybook, startStorybook } = require('./storybook/api');
+const { clientIp, createLimiter, createLoginGuard } = require('./lib/ratelimit');
 
 // Load .env files for local development (Render supplies real env vars in production).
 // First definition of a key wins, and real environment variables beat both files.
@@ -46,9 +47,12 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO = process.env.CONTACT_TO || 'contact@jakebiddlecome.com';
 const CONTACT_FROM = process.env.CONTACT_FROM || 'onboarding@resend.dev';
 
-// /maps page gate: single shared login for the LAUSD schools map.
-const MAPS_USER = process.env.MAPS_USER || 'kristinbooth';
-const MAPS_PASS = process.env.MAPS_PASS || 'kbooth3342';
+// /maps page gate: single shared login for the LAUSD schools map. The username and password come only from
+// the environment (MAPS_USER, MAPS_PASS); with either one missing, nobody can sign in.
+const MAPS_USER = process.env.MAPS_USER || '';
+const MAPS_PASS = process.env.MAPS_PASS || '';
+const MAPS_CONFIGURED = Boolean(MAPS_USER && MAPS_PASS);
+if (!MAPS_CONFIGURED) console.warn('maps: MAPS_USER and MAPS_PASS are not both set, so the /maps login is switched off.');
 const MAPS_COOKIE = 'maps_session';
 const MAPS_COOKIE_SECRET = process.env.MAPS_COOKIE_SECRET || crypto.createHash('sha256').update(`${MAPS_USER}:${MAPS_PASS}`).digest('hex');
 const MAPS_SESSION_DAYS = 30;
@@ -58,6 +62,23 @@ const MAPS_DATA_PATH = process.env.MAPS_DATA_PATH || path.join(__dirname, 'data'
 const MAPS_REGIONS = new Set(['N1', 'N2', 'C1', 'C2', 'C3', 'S1', 'S2']);
 
 const ROOT_DIR = __dirname;
+// The only files the public site serves. Everything else in this folder (source code, logs, data/, .env files)
+// is never sent, whatever its name. Add a new page or root-level asset here; anything under assets/ is public
+// (assets/maps/ additionally needs the maps login).
+const PUBLIC_FILES = new Set(['index.html', 'resume.html', 'resume.pdf', 'style.css', 'app.js', 'profile.jpg', 'Profile Picture BW.png', 'maps.html', 'maps-login.html']);
+const PUBLIC_DIRS = ['assets/'];
+const isPublicPath = (p) => !p.split('/').some((part) => part.startsWith('.'))
+  && (PUBLIC_FILES.has(p) || PUBLIC_DIRS.some((dir) => p.startsWith(dir)));
+
+// Abuse limits for the two open endpoints. Each has a per-address limit and a cap for all visitors together,
+// so many addresses at once still can't run up the AI bill or flood the inbox.
+const numEnv = (name, fallback) => { const n = Number(process.env[name]); return Number.isFinite(n) && n > 0 ? n : fallback; };
+const chatPerIp = createLimiter({ windowMs: 10 * 60 * 1000, max: numEnv('CHAT_PER_IP_10MIN', 20) });
+const chatDaily = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: numEnv('CHAT_DAILY_CAP', 500) });
+const contactPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: numEnv('CONTACT_PER_IP_HOUR', 5) });
+const contactDaily = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: numEnv('CONTACT_DAILY_CAP', 100) });
+// Wrong maps passwords: 5 per address, 50 from everyone together, per 30 minutes.
+const mapsGuard = createLoginGuard({ perIp: 5, overall: 50, windowMs: 30 * 60 * 1000 });
 const CHAT_LOG_PATH = process.env.CHAT_LOG_PATH || path.join(ROOT_DIR, 'prompts.log');
 const CONTACT_LOG_PATH = process.env.CONTACT_LOG_PATH || path.join(ROOT_DIR, 'contact-submissions.log');
 
@@ -257,7 +278,7 @@ async function handleOpenAiChat(res, messages) {
 async function handleChat(req, res, body) {
   let parsedBody;
   try {
-    parsedBody = body ? JSON.parse(body) : {};
+    parsedBody = (body && JSON.parse(body)) || {};
   } catch (error) {
     sendJson(res, 400, { error: 'Invalid JSON body.' });
     return;
@@ -279,7 +300,7 @@ async function handleChat(req, res, body) {
 
   appendLog(CHAT_LOG_PATH, {
     timestamp: new Date().toISOString(),
-    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+    ip: clientIp(req),
     prompt: messages[messages.length - 1].content
   });
 
@@ -306,7 +327,7 @@ async function handleChat(req, res, body) {
 async function handleContact(req, res, body) {
   let parsedBody;
   try {
-    parsedBody = body ? JSON.parse(body) : {};
+    parsedBody = (body && JSON.parse(body)) || {};
   } catch (error) {
     sendJson(res, 400, { error: 'Invalid JSON body.' });
     return;
@@ -315,7 +336,7 @@ async function handleContact(req, res, body) {
   const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
   const submission = {
     timestamp: new Date().toISOString(),
-    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+    ip: clientIp(req),
     name: clean(parsedBody.name, 200),
     email: clean(parsedBody.email, 200),
     company: clean(parsedBody.company, 200),
@@ -403,6 +424,7 @@ function parseCookies(req) {
 }
 
 function hasMapsSession(req) {
+  if (!MAPS_CONFIGURED) return false;
   const raw = parseCookies(req)[MAPS_COOKIE];
   if (!raw) return false;
   let decoded;
@@ -417,9 +439,13 @@ function hasMapsSession(req) {
 function handleMapsLogin(req, res, body) {
   let parsedBody;
   try { parsedBody = body ? JSON.parse(body) : {}; } catch (_) { sendJson(res, 400, { error: 'Invalid JSON body.' }); return; }
-  const username = String(parsedBody.username || '').trim();
-  const password = String(parsedBody.password || '');
+  if (!MAPS_CONFIGURED) { sendJson(res, 503, { error: 'The map login is not set up on the server.' }); return; }
+  const ip = clientIp(req);
+  if (mapsGuard.blocked(ip)) { sendJson(res, 429, { error: 'Too many attempts. Try again later.' }); return; }
+  const username = String((parsedBody && parsedBody.username) || '').trim();
+  const password = String((parsedBody && parsedBody.password) || '');
   if (!safeEqual(username.toLowerCase(), MAPS_USER.toLowerCase()) || !safeEqual(password, MAPS_PASS)) {
+    mapsGuard.fail(ip);
     setTimeout(() => sendJson(res, 401, { error: 'Incorrect username or password.' }), 400);
     return;
   }
@@ -460,7 +486,7 @@ function handleMapsContacts(req, res, method, kind, id, body) {
   const data = readMapsData();
   if (method === 'GET') { sendJson(res, 200, data); return; }
   let parsed;
-  try { parsed = body ? JSON.parse(body) : {}; } catch (_) { sendJson(res, 400, { error: 'Invalid JSON body.' }); return; }
+  try { parsed = (body && JSON.parse(body)) || {}; } catch (_) { sendJson(res, 400, { error: 'Invalid JSON body.' }); return; }
   const now = new Date().toISOString();
   if (kind === 'regions') {
     if (!MAPS_REGIONS.has(id)) { sendJson(res, 404, { error: 'Unknown region.' }); return; }
@@ -529,7 +555,22 @@ function serveStaticFile(res, filePath) {
   });
 }
 
-const server = http.createServer((req, res) => {
+// One bad request must never take the whole site down: anything a handler throws, now or later, gets a 500.
+function fail(req, res, err) {
+  console.error('request error:', req.method, err);
+  if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('Server Error');
+}
+// Runs a handler that is called after the request body has arrived, outside the main try/catch.
+function safely(req, res, fn) {
+  try {
+    Promise.resolve(fn()).catch((err) => fail(req, res, err));
+  } catch (err) {
+    fail(req, res, err);
+  }
+}
+
+function handleRequest(req, res) {
   const { method, url } = req;
   const [pathname] = (url || '/').split('?');
 
@@ -547,7 +588,7 @@ const server = http.createServer((req, res) => {
     if (method === 'PUT' && kind !== 'contacts' && id) {
       let body = '';
       req.on('data', (chunk) => { body += chunk; if (body.length > 1e5) req.socket.destroy(); });
-      req.on('end', () => handleMapsContacts(req, res, 'PUT', kind, id, body));
+      req.on('end', () => safely(req, res, () => handleMapsContacts(req, res, 'PUT', kind, id, body)));
       return;
     }
   }
@@ -558,6 +599,13 @@ const server = http.createServer((req, res) => {
   }
 
   if (method === 'POST' && (pathname === '/api/chat' || pathname === '/api/contact' || pathname === '/api/maps-login')) {
+    if (pathname !== '/api/maps-login') {
+      const [perIp, daily] = pathname === '/api/chat' ? [chatPerIp, chatDaily] : [contactPerIp, contactDaily];
+      const ip = clientIp(req);
+      // The per-address check comes first, so one blocked address can't use up everyone's daily allowance.
+      if (!perIp.take(ip)) { sendJson(res, 429, { error: 'Too many requests. Please wait a few minutes and try again.' }); return; }
+      if (!daily.take('all')) { sendJson(res, 429, { error: 'This is getting a lot of traffic today. Please email contact@jakebiddlecome.com instead.' }); return; }
+    }
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
@@ -565,11 +613,11 @@ const server = http.createServer((req, res) => {
         req.socket.destroy();
       }
     });
-    req.on('end', () => {
-      if (pathname === '/api/chat') handleChat(req, res, body);
-      else if (pathname === '/api/maps-login') handleMapsLogin(req, res, body);
-      else handleContact(req, res, body);
-    });
+    req.on('end', () => safely(req, res, () => {
+      if (pathname === '/api/chat') return handleChat(req, res, body);
+      if (pathname === '/api/maps-login') return handleMapsLogin(req, res, body);
+      return handleContact(req, res, body);
+    }));
     return;
   }
 
@@ -603,6 +651,12 @@ const server = http.createServer((req, res) => {
     res.end('Bad Request');
     return;
   }
+  // A zero byte in a path makes Node's file functions throw; no real file name has one.
+  if (decodedPath.includes('\0')) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad Request');
+    return;
+  }
   let safePath = path.posix.normalize(decodedPath.replace(/\\/g, '/')).replace(/^\/+/, '');
   if (!safePath || safePath === '.' || safePath === '..') {
     safePath = 'index';
@@ -610,6 +664,12 @@ const server = http.createServer((req, res) => {
   if (!path.extname(safePath)) {
     safePath = safePath.replace(/\/$/, '');
     safePath = `${safePath || 'index'}.html`;
+  }
+
+  if (!isPublicPath(safePath)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+    return;
   }
 
   // /maps and its data are gated behind the shared login.
@@ -634,6 +694,14 @@ const server = http.createServer((req, res) => {
   }
 
   serveStaticFile(res, filePath);
+}
+
+const server = http.createServer((req, res) => {
+  try {
+    handleRequest(req, res);
+  } catch (err) {
+    fail(req, res, err);
+  }
 });
 
 server.listen(PORT, () => {
