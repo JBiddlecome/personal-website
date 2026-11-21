@@ -7,6 +7,7 @@ const { handleDossier } = require('./dossier/api');
 const { handleStorybook, startStorybook } = require('./storybook/api');
 const { clientIp, createLimiter, createLoginGuard } = require('./lib/ratelimit');
 const siteLog = require('./lib/sitelog');
+const mapsStore = require('./lib/mapsstore');
 
 // Load .env files for local development (Render supplies real env vars in production).
 // First definition of a key wins, and real environment variables beat both files.
@@ -58,8 +59,7 @@ const MAPS_COOKIE = 'maps_session';
 const MAPS_COOKIE_SECRET = process.env.MAPS_COOKIE_SECRET || crypto.createHash('sha256').update(`${MAPS_USER}:${MAPS_PASS}`).digest('hex');
 const MAPS_SESSION_DAYS = 30;
 // School contact details entered on the map (per-school phone/email/director/notes, per-region default director)
-// are stored as one JSON file. On Render, point MAPS_DATA_PATH at a persistent disk or edits are lost on redeploy.
-const MAPS_DATA_PATH = process.env.MAPS_DATA_PATH || path.join(__dirname, 'data', 'maps-contacts.json');
+// are kept in the database; see lib/mapsstore.js.
 const MAPS_REGIONS = new Set(['N1', 'N2', 'C1', 'C2', 'C3', 'S1', 'S2']);
 
 const ROOT_DIR = __dirname;
@@ -463,34 +463,20 @@ function handleMapsLogout(res) {
   res.end(JSON.stringify({ ok: true }));
 }
 
-// ── /maps school contacts (phone / email / area director / notes) ─
-function readMapsData() {
-  try {
-    const d = JSON.parse(fs.readFileSync(MAPS_DATA_PATH, 'utf8'));
-    if (d && typeof d === 'object' && !Array.isArray(d)) return { schools: d.schools || {}, regions: d.regions || {} };
-  } catch (_) { /* first run */ }
-  return { schools: {}, regions: {} };
-}
-function writeMapsData(data) {
-  fs.mkdirSync(path.dirname(MAPS_DATA_PATH), { recursive: true });
-  const tmp = MAPS_DATA_PATH + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, MAPS_DATA_PATH);
-}
+// ── /maps school contacts (phone / email / area director / notes); stored by lib/mapsstore.js ─
 const cleanText = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-function handleMapsContacts(req, res, method, kind, id, body) {
+async function handleMapsContacts(req, res, method, kind, id, body) {
   if (!hasMapsSession(req)) { sendJson(res, 401, { error: 'Login required.' }); return; }
-  const data = readMapsData();
-  if (method === 'GET') { sendJson(res, 200, data); return; }
+  if (method === 'GET') { sendJson(res, 200, await mapsStore.getAll()); return; }
   let parsed;
   try { parsed = (body && JSON.parse(body)) || {}; } catch (_) { sendJson(res, 400, { error: 'Invalid JSON body.' }); return; }
   const now = new Date().toISOString();
   if (kind === 'regions') {
     if (!MAPS_REGIONS.has(id)) { sendJson(res, 404, { error: 'Unknown region.' }); return; }
     const director = cleanText(parsed.director, 200);
-    if (director) data.regions[id] = { director, updatedAt: now }; else delete data.regions[id];
-    writeMapsData(data);
-    sendJson(res, 200, { region: id, ...(data.regions[id] || { director: '' }) });
+    const saved = director ? { director, updatedAt: now } : null;
+    await mapsStore.put('regions', id, saved);
+    sendJson(res, 200, { region: id, ...(saved || { director: '' }) });
     return;
   }
   // kind === 'schools': the id is a 14-digit CDS code from lausd-schools.json
@@ -502,9 +488,9 @@ function handleMapsContacts(req, res, method, kind, id, body) {
     notes: cleanText(parsed.notes, 2000)
   };
   if (rec.email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(rec.email)) { sendJson(res, 422, { error: 'That email address does not look valid.' }); return; }
-  if (Object.values(rec).some(Boolean)) data.schools[id] = { ...rec, updatedAt: now }; else delete data.schools[id];
-  writeMapsData(data);
-  sendJson(res, 200, { school: id, ...(data.schools[id] || rec) });
+  const saved = Object.values(rec).some(Boolean) ? { ...rec, updatedAt: now } : null;
+  await mapsStore.put('schools', id, saved);
+  sendJson(res, 200, { school: id, ...(saved || rec) });
 }
 
 // ── Logs (protected) ─────────────────────────────────────────────
@@ -575,7 +561,7 @@ function handleRequest(req, res) {
   const contactsMatch = pathname.match(/^\/api\/maps\/(contacts|schools|regions)(?:\/([A-Za-z0-9_-]+))?$/);
   if (contactsMatch) {
     const [, kind, id] = contactsMatch;
-    if (method === 'GET' && kind === 'contacts') { handleMapsContacts(req, res, 'GET', kind, null, ''); return; }
+    if (method === 'GET' && kind === 'contacts') { safely(req, res, () => handleMapsContacts(req, res, 'GET', kind, null, '')); return; }
     if (method === 'PUT' && kind !== 'contacts' && id) {
       let body = '';
       req.on('data', (chunk) => { body += chunk; if (body.length > 1e5) req.socket.destroy(); });
